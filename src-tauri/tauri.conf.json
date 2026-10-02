@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "markharness-gui",
+  "version": "0.0.0",
+  "identifier": "dev.markharness.gui",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [{ "title": "markharness-gui", "width": 1000, "height": 700 }],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false }
+}

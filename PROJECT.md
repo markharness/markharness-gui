@@ -2,7 +2,6 @@
 
 > **技術スタックやコマンドなど、プロダクト固有の情報は、このファイルに集約します。**
 > `.github/instructions/` 配下の規約や `CONTRIBUTING.md` は、技術スタックに依存する部分をこのファイルに委ねています。
-> `<!-- 確定後に記入 -->` が付いた項目は、技術スタックが確定した時点で、このファイルを更新してください。
 
 ## プロダクト概要
 
@@ -21,7 +20,7 @@
 |------|----|
 | 言語・実行形態 | バックエンドはRust、フロントエンドはTypeScriptとReact([ADR 0002](./docs/decisions/0002-ui-framework-react.md))。Tauri 2のネイティブウィンドウ。実行時にNodeは要らない |
 | テスト | Rustは `cargo test`(`markharness` の呼び出しは、境界の背後で、固定のJSONを返す偽の実装に差し替える)。フロントエンドは、ロジックにVitest、画面の部品にReact Testing Library。実物の `markharness` を呼ぶ結合テストを、`cargo test` に少数置く。ブラウザを駆動するE2Eは、安定後に実施し、ツールはその時点で決める |
-| Lint / Format | Rustはclippyとrustfmt。フロントエンドは未決定(足場を作る時点で決める) |
+| Lint / Format | Rustはclippyとrustfmt。フロントエンドはBiome |
 | ビルド | Vite(フロントエンド)とTauri(成果物) |
 
 ### 対象OSと検証
@@ -32,16 +31,16 @@
 
 ### 標準コマンド
 
-足場(`package.json`、`src/`、`src-tauri/`)を作るまでは、実行できない。足場を作るときに、実際に動くことを確かめて、この表を更新する。
+すべて、リポジトリのルートで実行する。
 
 | 用途 | コマンド |
 |------|---------|
 | ビルド | `npm run tauri build` |
 | テスト(全件) | `cargo test --manifest-path src-tauri/Cargo.toml` と `npm test` |
 | テスト(単体) | `cargo test --manifest-path src-tauri/Cargo.toml <テスト名>`、`npm test -- <パターン>` |
-| Lint | `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`(フロントエンドは未決定) |
-| フォーマット | `cargo fmt --manifest-path src-tauri/Cargo.toml`(フロントエンドは未決定) |
-| フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check`(フロントエンドは未決定) |
+| Lint | `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings` と `npm run lint` |
+| フォーマット | `cargo fmt --manifest-path src-tauri/Cargo.toml` と `npm run format` |
+| フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` と `npm run format:check` |
 | 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
 | 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
 
@@ -73,7 +72,13 @@ docs/
 └── design/           # 実装設計
 ```
 
-ソースコードの構成は、Tauriの標準の構成(ルートに `package.json` と `src/`(フロントエンド)、`src-tauri/`(Rust))にする。足場を作るときに追記する。
+ソースコードは、Tauriの標準の構成にする。
+
+```text
+package.json, vite.config.ts, biome.json   # フロントエンドの設定
+src/                                       # フロントエンド(TypeScriptとReact)
+src-tauri/                                 # Rust(Tauri)。deny.toml はここ
+```
 
 ## Pre-PR チェックリスト
 
