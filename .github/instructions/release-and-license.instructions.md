@@ -39,6 +39,6 @@ markharness-guiは、markharnessの配布物に、同梱される。そのため
 
 ## CIのゲート
 
-- PRのゲート(`.github/workflows/` のCI、すべてのpushとPRで動く): [PROJECT.md](../../PROJECT.md) の「Pre-PR チェックリスト」と同じ項目(テスト、Lint、フォーマット、依存の脆弱性、ライセンス)を、技術スタックの確定後に設定する。
+- PRのゲート(`.github/workflows/` のCI、すべてのpushとPRで動く): [PROJECT.md](../../PROJECT.md) の「Pre-PR チェックリスト」と同じ項目(テスト、Lint、フォーマット、依存の脆弱性、ライセンス)に、第三者ライセンス表示が最新であることの確認を加えた検査である(`.github/workflows/ci.yml`、Windows)。結合テストが呼ぶ `markharness` は、`.github/markharness-version` で版を固定し、リリースの `SHA256SUMS` で検証して取得する。
 - リリースのパイプライン(`v*` のタグのpushで動く): タグとバージョンの一致を確認し、成果物をビルドし、チェックサムを付けて、GitHub Releaseを公開する。変更履歴は、Conventional Commitsから生成する。
 - CIのチェックが赤いPRを、マージしてはならない。失敗しているゲートを回避するために、`--no-verify` やスキップのフラグを、加えてはならない。根本の問題を直す。

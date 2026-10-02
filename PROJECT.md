@@ -27,7 +27,7 @@
 
 - 最初の安定版の対象は、Windows(x64)とmacOS(arm64)である。
 - 開発の検証は、Windowsを基準にする。開発中にmacOS関連のエラーが出たときは、Windowsを優先して対処する。
-- macOSの最初の検証は、関係の画面(最初の機能)ができた時点で、macOS Ventura 13.7.8のIntel Macで行う。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
+- macOSの最初の検証は、macOS Ventura 13.7.8のIntel Macで行う。関係の画面(最初の機能)は実装済みで、検証は未実施である。実施するまで、macOSは未検証として扱う。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
 
 ### 標準コマンド
 
@@ -42,6 +42,7 @@
 | フォーマット | `cargo fmt --manifest-path src-tauri/Cargo.toml` と `npm run format` |
 | フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` と `npm run format:check` |
 | 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
+| 第三者ライセンス表示の生成 | `npm run notices`(`THIRD-PARTY-NOTICES.md` を更新する。`cargo-about` が必要)。最新かの確認は `npm run notices:check` |
 | 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
 
 ## 外部との接点
@@ -89,6 +90,7 @@ PR を作成する前に、以下をすべて満たすこと。具体的なコ�
 - [ ] フォーマット済み
 - [ ] 依存に既知の脆弱性がない
 - [ ] 依存のライセンスが許可リスト内([release-and-license](./.github/instructions/release-and-license.instructions.md)参照)
+- [ ] 第三者ライセンス表示が最新(`npm run notices:check`)
 - [ ] `src/` と `src-tauri/` のコードの変更を、テスト先行(Red-Green-Refactor)で開発した
 - [ ] コード・ログ・コミットメッセージ・PR本文にシークレットが含まれない
 

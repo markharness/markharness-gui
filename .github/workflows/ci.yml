@@ -33,7 +33,7 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-audit
+          tool: cargo-deny,cargo-audit,cargo-about
 
       # The contract test runs the real markharness. The version is pinned in
       # .github/markharness-version, and the download is checked against the
@@ -54,6 +54,7 @@ jobs:
           "MARKHARNESS_BIN=$dir/markharness-$v-x86_64-pc-windows-msvc/markharness.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - run: npm ci
+      - run: npm run notices:check
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
