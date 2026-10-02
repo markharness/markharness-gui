@@ -46,7 +46,7 @@
 GUIは、markharnessのJSON出力だけを読む。
 
 - `.markharness/` 配下のファイルを、直接読み書きしない(StrictDocのエクスポートを除く)。
-- 編集は `markharness knowledge reconcile` だけを通す。
+- 書き込みは、`markharness knowledge reconcile`(作成・更新)と `markharness knowledge remove`(削除)だけを通す。
 - markharness本体のコードは、このリポジトリの作業では変更しない。足りない読み取り出力は、本体への依頼(issue)にする。
 
 詳細: [docs/core-handoff.md](docs/core-handoff.md)
