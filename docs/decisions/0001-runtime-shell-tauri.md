@@ -1,0 +1,70 @@
+# 0001: GUIの実行形態は、Tauri 2とする
+
+## ステータス
+
+Accepted(2026-10-03決定)。macOSでの動作は未検証で、最初の機能ができた時点で検証する(「前提と未検証の事項」)。
+
+## 背景
+
+markharness-guiは、`markharness gui` が起動する別の実行ファイルである。markharness本体の配布物(Windows x64、macOS arm64)に同梱するため、OSごとに自己完結し、追加のインストールなしで使える成果物でなければならない。起動した `markharness` は、GUIの終了を待ち、GUIの終了コードをそのまま返す。
+
+評価の優先順位は、自己完結、開発のしやすさ、サイズの順である。サイズは、順位を決める軸ではなく、上限(30MB以下)を満たすかどうかだけを見る。
+
+## 決定
+
+実行形態は、Tauri 2(Rustのバックエンドと、OSのWebViewによるネイティブウィンドウ)とする。フロントエンドは、[0002](0002-ui-framework-react.md)のとおりReactとTypeScriptである。
+
+実行形態の候補を、同じ最小の縦切り(サンプルプロジェクトに対して `markharness traceability` を非同期の子プロセスで呼び、結果を一覧する画面)で実装し、Windows 11で比べた。
+
+| 項目 | Tauri | Rust製の小型サーバーとブラウザ |
+|---|---|---|
+| 実行ファイルのサイズ | 3.0 MB | 0.8 MB |
+| 起動(ウォーム、7回の中央値) | 671 ms | 620 ms |
+| バックエンドのコード | 51行 | 109行 |
+| 依存クレート数(推移的) | 268 | 84 |
+| 終了の扱い | ウィンドウを閉じると、終了コード0で終了する | タブを閉じても、プロセスが残る |
+| ローカルのポート | 開かない | トークンとHostヘッダーの検査が必要 |
+
+両候補とも、サイズ30MB以下、起動2秒以内の基準を大きく下回った。そこで、開発のしやすさで選んだ。
+
+- 起動した `markharness` はGUIの終了を待つ。Tauriは、ウィンドウを閉じれば終了するので、追加のコードが要らない。ブラウザ方式は、タブを閉じても残るサーバーを止める仕組み(死活の検出など)が要る。
+- Tauriは、ポートを開かないので、ローカルのポートへの攻撃(別のウェブページからの呼び出し、DNS rebinding)を防ぐ実装を、保守する必要がない。ブラウザ方式は、読み取りだけでなく、編集(`knowledge reconcile`、`knowledge remove`)の呼び出しも守る必要がある。
+- バックエンドのコードが、半分以下である。
+
+### 計測の条件と手順
+
+- 環境: Windows 11、markharness 0.6.1、リリースビルド(`opt-level = "s"`、`lto = true`、`codegen-units = 1`、`strip = true`、`panic = "abort"`)。
+- サンプルプロジェクト: markharness本体の `examples/todo-minimal`(Scenarioが2件)に、`markharness init`、`axes/` の `.markharness/axes/` へのコピー、2つのIntentの `knowledge reconcile` を実行したもの。`examples/todo-minimal` は初期化済みのプロジェクトではない。
+- 起動時間: 一覧を表示した通知を受けて終了するまでの、プロセスの起動から終了までの実時間。ブラウザ方式は、既定のブラウザが起動済みの状態で測った。
+- ブラウザ方式の防御の確認: トークンなし、誤ったトークン、偽のHostヘッダーは403、正しいトークンは200を返した。
+- 使ったコマンド(Node 24、Rust 1.97、リポジトリ内のspike用のディレクトリで実行):
+
+  ```text
+  node make-sample.mjs <markharnessのexamples/todo-minimal> <サンプルの出力先>
+  (cd web && npm install && npm run build)
+  cargo build --release --workspace
+  node measure.mjs --exe target/release/<実行ファイル> --dir <サンプルの出力先> --runs 7
+  ```
+
+  `measure.mjs` は、環境変数 `SPIKE_EXIT_ON_READY` を付けて実行ファイルを起動し、一覧の表示を通知して終了するまでの実時間を、1回のコールドスタートと、`--runs` 回のウォームスタートで測る。依存のライセンスは、`cargo deny check licenses` で確認した([0004](0004-dependency-license-policy.md))。
+- これらのコードは、spikeのブランチ(マージしない)にあり、削除する。再現するときは、上の条件で、同じ縦切りを作り直す。
+
+## 前提と未検証の事項
+
+- **macOSは未検証である。** 計測は、Windowsだけで行った。macOSのTauriは、OS組み込みのWKWebView(WebKit)を使うため、Windowsとは、CSSやJavaScriptの挙動が違うことがある。関係の画面(最初の機能)ができた時点で、手元のIntel Mac(macOS Ventura 13.7.8)で、ビルド、起動、画面の動作を確認する。macOSで致命的な問題が見つかったときは、この決定を見直す。
+- 対象のCPUは、macOSではarm64のままとする。Intel Macでは、arm64の成果物を実行できない。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う。
+- 開発中に、macOS関連のエラーが出たときは、Windowsを優先して対処する。
+- 計測に使ったspikeのコードは、使い捨てで、TDDの対象にしなかった。この例外は、このADRに記録するこの1件に限る。spikeのブランチはマージせず、削除する。
+
+## 代替案
+
+- **Rust製の小型サーバーとブラウザ**: サイズ・起動は同等で、依存が少なく、LinuxでもWebViewの導入が要らない。ただし、上の理由から、終了の検出と、ポートの防御が、恒常的な保守になる。また、利用者のブラウザの状態に依存する。Tauriの依存が、依存のライセンスの基準([0004](0004-dependency-license-policy.md))を、将来満たせなくなった場合の退路である。この候補は、WindowsとmacOS(arm64)のどちらでも、BSD-3-Clauseの許可だけで、基準を満たすことを確認した。
+- **Electron**: 自己完結で実績があるが、ブラウザを同梱するため、サイズが大きく、30MBの上限を超える。spikeの前に、比較から外した。
+- **純Rustのネイティブ描画(egui、Slintなど)**: StrictDocの階層表示や、編集のフォームを、Web技術より作り込みにくい。spikeの前に、比較から外した。
+
+## 影響
+
+- Windowsでは、OSのWebView2が必要になる。Windows 11には標準で入っている。
+- Linuxでは、WebKitGTKの導入が、利用者側で必要になるため、自己完結にならない。対象に含めない。
+- Tauriの依存に、MPL-2.0のクレートが含まれる。[0004](0004-dependency-license-policy.md)の基準で、改変しない場合に許可し、第三者ライセンスの表示を同梱する。
+- ブラウザを駆動するE2Eのテストは、macOSのWKWebViewを駆動できない制約がある。E2Eは、安定後に実施し、ツールは、その時点で決める。

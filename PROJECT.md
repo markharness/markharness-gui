@@ -13,29 +13,37 @@
 | 位置づけ | `markharness gui` が起動する、別の実行ファイル(`markharness-gui`)。markharnessの配布物には、テスト知識の編集ができる安定版から同梱される。 |
 | 経緯と契約 | [docs/core-handoff.md](./docs/core-handoff.md)(引き継ぎ文書)。決定の記録は、markharness本体のADR 0038にある。 |
 
-## 技術スタック <!-- 確定後に記入 -->
+## 技術スタック
 
-最初の試作(spike)で、実行形態(ネイティブウィンドウ、小型サーバーとブラウザ、Electronなど)を比較して決める。評価軸は、OSごとの自己完結した成果物であること、サイズ、開発のしやすさである(本体のADR 0038が、GUIのリポジトリで決めるとした事項)。
+実行形態は、Tauri 2のネイティブウィンドウである([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
 
 | 項目 | 値 |
 |------|----|
-| 言語・実行形態 | 未決定 |
-| テスト | 未決定 |
-| Lint / Format | 未決定 |
-| ビルド | 未決定 |
+| 言語・実行形態 | バックエンドはRust、フロントエンドはTypeScriptとReact([ADR 0002](./docs/decisions/0002-ui-framework-react.md))。Tauri 2のネイティブウィンドウ。実行時にNodeは要らない |
+| テスト | Rustは `cargo test`(`markharness` の呼び出しは、境界の背後で、固定のJSONを返す偽の実装に差し替える)。フロントエンドは、ロジックにVitest、画面の部品にReact Testing Library。実物の `markharness` を呼ぶ結合テストを、`cargo test` に少数置く。ブラウザを駆動するE2Eは、安定後に実施し、ツールはその時点で決める |
+| Lint / Format | Rustはclippyとrustfmt。フロントエンドは未決定(足場を作る時点で決める) |
+| ビルド | Vite(フロントエンド)とTauri(成果物) |
 
-### 標準コマンド <!-- 確定後に記入 -->
+### 対象OSと検証
+
+- 最初の安定版の対象は、Windows(x64)とmacOS(arm64)である。
+- 開発の検証は、Windowsを基準にする。開発中にmacOS関連のエラーが出たときは、Windowsを優先して対処する。
+- macOSの最初の検証は、関係の画面(最初の機能)ができた時点で、macOS Ventura 13.7.8のIntel Macで行う。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
+
+### 標準コマンド
+
+足場(`package.json`、`src/`、`src-tauri/`)を作るまでは、実行できない。足場を作るときに、実際に動くことを確かめて、この表を更新する。
 
 | 用途 | コマンド |
 |------|---------|
-| ビルド | 未決定 |
-| テスト(全件) | 未決定 |
-| テスト(単体) | 未決定 |
-| Lint | 未決定 |
-| フォーマット | 未決定 |
-| フォーマットチェック | 未決定 |
-| 依存の脆弱性スキャン | 未決定 |
-| 依存のライセンス確認 | 未決定 |
+| ビルド | `npm run tauri build` |
+| テスト(全件) | `cargo test --manifest-path src-tauri/Cargo.toml` と `npm test` |
+| テスト(単体) | `cargo test --manifest-path src-tauri/Cargo.toml <テスト名>`、`npm test -- <パターン>` |
+| Lint | `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`(フロントエンドは未決定) |
+| フォーマット | `cargo fmt --manifest-path src-tauri/Cargo.toml`(フロントエンドは未決定) |
+| フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check`(フロントエンドは未決定) |
+| 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
+| 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
 
 ## 外部との接点
 
@@ -65,18 +73,18 @@ docs/
 └── design/           # 実装設計
 ```
 
-ソースコードの構成は、技術スタックの確定後に追記する。
+ソースコードの構成は、Tauriの標準の構成(ルートに `package.json` と `src/`(フロントエンド)、`src-tauri/`(Rust))にする。足場を作るときに追記する。
 
 ## Pre-PR チェックリスト
 
-PR を作成する前に、以下をすべて満たすこと。技術スタックに依存する項目は、確定後に具体的なコマンドを記入する。
+PR を作成する前に、以下をすべて満たすこと。具体的なコマンドは、「標準コマンド」の表を参照する。
 
-- [ ] 全テストがパスする <!-- 確定後に記入 -->
-- [ ] Lintのエラーがゼロ <!-- 確定後に記入 -->
-- [ ] フォーマット済み <!-- 確定後に記入 -->
-- [ ] 依存に既知の脆弱性がない <!-- 確定後に記入 -->
-- [ ] 依存のライセンスが許可リスト内([release-and-license](./.github/instructions/release-and-license.instructions.md)参照) <!-- 確定後に記入 -->
-- [ ] `src/` 相当のコードの変更を、テスト先行(Red-Green-Refactor)で開発した
+- [ ] 全テストがパスする
+- [ ] Lintのエラーがゼロ
+- [ ] フォーマット済み
+- [ ] 依存に既知の脆弱性がない
+- [ ] 依存のライセンスが許可リスト内([release-and-license](./.github/instructions/release-and-license.instructions.md)参照)
+- [ ] `src/` と `src-tauri/` のコードの変更を、テスト先行(Red-Green-Refactor)で開発した
 - [ ] コード・ログ・コミットメッセージ・PR本文にシークレットが含まれない
 
 ## GitHub Flow
