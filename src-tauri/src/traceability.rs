@@ -164,6 +164,10 @@ impl std::fmt::Display for ReadError {
             ReadError::Malformed(reason) => {
                 write!(f, "必要な項目が欠けているか、型が違います: {reason}")
             }
+            ReadError::AmbiguousParent { field, value } => write!(
+                f,
+                "{field} の値 {value} が、複数の要素に一致し、親を一意に決められません。誤った関係を表示しないため、表示を止めました。markharnessが、親をuidで示す出力に対応するまで、この構成は表示できません"
+            ),
             ReadError::CannotRun(reason) => write!(f, "markharnessを起動できません: {reason}"),
         }
     }
@@ -205,6 +209,10 @@ pub enum ReadError {
         actual: Option<u64>,
     },
     Malformed(String),
+    AmbiguousParent {
+        field: &'static str,
+        value: String,
+    },
     UnsupportedValue {
         field: &'static str,
         value: String,
@@ -251,6 +259,19 @@ pub async fn read_traceability(
     }
     let raw: RawTraceability =
         serde_json::from_value(value).map_err(|e| ReadError::Malformed(e.to_string()))?;
+    for scenario in &raw.scenarios {
+        let parents = raw
+            .behaviors
+            .iter()
+            .filter(|b| b.behavior_id == scenario.behavior_id)
+            .count();
+        if parents > 1 {
+            return Err(ReadError::AmbiguousParent {
+                field: "scenarios[].behavior_id",
+                value: scenario.behavior_id.clone(),
+            });
+        }
+    }
     let requirements = raw
         .requirements
         .into_iter()
@@ -300,6 +321,7 @@ mod tests {
     use super::*;
 
     const TODO_MINIMAL: &str = include_str!("../tests/fixtures/traceability_todo_minimal.json");
+    const SHARED_SLUGS: &str = include_str!("../tests/fixtures/traceability_shared_slugs.json");
 
     struct FakeRunner(Result<CommandOutput, String>);
 
@@ -587,6 +609,34 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "markharnessを起動できません: program not found"
+        );
+    }
+
+    #[tokio::test]
+    async fn stops_when_a_parent_slug_matches_several_elements() {
+        let runner = FakeRunner::printing(SHARED_SLUGS);
+
+        let result = read_traceability(&runner, Path::new("/project")).await;
+
+        assert_eq!(
+            result.unwrap_err(),
+            ReadError::AmbiguousParent {
+                field: "scenarios[].behavior_id",
+                value: "submit".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn explains_why_an_ambiguous_parent_cannot_be_shown() {
+        let error = ReadError::AmbiguousParent {
+            field: "scenarios[].behavior_id",
+            value: "submit".to_string(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "scenarios[].behavior_id の値 submit が、複数の要素に一致し、親を一意に決められません。誤った関係を表示しないため、表示を止めました。markharnessが、親をuidで示す出力に対応するまで、この構成は表示できません"
         );
     }
 }
