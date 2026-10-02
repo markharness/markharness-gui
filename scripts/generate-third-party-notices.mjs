@@ -3,7 +3,15 @@
 // dependencies that ship in the build. The accepted licenses come from
 // src-tauri/about.toml.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildNpmNotices } from "./npm-notices.mjs";
 
 const OUTPUT = "THIRD-PARTY-NOTICES.md";
@@ -21,19 +29,30 @@ if (!acceptedBlock)
   throw new Error("accepted licenses not found in src-tauri/about.toml");
 const accepted = [...acceptedBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 
-const rust = execFileSync(
-  "cargo",
-  [
-    "about",
-    "generate",
-    "--config",
-    "src-tauri/about.toml",
-    "--manifest-path",
-    "src-tauri/Cargo.toml",
-    "src-tauri/about.hbs",
-  ],
-  { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
-);
+// cargo-about refuses to have its stdout redirected under PowerShell, so it writes to a file.
+const workDir = mkdtempSync(join(tmpdir(), "notices-"));
+const rustFile = join(workDir, "rust.md");
+let rust;
+try {
+  execFileSync(
+    "cargo",
+    [
+      "about",
+      "generate",
+      "--config",
+      "src-tauri/about.toml",
+      "--manifest-path",
+      "src-tauri/Cargo.toml",
+      "--output-file",
+      rustFile,
+      "src-tauri/about.hbs",
+    ],
+    { stdio: "inherit" },
+  );
+  rust = readFileSync(rustFile, "utf8");
+} finally {
+  rmSync(workDir, { recursive: true, force: true });
+}
 
 const npm = buildNpmNotices({
   lock: JSON.parse(readFileSync("package-lock.json", "utf8")),
