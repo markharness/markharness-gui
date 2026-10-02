@@ -1,0 +1,30 @@
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local AI-agent scaffolding (Claude Code / VS Code Copilot).
+.claude/
+.github/prompts/
+.github/skills/
+
+# In-progress task checklists (checklist-workflow.instructions.md). 
+checklist-*.md
+!.github/instructions/checklist-workflow.instructions.md
+
+# One-off review reports
+docs/reviews/
+review-*.md
+!review-policy.md
