@@ -17,7 +17,7 @@
 
 ### TDD
 
-ソースコードは、Red-Green-Refactor で開発する。テストなしのプロダクションコードは書かない。詳細: [tdd-workflow](.github/instructions/tdd-workflow.instructions.md)
+ソースコードは、Red-Green-Refactor で開発する。テストなしのプロダクションコードは書かない。手順は `mattpocock-skills:tdd` スキル(`mattpocock-skills` プラグインを導入しておくこと)に従い、コマンドとテストの置き場所は [PROJECT.md](PROJECT.md) の「標準コマンド」を正とする。
 
 ### チェックリスト運用
 

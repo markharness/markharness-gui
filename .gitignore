@@ -15,23 +15,14 @@ temp/
 Thumbs.db
 .DS_Store
 
-# AI-agent development-template scaffolding (Claude Code / VS Code Copilot).
+# Local AI-agent scaffolding (Claude Code / VS Code Copilot).
 .claude/
-.github/copilot-instructions.md
-.github/instructions/
 .github/prompts/
 .github/skills/
 
-# Shared AI workflow entry points. Keep the rest of the local agent-template
-!.github/
-.github/*
-!.github/copilot-instructions.md
-!.github/instructions/
-.github/instructions/*
-!.github/instructions/github-flow.instructions.md
-
 # In-progress task checklists (checklist-workflow.instructions.md). 
 checklist-*.md
+!.github/instructions/checklist-workflow.instructions.md
 
 # One-off review reports
 docs/reviews/
