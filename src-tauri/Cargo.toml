@@ -1,0 +1,21 @@
+[package]
+name = "markharness-gui"
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "markharness_gui_lib"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
