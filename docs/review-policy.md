@@ -98,7 +98,7 @@ YAGNI(You Aren't Gonna Need It)を、実装とレビューの両方に適用し�
 
 より具体的な承認済みのADRや設計文書が別に定めていない限り、次の既定を適用します。
 
-- GUIが、`.markharness/` 配下の内部ファイルを直接読み書きすること(StrictDocのエクスポートを除く)、または、Knowledgeのファイルを `knowledge reconcile` を通さずに書き換えることは、`Must fix` です。GUIとmarkharnessの契約は、CLIのJSON出力だけであり、内部ファイルの形式は予告なく変わりうるためです。編集は、`knowledge reconcile` が整合性を保つ唯一の経路です(markharness本体のADR 0038 決定2・10)。
+- GUIが、`.markharness/` 配下の内部ファイルを直接読み書きすること(StrictDocのエクスポートを除く)、または、Knowledgeのファイルを `knowledge reconcile` または `knowledge remove` を通さずに書き換えることは、`Must fix` です。GUIとmarkharnessの契約は、CLIのJSON出力だけであり、内部ファイルの形式は予告なく変わりうるためです。書き込みは、`knowledge reconcile`(作成・更新)と `knowledge remove`(削除)が整合性を保つ唯一の経路です(markharness本体のADR 0038 決定2・10)。
 - 古い内容を、利用者が抜け出す手段のないまま見せ続けることは、`Must fix` です。StrictDocのエクスポートのキャッシュには、キャッシュを使わない再エクスポートの手段が必要です(同、決定7)。
 - 対応しない版、意味を解釈する値の集合(関係の `kind`、Requirementの `source`、`binding` の `mode` など)の未知の値、必要な項目の欠落を、止めずに、黙って除外して表示することは、`Must fix` です。誤った関係を表示するより、表示を止めるほうが害が小さいためです。既存のオブジェクトに追加された未知のキーは、無視してかまいません(同、決定5)。
 - GUIの編集による、Knowledgeの破損や、誤った関連付けは、`Must fix` です。
