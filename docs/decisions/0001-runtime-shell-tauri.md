@@ -46,7 +46,7 @@ markharness-guiは、`markharness gui` が起動する別の実行ファイル�
   node measure.mjs --exe target/release/<実行ファイル> --dir <サンプルの出力先> --runs 7
   ```
 
-  `measure.mjs` は、環境変数 `SPIKE_EXIT_ON_READY` を付けて実行ファイルを起動し、一覧の表示を通知して終了するまでの実時間を、1回のコールドスタートと、`--runs` 回のウォームスタートで測る。依存のライセンスは、`cargo deny check licenses` で確認した([0004](0004-allow-mpl-2-0-transitive-dependencies.md))。
+  `measure.mjs` は、環境変数 `SPIKE_EXIT_ON_READY` を付けて実行ファイルを起動し、一覧の表示を通知して終了するまでの実時間を、1回のコールドスタートと、`--runs` 回のウォームスタートで測る。依存のライセンスは、`cargo deny check licenses` で確認した([0004](0004-dependency-license-policy.md))。
 - これらのコードは、spikeのブランチ(マージしない)にあり、削除する。再現するときは、上の条件で、同じ縦切りを作り直す。
 
 ## 前提と未検証の事項
@@ -58,7 +58,7 @@ markharness-guiは、`markharness gui` が起動する別の実行ファイル�
 
 ## 代替案
 
-- **Rust製の小型サーバーとブラウザ**: サイズ・起動は同等で、依存が少なく、LinuxでもWebViewの導入が要らない。ただし、上の理由から、終了の検出と、ポートの防御が、恒常的な保守になる。また、利用者のブラウザの状態に依存する。Tauriのライセンス([0004](0004-allow-mpl-2-0-transitive-dependencies.md))の問題が、解決できなかった場合の退路である。
+- **Rust製の小型サーバーとブラウザ**: サイズ・起動は同等で、依存が少なく、LinuxでもWebViewの導入が要らない。ただし、上の理由から、終了の検出と、ポートの防御が、恒常的な保守になる。また、利用者のブラウザの状態に依存する。Tauriの依存が、依存のライセンスの基準([0004](0004-dependency-license-policy.md))を、将来満たせなくなった場合の退路である。この候補は、WindowsとmacOS(arm64)のどちらでも、BSD-3-Clauseの許可だけで、基準を満たすことを確認した。
 - **Electron**: 自己完結で実績があるが、ブラウザを同梱するため、サイズが大きく、30MBの上限を超える。spikeの前に、比較から外した。
 - **純Rustのネイティブ描画(egui、Slintなど)**: StrictDocの階層表示や、編集のフォームを、Web技術より作り込みにくい。spikeの前に、比較から外した。
 
@@ -66,5 +66,5 @@ markharness-guiは、`markharness gui` が起動する別の実行ファイル�
 
 - Windowsでは、OSのWebView2が必要になる。Windows 11には標準で入っている。
 - Linuxでは、WebKitGTKの導入が、利用者側で必要になるため、自己完結にならない。対象に含めない。
-- Tauriの依存に、MPL-2.0のクレートが含まれる。[0004](0004-allow-mpl-2-0-transitive-dependencies.md)で、許可の条件を定める。
+- Tauriの依存に、MPL-2.0のクレートが含まれる。[0004](0004-dependency-license-policy.md)の基準で、改変しない場合に許可し、第三者ライセンスの表示を同梱する。
 - ブラウザを駆動するE2Eのテストは、macOSのWKWebViewを駆動できない制約がある。E2Eは、安定後に実施し、ツールは、その時点で決める。

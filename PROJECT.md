@@ -43,7 +43,7 @@
 | フォーマット | `cargo fmt --manifest-path src-tauri/Cargo.toml`(フロントエンドは未決定) |
 | フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check`(フロントエンドは未決定) |
 | 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
-| 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-allow-mpl-2-0-transitive-dependencies.md)) |
+| 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
 
 ## 外部との接点
 
