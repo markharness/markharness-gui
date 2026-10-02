@@ -37,7 +37,17 @@ markharness-guiは、`markharness gui` が起動する別の実行ファイル�
 - サンプルプロジェクト: markharness本体の `examples/todo-minimal`(Scenarioが2件)に、`markharness init`、`axes/` の `.markharness/axes/` へのコピー、2つのIntentの `knowledge reconcile` を実行したもの。`examples/todo-minimal` は初期化済みのプロジェクトではない。
 - 起動時間: 一覧を表示した通知を受けて終了するまでの、プロセスの起動から終了までの実時間。ブラウザ方式は、既定のブラウザが起動済みの状態で測った。
 - ブラウザ方式の防御の確認: トークンなし、誤ったトークン、偽のHostヘッダーは403、正しいトークンは200を返した。
-- これらの手順のコードは、spikeのブランチ(マージしない)にあり、削除する。再現するときは、上の条件で、同じ縦切りを作り直す。
+- 使ったコマンド(Node 24、Rust 1.97、リポジトリ内のspike用のディレクトリで実行):
+
+  ```text
+  node make-sample.mjs <markharnessのexamples/todo-minimal> <サンプルの出力先>
+  (cd web && npm install && npm run build)
+  cargo build --release --workspace
+  node measure.mjs --exe target/release/<実行ファイル> --dir <サンプルの出力先> --runs 7
+  ```
+
+  `measure.mjs` は、環境変数 `SPIKE_EXIT_ON_READY` を付けて実行ファイルを起動し、一覧の表示を通知して終了するまでの実時間を、1回のコールドスタートと、`--runs` 回のウォームスタートで測る。依存のライセンスは、`cargo deny check licenses` で確認した([0004](0004-allow-mpl-2-0-transitive-dependencies.md))。
+- これらのコードは、spikeのブランチ(マージしない)にあり、削除する。再現するときは、上の条件で、同じ縦切りを作り直す。
 
 ## 前提と未検証の事項
 
