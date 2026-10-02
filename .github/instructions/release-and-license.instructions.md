@@ -9,12 +9,13 @@ applyTo: "package.json,Cargo.toml,docs/**,.github/workflows/**"
 
 markharness-guiは、markharnessの配布物に、同梱される。そのため、依存のライセンスは、同梱先のmarkharness(MIT。[LICENSE](https://github.com/markharness/markharness/blob/main/LICENSE) 参照)と、両立するものに限る。この規則は、markharness本体で、ライセンスの確認をしないままGPL-3.0の依存(`kakasi`)が追加され、バイナリの配布が、宣言したMITに適合しなくなった事故を受けて、定めたものである。
 
-> **技術スタックについて**: 依存の管理ファイル(上の `applyTo`)、ライセンス確認のツール、CIの設定は、技術スタックの確定後に、[PROJECT.md](../../PROJECT.md) と、この規約へ記入する。
+> **技術スタックについて**: 依存の管理ファイルは `Cargo.toml` と `package.json`、ライセンス確認のツールは `cargo deny`(Rustの依存)である。CIの設定は、技術スタックの足場を作る時点で、[PROJECT.md](../../PROJECT.md) と、この規約へ記入する。
 
 ## 依存のライセンス
 
-- 新しい依存を追加する前に、そのライセンスを確認する。許可するライセンスの一覧は、技術スタックの確定後に、ライセンス確認のツールの設定として定める。出発点は、markharness本体の許可リスト(MIT、MIT-0、Apache-2.0、BSD-2-Clause、BSL-1.0、Unicode-3.0、Unlicense、Zlib)である。複数のライセンスを選べる依存は、少なくとも1つの選択肢が、許可リストにあればよい。
-- GPL・LGPL・AGPL・SSPLなどのコピーレフトや、OSIの承認がないライセンスは、推移的な依存であっても、開発・テストのビルドだけで使う場合であっても、決して許されない。
+- 新しい依存を追加する前に、そのライセンスを確認する。許可するライセンスは、MIT、MIT-0、Apache-2.0、Apache-2.0 WITH LLVM-exception、BSD-2-Clause、BSD-3-Clause、BSL-1.0、Unicode-3.0、Unlicense、Zlibである(markharness本体の許可リストに、BSD-3-Clauseを加えたもの)。複数のライセンスを選べる依存は、少なくとも1つの選択肢が、許可リストにあればよい。
+- MPL-2.0は、改変せず、推移的な依存として使い、配布物に第三者のライセンス表示を同梱する場合に限り許可する。条件の詳細は、[ADR 0004](../../docs/decisions/0004-allow-mpl-2-0-transitive-dependencies.md) にある。
+- GPL・LGPL・AGPL・SSPLなどの強いコピーレフトや、OSIの承認がないライセンスは、推移的な依存であっても、開発・テストのビルドだけで使う場合であっても、決して許されない。
 - 許可リストの設定が、定まってからは、依存を変更するPRを開く前に、ローカルでライセンスの確認を実行する。CIでも、すべてのpushとPRで強制し、失敗はマージを止める。
 - 必要な依存のライセンスが、両立しない場合は、黙って回避せず、その依存を追加しない。検討した代替案(自前の実装、別のライセンスの依存、機能の縮小)を述べた、issueまたは決定の記録(ADR)を起こす。
 
