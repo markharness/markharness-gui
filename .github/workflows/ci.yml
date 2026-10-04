@@ -35,23 +35,27 @@ jobs:
         with:
           tool: cargo-deny,cargo-audit,cargo-about
 
-      # The contract test runs the real markharness. The version is pinned in
-      # .github/markharness-version, and the download is checked against the
-      # release's SHA256SUMS.
-      - name: Install the pinned markharness
+      # The contract test runs the real markharness, built from the commit of the
+      # core's main branch pinned in .github/markharness-rev. No core release
+      # contains `traceability` yet.
+      - name: Cache the pinned markharness
+        id: markharness-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/markharness
+          key: markharness-${{ runner.os }}-${{ hashFiles('.github/markharness-rev') }}
+
+      - name: Build the pinned markharness
+        if: steps.markharness-cache.outputs.cache-hit != 'true'
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $v = (Get-Content .github/markharness-version).Trim()
-          $dir = Join-Path $env:RUNNER_TEMP "mh"
-          $zip = "markharness-$v-x86_64-pc-windows-msvc.zip"
-          gh release download "v$v" -R markharness/markharness -p $zip -p SHA256SUMS -D $dir
-          $expected = (Select-String -Path "$dir/SHA256SUMS" -Pattern ([regex]::Escape($zip))).Line.Split(' ')[0]
-          $actual = (Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne $expected) { throw "checksum mismatch for $zip" }
-          Expand-Archive "$dir/$zip" -DestinationPath $dir
-          "MARKHARNESS_BIN=$dir/markharness-$v-x86_64-pc-windows-msvc/markharness.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $rev = (Get-Content .github/markharness-rev).Trim()
+          cargo install --git https://github.com/markharness/markharness --rev $rev --locked --root "$env:RUNNER_TEMP/markharness" markharness
+
+      - name: Point the contract test at it
+        shell: pwsh
+        run: |
+          "MARKHARNESS_BIN=$env:RUNNER_TEMP/markharness/bin/markharness.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - run: npm ci
       - run: npm run notices:check
