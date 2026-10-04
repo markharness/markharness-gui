@@ -43,13 +43,14 @@
 | フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` と `npm run format:check` |
 | 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
 | 第三者ライセンス表示の生成 | `npm run notices`(`THIRD-PARTY-NOTICES.md` を更新する。`cargo-about` が必要)。最新かの確認は `npm run notices:check` |
+| 対応する `markharness` のビルド | `cargo install --git https://github.com/markharness/markharness --rev <.github/markharness-rev の値> --locked --root <出力先> markharness`。結合テストは、環境変数 `MARKHARNESS_BIN` に、できた実行ファイルを指定して動かす([ADR 0006](./docs/decisions/0006-pin-core-commit-during-development.md)) |
 | 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
 
 ## 外部との接点
 
 | 対象 | 用途 | 備考 |
 |------|------|------|
-| `markharness` CLI | 関係・Change Impact・Release Coverageの取得(JSON)、編集(`knowledge reconcile`、削除は `knowledge remove`) | `markharness gui` が環境変数 `MARKHARNESS_BIN` で、起動した `markharness` のパスを渡す。GUIを単独で起動したときだけ、`PATH` 上の `markharness` を使う |
+| `markharness` CLI | 関係・Change Impact・Release Coverageの取得(JSON)、編集(`knowledge reconcile`、削除は `knowledge remove`) | `markharness gui` が環境変数 `MARKHARNESS_BIN` で、起動した `markharness` のパスを渡す。GUIを単独で起動したときだけ、`PATH` 上の `markharness` を使う。対応する版は、`.github/markharness-rev` のコミット([ADR 0006](./docs/decisions/0006-pin-core-commit-during-development.md)) |
 | `strictdoc` CLI | StrictDocの要求の見出し・階層(`strictdoc export --formats=json`) | 任意の連携。無い環境では、markharnessのデータだけを表示する |
 
 GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のファイルを直接読み書きしない(StrictDocのエクスポートを除く)。詳細は引き継ぎ文書を参照する。
