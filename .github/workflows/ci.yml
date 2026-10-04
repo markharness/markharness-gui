@@ -36,8 +36,8 @@ jobs:
           tool: cargo-deny,cargo-audit,cargo-about
 
       # The contract test runs the real markharness, built from the commit of the
-      # core's main branch pinned in .github/markharness-rev. No core release
-      # contains `traceability` yet.
+      # core's GUI development branch pinned in .github/markharness-rev. No core
+      # release contains `traceability` or `gui` yet.
       - name: Cache the pinned markharness
         id: markharness-cache
         uses: actions/cache@v4
