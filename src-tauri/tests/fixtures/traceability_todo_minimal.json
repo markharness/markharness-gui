@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "record_kind": "traceability",
+  "at": "working-tree",
+  "requirements": [
+    {
+      "requirement_id": "todo-management",
+      "requirement_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "source": "native",
+      "label": "todo-management",
+      "source_locator": null,
+      "source_key": null
+    }
+  ],
+  "features": [
+    {
+      "feature_id": "add-todo",
+      "feature_uid": "01M3YJ5XPAGJDSDX25KS229D9E",
+      "label": "add-todo"
+    }
+  ],
+  "behaviors": [
+    {
+      "behavior_id": "add-task",
+      "behavior_uid": "01M3YJ5XPA4ZCNK4C0B15CYJZ4",
+      "feature_id": "add-todo",
+      "label": "add-task"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "empty-title",
+      "scenario_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
+      "behavior_id": "add-task",
+      "label": "empty-title"
+    },
+    {
+      "scenario_id": "max-length",
+      "scenario_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
+      "behavior_id": "add-task",
+      "label": "max-length"
+    }
+  ],
+  "test_cases": [
+    {
+      "case_id": "tc-add-todo-add-task-empty-title",
+      "case_uid": "b993254b-f177-53fc-babc-e5bd99ffdb67",
+      "case_revision": "b1a98322-146f-513c-bd49-66def08fccb5",
+      "relative_path": "add-todo/add-task/empty-title.yml",
+      "scenario_id": "empty-title"
+    },
+    {
+      "case_id": "tc-add-todo-add-task-max-length",
+      "case_uid": "e3e6cc9d-e1a4-5f92-8e5a-227193084caa",
+      "case_revision": "76157ce2-01a7-5549-9922-25f05cf90fd0",
+      "relative_path": "add-todo/add-task/max-length.yml",
+      "scenario_id": "max-length"
+    }
+  ],
+  "relations": [
+    {
+      "from_uid": "01M3YJ5XPAGJDSDX25KS229D9E",
+      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
+      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "b993254b-f177-53fc-babc-e5bd99ffdb67",
+      "to_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
+      "kind": "generated_from"
+    },
+    {
+      "from_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
+      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "e3e6cc9d-e1a4-5f92-8e5a-227193084caa",
+      "to_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
+      "kind": "generated_from"
+    }
+  ]
+}

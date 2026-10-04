@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "record_kind": "traceability",
+  "at": "working-tree",
+  "requirements": [
+    {
+      "requirement_id": "req",
+      "requirement_uid": "01M3YS18Z23A79XE9JMFJ8J29F",
+      "source": "native",
+      "label": "req",
+      "source_locator": null,
+      "source_key": null
+    }
+  ],
+  "features": [
+    {
+      "feature_id": "feature-a",
+      "feature_uid": "01M3YS18Z2BKZWJR1E2SJDGK9W",
+      "label": "A"
+    },
+    {
+      "feature_id": "feature-b",
+      "feature_uid": "01M3YS18Z25JF2CARVAXEHH31D",
+      "label": "B"
+    }
+  ],
+  "behaviors": [
+    {
+      "behavior_id": "submit",
+      "behavior_uid": "01M3YS18Z2AS2QKE5F0WQ89705",
+      "feature_id": "feature-a",
+      "label": "A-submit"
+    },
+    {
+      "behavior_id": "submit",
+      "behavior_uid": "01M3YS18Z2JPGYPZXSJ851VWGN",
+      "feature_id": "feature-b",
+      "label": "B-submit"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "ok",
+      "scenario_uid": "01M3YS18Z2MRV3W3T493PZRGC7",
+      "behavior_id": "submit",
+      "label": "A-ok"
+    },
+    {
+      "scenario_id": "ok",
+      "scenario_uid": "01M3YS18Z2H7M0W71N4Q702PED",
+      "behavior_id": "submit",
+      "label": "B-ok"
+    }
+  ],
+  "test_cases": [
+    {
+      "case_id": "tc-feature-a-submit-ok",
+      "case_uid": "67fbb109-02cf-547c-92d5-cb4c336f6ed1",
+      "case_revision": "ecf41644-5676-559c-9a03-fa92dfc5608f",
+      "relative_path": "feature-a/submit/ok.yml",
+      "scenario_id": "ok"
+    },
+    {
+      "case_id": "tc-feature-b-submit-ok",
+      "case_uid": "9923280f-f126-5f26-a427-f71ab78460bb",
+      "case_revision": "ecf41644-5676-559c-9a03-fa92dfc5608f",
+      "relative_path": "feature-b/submit/ok.yml",
+      "scenario_id": "ok"
+    }
+  ],
+  "relations": [
+    {
+      "from_uid": "01M3YS18Z2BKZWJR1E2SJDGK9W",
+      "to_uid": "01M3YS18Z23A79XE9JMFJ8J29F",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "01M3YS18Z25JF2CARVAXEHH31D",
+      "to_uid": "01M3YS18Z23A79XE9JMFJ8J29F",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "01M3YS18Z2MRV3W3T493PZRGC7",
+      "to_uid": "01M3YS18Z23A79XE9JMFJ8J29F",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "67fbb109-02cf-547c-92d5-cb4c336f6ed1",
+      "to_uid": "01M3YS18Z2MRV3W3T493PZRGC7",
+      "kind": "generated_from"
+    },
+    {
+      "from_uid": "01M3YS18Z2H7M0W71N4Q702PED",
+      "to_uid": "01M3YS18Z23A79XE9JMFJ8J29F",
+      "kind": "contributes_to"
+    },
+    {
+      "from_uid": "9923280f-f126-5f26-a427-f71ab78460bb",
+      "to_uid": "01M3YS18Z2H7M0W71N4Q702PED",
+      "kind": "generated_from"
+    }
+  ]
+}

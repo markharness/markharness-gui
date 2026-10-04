@@ -1,10 +1,23 @@
 pub mod launch;
+pub mod traceability;
 
 use launch::LaunchConfig;
 
 #[tauri::command]
 fn get_project_root(config: tauri::State<'_, LaunchConfig>) -> String {
     config.project_root.to_string_lossy().into_owned()
+}
+
+#[tauri::command]
+async fn get_traceability(
+    config: tauri::State<'_, LaunchConfig>,
+) -> Result<traceability::Traceability, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    traceability::read_traceability(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub fn run() {
@@ -17,7 +30,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(config)
-        .invoke_handler(tauri::generate_handler![get_project_root])
+        .invoke_handler(tauri::generate_handler![get_project_root, get_traceability])
         .run(tauri::generate_context!())
         .expect("failed to run markharness-gui");
 }
