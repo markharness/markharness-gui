@@ -50,11 +50,11 @@ export function buildRelationTree(t: Traceability): RelationTree {
     return {
       feature,
       behaviors: t.behaviors
-        .filter((b) => b.feature_id === feature.feature_id)
+        .filter((b) => b.feature_uid === feature.feature_uid)
         .map((behavior) => ({
           behavior,
           scenarios: t.scenarios
-            .filter((s) => s.behavior_id === behavior.behavior_id)
+            .filter((s) => s.behavior_uid === behavior.behavior_uid)
             .map((scenario) => ({
               scenario,
               extraRequirements: t.requirements.filter(
@@ -62,13 +62,8 @@ export function buildRelationTree(t: Traceability): RelationTree {
                   contributes(scenario.scenario_uid, r.requirement_uid) &&
                   !featureRequirements.includes(r),
               ),
-              testCases: t.test_cases.filter((c) =>
-                t.relations.some(
-                  (r) =>
-                    r.kind === "generated_from" &&
-                    r.from_uid === c.case_uid &&
-                    r.to_uid === scenario.scenario_uid,
-                ),
+              testCases: t.test_cases.filter(
+                (c) => c.scenario_uid === scenario.scenario_uid,
               ),
             })),
         })),
