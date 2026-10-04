@@ -1,0 +1,29 @@
+format: markharness/knowledge-intent/v1
+mode: merge
+requirements:
+  - { key: r, id: req, source: native, label: req, axis: [] }
+features:
+  - key: fa
+    id: feature-a
+    contributes_to: [r]
+    label: A
+    axis: []
+    behaviors:
+      - id: submit
+        label: A-submit
+        axis: []
+        description: d
+        scenarios:
+          - { id: ok, label: A-ok, description: d, phases: [{ steps: [{ action: a }], results: [r] }] }
+  - key: fb
+    id: feature-b
+    contributes_to: [r]
+    label: B
+    axis: []
+    behaviors:
+      - id: submit
+        label: B-submit
+        axis: []
+        description: d
+        scenarios:
+          - { id: ok, label: B-ok, description: d, phases: [{ steps: [{ action: a }], results: [r] }] }

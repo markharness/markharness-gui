@@ -5,7 +5,7 @@
   "requirements": [
     {
       "requirement_id": "todo-management",
-      "requirement_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "requirement_uid": "01M440JETKSN1RXENDC70HN1Q5",
       "source": "native",
       "label": "todo-management",
       "source_locator": null,
@@ -15,72 +15,77 @@
   "features": [
     {
       "feature_id": "add-todo",
-      "feature_uid": "01M3YJ5XPAGJDSDX25KS229D9E",
+      "feature_uid": "01M440JETKDKJAWSC7ND58HXQY",
       "label": "add-todo"
     }
   ],
   "behaviors": [
     {
       "behavior_id": "add-task",
-      "behavior_uid": "01M3YJ5XPA4ZCNK4C0B15CYJZ4",
+      "behavior_uid": "01M440JETKGKGPCZ6J5NCDRSA1",
       "feature_id": "add-todo",
+      "feature_uid": "01M440JETKDKJAWSC7ND58HXQY",
       "label": "add-task"
     }
   ],
   "scenarios": [
     {
       "scenario_id": "empty-title",
-      "scenario_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
+      "scenario_uid": "01M440JETKK92V17DKDFGPJM40",
       "behavior_id": "add-task",
+      "behavior_uid": "01M440JETKGKGPCZ6J5NCDRSA1",
       "label": "empty-title"
     },
     {
       "scenario_id": "max-length",
-      "scenario_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
+      "scenario_uid": "01M440JEXMFTGSB0HXCY2ZZM5B",
       "behavior_id": "add-task",
+      "behavior_uid": "01M440JETKGKGPCZ6J5NCDRSA1",
       "label": "max-length"
     }
   ],
   "test_cases": [
     {
       "case_id": "tc-add-todo-add-task-empty-title",
-      "case_uid": "b993254b-f177-53fc-babc-e5bd99ffdb67",
+      "case_uid": "5384e545-0ead-5332-bc34-2b54d5ede65b",
       "case_revision": "b1a98322-146f-513c-bd49-66def08fccb5",
       "relative_path": "add-todo/add-task/empty-title.yml",
-      "scenario_id": "empty-title"
+      "scenario_id": "empty-title",
+      "scenario_uid": "01M440JETKK92V17DKDFGPJM40"
     },
     {
       "case_id": "tc-add-todo-add-task-max-length",
-      "case_uid": "e3e6cc9d-e1a4-5f92-8e5a-227193084caa",
+      "case_uid": "221867a0-2c83-59e3-bc11-3ec0b6c012f5",
       "case_revision": "76157ce2-01a7-5549-9922-25f05cf90fd0",
       "relative_path": "add-todo/add-task/max-length.yml",
-      "scenario_id": "max-length"
+      "scenario_id": "max-length",
+      "scenario_uid": "01M440JEXMFTGSB0HXCY2ZZM5B"
     }
   ],
   "relations": [
     {
-      "from_uid": "01M3YJ5XPAGJDSDX25KS229D9E",
-      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "from_uid": "01M440JETKDKJAWSC7ND58HXQY",
+      "to_uid": "01M440JETKSN1RXENDC70HN1Q5",
       "kind": "contributes_to"
     },
     {
-      "from_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
-      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "from_uid": "01M440JETKK92V17DKDFGPJM40",
+      "to_uid": "01M440JETKSN1RXENDC70HN1Q5",
       "kind": "contributes_to"
     },
     {
-      "from_uid": "b993254b-f177-53fc-babc-e5bd99ffdb67",
-      "to_uid": "01M3YJ5XPA3Y3TVVRRVRZW25MV",
+      "from_uid": "5384e545-0ead-5332-bc34-2b54d5ede65b",
+      "to_uid": "01M440JETKK92V17DKDFGPJM40",
       "kind": "generated_from"
     },
     {
-      "from_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
-      "to_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y",
+      "from_uid": "01M440JEXMFTGSB0HXCY2ZZM5B",
+      "to_uid": "01M440JETKSN1RXENDC70HN1Q5",
       "kind": "contributes_to"
     },
     {
-      "from_uid": "e3e6cc9d-e1a4-5f92-8e5a-227193084caa",
-      "to_uid": "01M3YJ5XRR90RSXQ4RCR9EB2AM",
+      "from_uid": "221867a0-2c83-59e3-bc11-3ec0b6c012f5",
+      "to_uid": "01M440JEXMFTGSB0HXCY2ZZM5B",
       "kind": "generated_from"
     }
   ]

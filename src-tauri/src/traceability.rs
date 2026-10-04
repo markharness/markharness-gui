@@ -361,8 +361,8 @@ mod tests {
         assert_eq!(
             t.relations[0],
             Relation {
-                from_uid: "01M3YJ5XPAGJDSDX25KS229D9E".to_string(),
-                to_uid: "01M3YJ5XPAJ3NE0SDXX1Y44G2Y".to_string(),
+                from_uid: "01M440JETKDKJAWSC7ND58HXQY".to_string(),
+                to_uid: "01M440JETKSN1RXENDC70HN1Q5".to_string(),
                 kind: RelationKind::ContributesTo,
             }
         );
@@ -503,7 +503,7 @@ mod tests {
     #[tokio::test]
     async fn stops_when_a_required_field_is_missing() {
         let missing =
-            TODO_MINIMAL.replace(r#""requirement_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y","#, "");
+            TODO_MINIMAL.replace(r#""requirement_uid": "01M440JETKSN1RXENDC70HN1Q5","#, "");
         let runner = FakeRunner::printing(&missing);
 
         let result = read_traceability(&runner, Path::new("/project")).await;
