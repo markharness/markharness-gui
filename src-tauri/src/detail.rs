@@ -17,6 +17,18 @@ pub struct Phase {
     pub results: Vec<String>,
 }
 
+/// The description markharness holds for a requirement; external requirements have none.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct RequirementDescription {
+    pub uid: String,
+    pub description: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RawRequirement {
+    description: Option<String>,
+}
+
 #[derive(Deserialize)]
 struct RawTestCase {
     phases: Vec<Phase>,
@@ -25,6 +37,29 @@ struct RawTestCase {
 #[derive(Deserialize)]
 struct RawScenario {
     description: Option<String>,
+}
+
+pub async fn read_requirement_descriptions(
+    runner: &impl MarkharnessRunner,
+    project_root: &Path,
+    uids: &[String],
+    at: &str,
+) -> Result<Vec<RequirementDescription>, ReadError> {
+    let mut out = Vec::new();
+    for uid in uids {
+        let output = runner
+            .traceability_show(project_root, uid, Some(at))
+            .await
+            .map_err(ReadError::CannotRun)?;
+        let raw: RawRequirement =
+            serde_json::from_value(parse_record(output, "traceability_detail")?)
+                .map_err(|e| ReadError::Malformed(e.to_string()))?;
+        out.push(RequirementDescription {
+            uid: uid.clone(),
+            description: raw.description,
+        });
+    }
+    Ok(out)
 }
 
 pub async fn read_case_detail(
@@ -62,6 +97,7 @@ mod tests {
 
     const TEST_CASE: &str = include_str!("../tests/fixtures/detail_test_case.json");
     const SCENARIO: &str = include_str!("../tests/fixtures/detail_scenario.json");
+    const REQUIREMENT: &str = include_str!("../tests/fixtures/detail_requirement.json");
 
     #[derive(Default)]
     struct FakeRunner {
@@ -93,6 +129,8 @@ mod tests {
                 .push((uid.to_string(), at.map(str::to_string)));
             let stdout = if uid == "case-uid" {
                 TEST_CASE
+            } else if uid.starts_with("req-") {
+                REQUIREMENT
             } else {
                 SCENARIO
             };
@@ -102,6 +140,65 @@ mod tests {
                 stderr: String::new(),
             })
         }
+    }
+
+    #[tokio::test]
+    async fn reads_the_description_of_each_requirement_at_the_commit() {
+        let runner = FakeRunner::default();
+
+        let descriptions = read_requirement_descriptions(
+            &runner,
+            Path::new("/project"),
+            &["req-1".to_string(), "req-2".to_string()],
+            "abc123",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            descriptions,
+            [
+                RequirementDescription {
+                    uid: "req-1".to_string(),
+                    description: Some(
+                        "The player can control the character.
+"
+                        .to_string()
+                    ),
+                },
+                RequirementDescription {
+                    uid: "req-2".to_string(),
+                    description: Some(
+                        "The player can control the character.
+"
+                        .to_string()
+                    ),
+                },
+            ]
+        );
+        assert_eq!(
+            *runner.asked.lock().unwrap(),
+            [
+                ("req-1".to_string(), Some("abc123".to_string())),
+                ("req-2".to_string(), Some("abc123".to_string())),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn gives_a_requirement_without_a_description_none() {
+        let mut value: serde_json::Value = serde_json::from_str(REQUIREMENT).unwrap();
+        value.as_object_mut().unwrap().remove("description");
+        let output = CommandOutput {
+            exit_code: Some(0),
+            stdout: value.to_string(),
+            stderr: String::new(),
+        };
+
+        let raw: RawRequirement =
+            serde_json::from_value(parse_record(output, "traceability_detail").unwrap()).unwrap();
+
+        assert_eq!(raw.description, None);
     }
 
     #[tokio::test]

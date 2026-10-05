@@ -57,6 +57,20 @@ async fn get_strictdoc(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_requirement_descriptions(
+    config: tauri::State<'_, LaunchConfig>,
+    uids: Vec<String>,
+    at_commit: String,
+) -> Result<Vec<detail::RequirementDescription>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    detail::read_requirement_descriptions(&runner, &config.project_root, &uids, &at_commit)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let config = launch::resolve(&args, std::env::var("MARKHARNESS_BIN").ok().as_deref())
@@ -71,7 +85,8 @@ pub fn run() {
             get_project_root,
             get_project,
             get_case_detail,
-            get_strictdoc
+            get_strictdoc,
+            get_requirement_descriptions
         ])
         .run(tauri::generate_context!())
         .expect("failed to run markharness-gui");

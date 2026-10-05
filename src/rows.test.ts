@@ -99,9 +99,9 @@ describe("buildRequirementRows", () => {
   it("lists the cases the coverage links to the requirement, titled by their scenario", () => {
     const [, ra] = buildRequirementRows(project());
 
-    expect(ra.cases).toEqual([
-      { caseUid: "C1", title: "Add a task" },
-      { caseUid: "C2", title: "sc-2" },
+    expect(ra.cases.map((c) => [c.caseUid, c.title])).toEqual([
+      ["C1", "Add a task"],
+      ["C2", "sc-2"],
     ]);
   });
 
@@ -281,5 +281,42 @@ describe("buildRequirementRows with StrictDoc", () => {
 
     expect(rows.map((r) => r.title)).toEqual(["Native", "llr-1"]);
     expect(rows.every((r) => r.strictdoc === undefined)).toBe(true);
+  });
+});
+
+describe("buildRequirementRows with descriptions", () => {
+  it("carries the description markharness holds for a requirement", () => {
+    const rows = buildRequirementRows(project(), null, {
+      RA: "Does the thing.",
+    });
+
+    expect(rows.find((r) => r.requirementUid === "RA")?.description).toBe(
+      "Does the thing.",
+    );
+    expect(
+      rows.find((r) => r.requirementUid === "RB")?.description,
+    ).toBeUndefined();
+  });
+});
+
+describe("buildRequirementRows cases", () => {
+  it("says which feature and behavior each case belongs to", () => {
+    const p = project();
+    p.traceability.features = [
+      { feature_id: "f-1", feature_uid: "F1", label: "Sign in" },
+    ];
+    p.traceability.behaviors = [
+      {
+        behavior_id: "b-1",
+        behavior_uid: "B",
+        feature_id: "f-1",
+        feature_uid: "F1",
+        label: null,
+      },
+    ];
+
+    const [, ra] = buildRequirementRows(p);
+
+    expect(ra.cases[0].belongsTo).toBe("Sign in › b-1");
   });
 });

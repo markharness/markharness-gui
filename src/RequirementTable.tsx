@@ -105,8 +105,10 @@ export function RequirementTable({
                 >
                   {row.title}
                 </button>
-                {row.strictdoc && (
-                  <p className="statement">{row.strictdoc.statement}</p>
+                {(row.strictdoc?.statement || row.description) && (
+                  <p className="statement">
+                    {row.strictdoc?.statement || row.description}
+                  </p>
                 )}
                 {row.strictdoc && row.strictdoc.children.length > 0 && (
                   <p className="children">

@@ -13,8 +13,8 @@ export interface CaseView {
 }
 
 const METHOD_NAMES: Record<string, string> = {
-  automated: "自動",
-  manual: "手動",
+  automated: "自動(参照)",
+  manual: "手動(参照)",
 };
 
 const REFERENCE_STATUS_NAMES = {

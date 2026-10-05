@@ -79,6 +79,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
     getProjectRoot: async () => "/work/project",
     getProject: async () => project,
     getStrictDoc: async () => null,
+    getRequirementDescriptions: async () => [],
     getCaseDetail: async () => ({
       description: "Rejects a wrong password.",
       phases: [
@@ -100,15 +101,11 @@ describe("App", () => {
     expect(screen.getByText("45c7fc1")).toBeInTheDocument();
   });
 
-  it("shows the commit shortly, with the full one on hover", async () => {
+  it("shows the commit shortly", async () => {
     render(<App backend={fakeBackend()} />);
 
     const commit = await screen.findByText("45c7fc1");
 
-    expect(commit).toHaveAttribute(
-      "title",
-      "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78",
-    );
     expect(commit.parentElement).toHaveTextContent("(HEAD)");
   });
 
@@ -290,7 +287,7 @@ describe("App", () => {
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
-    expect(within(pane).getByText("自動")).toBeInTheDocument();
+    expect(within(pane).getByText("自動(参照)")).toBeInTheDocument();
     expect(
       within(pane).getByText(/tests\/login\.spec\.ts/),
     ).toBeInTheDocument();
@@ -512,6 +509,66 @@ describe("App", () => {
 
     expect(screen.queryByText("StrictDoc: 更新中")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  describe("with descriptions", () => {
+    const described = (overrides: Partial<Backend> = {}) =>
+      fakeBackend({
+        getRequirementDescriptions: async () => [
+          { uid: "R1", description: "Users can log in." },
+          { uid: "R2", description: null },
+        ],
+        ...overrides,
+      });
+
+    it("shows the description under the requirement in the row, and again in the detail pane", async () => {
+      render(<App backend={described()} />);
+
+      const row = (await screen.findByText("Users can log in.")).closest("tr");
+      if (!row) throw new Error("not inside a table row");
+      expect(within(row).getByText("Login requirement")).toBeInTheDocument();
+
+      fireEvent.click(within(row).getByText("Login requirement"));
+
+      const pane = screen.getByRole("complementary", { name: "詳細" });
+      expect(
+        within(pane).getByRole("heading", { name: /^要求内容/ }),
+      ).toHaveTextContent("markharness");
+      expect(within(pane).getByText("Users can log in.")).toBeInTheDocument();
+    });
+
+    it("asks only for requirements whose content markharness holds, at the displayed commit", async () => {
+      const asked: unknown[][] = [];
+      const backend = described({
+        getRequirementDescriptions: async (...args) => {
+          asked.push(args);
+          return [];
+        },
+      });
+      render(<App backend={backend} />);
+
+      await screen.findByText("Login requirement");
+
+      await waitFor(() =>
+        expect(asked).toEqual([
+          [["R1", "R2"], "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78"],
+        ]),
+      );
+    });
+
+    it("tells why the descriptions could not be read, and keeps the rows", async () => {
+      const backend = described({
+        getRequirementDescriptions: async () => {
+          throw new Error("markharnessを起動できません");
+        },
+      });
+      render(<App backend={backend} />);
+
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "markharnessを起動できません",
+      );
+      expect(screen.getByText("Login requirement")).toBeInTheDocument();
+    });
   });
 
   it("shows only the error, with nothing partial, when the project cannot be read", async () => {

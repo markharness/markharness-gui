@@ -8,7 +8,9 @@ export interface ProjectData {
   error?: string;
   strictdoc: StrictDoc | null;
   strictdocLoading: boolean;
-  /** Why StrictDoc could not be read. It never blocks the rest of the screen. */
+  /** What markharness holds as each requirement's description, by requirement uid. */
+  descriptions: Record<string, string>;
+  /** Why StrictDoc or the descriptions could not be read. It never blocks the rest of the screen. */
   notice?: string;
   dismissNotice: () => void;
   reload: () => void;
@@ -24,6 +26,7 @@ export function useProjectData(backend: Backend): ProjectData {
   const [strictdoc, setStrictDoc] = useState<StrictDoc | null>(null);
   const [strictdocLoading, setStrictDocLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
+  const [descriptions, setDescriptions] = useState<Record<string, string>>({});
   const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
@@ -53,11 +56,38 @@ export function useProjectData(backend: Backend): ProjectData {
     };
   }, [backend, reloads]);
 
+  // Read apart from the project too: the rows show first and the descriptions fill in.
+  useEffect(() => {
+    if (!loaded) return;
+    const { traceability, at_commit } = loaded.project;
+    const uids = traceability.requirements
+      .filter((r) => r.source === "native")
+      .map((r) => r.requirement_uid);
+    let current = true;
+    backend.getRequirementDescriptions(uids, at_commit).then(
+      (found) => {
+        if (!current) return;
+        setDescriptions(
+          Object.fromEntries(
+            found.flatMap((d) =>
+              d.description === null ? [] : [[d.uid, d.description]],
+            ),
+          ),
+        );
+      },
+      (e) => current && setNotice(String(e)),
+    );
+    return () => {
+      current = false;
+    };
+  }, [backend, loaded]);
+
   return {
     loaded,
     error,
     strictdoc,
     strictdocLoading,
+    descriptions,
     notice,
     dismissNotice: () => setNotice(undefined),
     reload: () => setReloads((n) => n + 1),

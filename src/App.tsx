@@ -18,7 +18,7 @@ export function App({ backend }: { backend: Backend }) {
   if (!data.loaded) return <p>読み込み中…</p>;
 
   const { projectRoot, project } = data.loaded;
-  const rows = buildRequirementRows(project, data.strictdoc);
+  const rows = buildRequirementRows(project, data.strictdoc, data.descriptions);
   const picked = rows.find((r) => r.key === pickedKey);
   const caseView =
     picked?.requirementUid && pickedCaseUid

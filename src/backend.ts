@@ -96,11 +96,21 @@ export interface StrictDoc {
   documents: { title: string; nodes: StrictDocNode[] }[];
 }
 
+/** The description markharness holds for a requirement; an external requirement has none. */
+export interface RequirementDescription {
+  uid: string;
+  description: string | null;
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
   getProject(): Promise<Project>;
   /** `null` when the project does not use StrictDoc. */
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
+  getRequirementDescriptions(
+    uids: string[],
+    atCommit: string,
+  ): Promise<RequirementDescription[]>;
   getCaseDetail(
     caseUid: string,
     scenarioUid: string,

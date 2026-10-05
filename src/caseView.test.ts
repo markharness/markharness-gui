@@ -96,7 +96,7 @@ describe("describeCase", () => {
     );
 
     expect(view?.verification).toEqual({
-      method: "自動",
+      method: "自動(参照)",
       reference: { target: "tests/login.spec.ts", status: "なし" },
     });
   });

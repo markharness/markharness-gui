@@ -57,6 +57,11 @@ export function RequirementDetail({
           <pre>{strictdoc.statement}</pre>
         </Section>
       )}
+      {row.description && (
+        <Section title="要求内容" badge="markharness">
+          <pre>{row.description}</pre>
+        </Section>
+      )}
       <Section title="ケースとの紐づき" badge="markharness">
         <dl>
           <dt>紐づくケース</dt>
@@ -87,6 +92,7 @@ export function RequirementDetail({
                 <button type="button" onClick={() => onPickCase(c.caseUid)}>
                   {c.title}
                 </button>
+                <small className="belongs-to">{c.belongsTo}</small>
               </li>
             ))}
           </ul>
