@@ -319,3 +319,12 @@ aside .placeholder {
 td .parent {
   white-space: nowrap;
 }
+
+/* Sections and requirements are indented by how deep they sit in StrictDoc's documents. */
+tbody th[scope="colgroup"] {
+  padding-left: calc(var(--space-3) + var(--depth, 0) * 16px);
+}
+
+tbody th[scope="row"] {
+  padding-left: calc(var(--space-3) + var(--depth, 0) * 16px);
+}

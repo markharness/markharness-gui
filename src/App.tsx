@@ -31,6 +31,10 @@ export function App({ backend }: { backend: Backend }) {
       .getElementById(`row-${key}`)
       ?.scrollIntoView?.({ block: "center" });
   };
+  const pickCase = (key: string, caseUid: string) => {
+    setPickedKey(key);
+    setPickedCaseUid(caseUid);
+  };
 
   return (
     <main className="app">
@@ -49,7 +53,9 @@ export function App({ backend }: { backend: Backend }) {
             rows={rows}
             showParents={data.strictdoc !== null}
             pickedKey={pickedKey}
+            pickedCaseUid={pickedCaseUid}
             onPick={pick}
+            onPickCase={pickCase}
           />
         </section>
         <aside className="detail" aria-label="詳細">

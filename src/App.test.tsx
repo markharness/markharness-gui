@@ -97,9 +97,48 @@ describe("App", () => {
     render(<App backend={fakeBackend()} />);
 
     expect(await screen.findByText("/work/project")).toBeInTheDocument();
+    expect(screen.getByText("45c7fc1")).toBeInTheDocument();
+  });
+
+  it("shows the commit shortly, with the full one on hover", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    const commit = await screen.findByText("45c7fc1");
+
+    expect(commit).toHaveAttribute(
+      "title",
+      "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78",
+    );
+    expect(commit.parentElement).toHaveTextContent("(HEAD)");
+  });
+
+  it("picks a requirement from anywhere in its row", async () => {
+    render(<App backend={fakeBackend()} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+
+    fireEvent.click(within(row).getByText("1"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("req-1")).toBeInTheDocument();
+  });
+
+  it("opens a case from its title in the row, and marks it as picked there", async () => {
+    render(<App backend={fakeBackend()} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
     expect(
-      screen.getByText(/45c7fc13cfc0749fb0df9f2cdca724d0826f8a78/),
+      await within(pane).findByText("Rejects a wrong password."),
     ).toBeInTheDocument();
+    expect(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows a requirement with its case count and the titles of its cases", async () => {
@@ -184,7 +223,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
@@ -220,7 +262,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     expect(
@@ -238,7 +283,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
@@ -259,7 +307,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -337,6 +388,29 @@ describe("App", () => {
       expect(screen.getByText("High-Level")).toBeInTheDocument();
       expect(screen.getByText("Login")).toBeInTheDocument();
       expect(screen.queryByText("StrictDoc: 更新中")).not.toBeInTheDocument();
+    });
+
+    it("shows a dash where a requirement has no parent", async () => {
+      render(<App backend={withStrictDoc()} />);
+
+      const hlr = (await screen.findByText("Manage accounts")).closest("tr");
+      if (!hlr) throw new Error("row not found");
+
+      expect(within(hlr).getByText("—")).toBeInTheDocument();
+    });
+
+    it("names the source on the headings of the columns it fills", async () => {
+      render(<App backend={withStrictDoc()} />);
+      await screen.findByText("Manage accounts");
+
+      expect(
+        screen.getByRole("columnheader", { name: /^親の要求\s*StrictDoc$/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("columnheader", {
+          name: /^紐づくケース\s*markharness$/,
+        }),
+      ).toBeInTheDocument();
     });
 
     it("shows a parent beside the requirement and how many requirements point at it", async () => {

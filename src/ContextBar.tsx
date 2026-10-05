@@ -13,7 +13,8 @@ export function ContextBar({
     <header className="context">
       <span className="root">{projectRoot}</span>
       <span>
-        表示中のコミット <code>{atCommit}</code>
+        表示中のコミット <code title={atCommit}>{atCommit.slice(0, 7)}</code>{" "}
+        (HEAD)
       </span>
       <span>検証結果は表示していません</span>
       {strictdocLoading && <span>StrictDoc: 更新中</span>}

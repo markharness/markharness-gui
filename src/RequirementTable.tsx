@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { type CSSProperties, Fragment } from "react";
 import type { RequirementRow } from "./rows";
 
 /** The headings that start at this row: the levels past those shared with the row before. */
@@ -13,17 +13,23 @@ function newHeadings(previous: string[], current: string[]): string[] {
   return current.slice(shared);
 }
 
+const depthOf = (depth: number) => ({ "--depth": depth }) as CSSProperties;
+
 export function RequirementTable({
   rows,
   showParents,
   pickedKey,
+  pickedCaseUid,
   onPick,
+  onPickCase,
 }: {
   rows: RequirementRow[];
   /** Whether StrictDoc is read, so that the parent column has something to show. */
   showParents: boolean;
   pickedKey: string | undefined;
+  pickedCaseUid: string | undefined;
   onPick: (key: string) => void;
+  onPickCase: (key: string, caseUid: string) => void;
 }) {
   const columns = showParents ? 4 : 3;
   return (
@@ -33,6 +39,7 @@ export function RequirementTable({
           {showParents && (
             <th scope="col" className="col-parent">
               親の要求
+              <small className="badge">StrictDoc</small>
             </th>
           )}
           <th scope="col">要求</th>
@@ -41,6 +48,7 @@ export function RequirementTable({
           </th>
           <th scope="col" className="col-cases">
             紐づくケース
+            <small className="badge">markharness</small>
           </th>
         </tr>
       </thead>
@@ -48,9 +56,13 @@ export function RequirementTable({
         {rows.map((row, i) => (
           <Fragment key={row.key}>
             {newHeadings(rows[i - 1]?.headings ?? [], row.headings).map(
-              (title) => (
+              (title, n, started) => (
                 <tr key={`${row.key}-${title}`}>
-                  <th colSpan={columns} scope="colgroup">
+                  <th
+                    colSpan={columns}
+                    scope="colgroup"
+                    style={depthOf(row.headings.length - started.length + n)}
+                  >
                     {title}
                   </th>
                 </tr>
@@ -59,16 +71,21 @@ export function RequirementTable({
             <tr
               id={`row-${row.key}`}
               className={row.key === pickedKey ? "selected" : undefined}
+              onClick={() => onPick(row.key)}
             >
               {showParents && (
                 <td>
+                  {row.strictdoc?.parents.length === 0 && "—"}
                   {row.strictdoc?.parents.map((p) =>
                     p.key ? (
                       <button
                         type="button"
                         key={p.uid}
                         className="parent"
-                        onClick={() => p.key && onPick(p.key)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (p.key) onPick(p.key);
+                        }}
                       >
                         {p.uid}
                       </button>
@@ -80,7 +97,7 @@ export function RequirementTable({
                   )}
                 </td>
               )}
-              <th scope="row">
+              <th scope="row" style={depthOf(row.headings.length)}>
                 <button
                   type="button"
                   aria-pressed={row.key === pickedKey}
@@ -100,9 +117,20 @@ export function RequirementTable({
               <td className="count">{row.cases.length}</td>
               <td>
                 {row.cases.map((c) => (
-                  <span key={c.caseUid} className="case">
+                  <button
+                    type="button"
+                    key={c.caseUid}
+                    className="case"
+                    aria-pressed={
+                      row.key === pickedKey && c.caseUid === pickedCaseUid
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPickCase(row.key, c.caseUid);
+                    }}
+                  >
                     {c.title}
-                  </span>
+                  </button>
                 ))}
               </td>
             </tr>
