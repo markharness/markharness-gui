@@ -79,6 +79,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
     getProjectRoot: async () => "/work/project",
     getProject: async () => project,
     getStrictDoc: async () => null,
+    getRequirementDescriptions: async () => [],
     getCaseDetail: async () => ({
       description: "Rejects a wrong password.",
       phases: [
@@ -97,9 +98,44 @@ describe("App", () => {
     render(<App backend={fakeBackend()} />);
 
     expect(await screen.findByText("/work/project")).toBeInTheDocument();
+    expect(screen.getByText("45c7fc1")).toBeInTheDocument();
+  });
+
+  it("shows the commit shortly", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    const commit = await screen.findByText("45c7fc1");
+
+    expect(commit.parentElement).toHaveTextContent("(HEAD)");
+  });
+
+  it("picks a requirement from anywhere in its row", async () => {
+    render(<App backend={fakeBackend()} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+
+    fireEvent.click(within(row).getByText("1"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("req-1")).toBeInTheDocument();
+  });
+
+  it("opens a case from its title in the row, and marks it as picked there", async () => {
+    render(<App backend={fakeBackend()} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
     expect(
-      screen.getByText(/45c7fc13cfc0749fb0df9f2cdca724d0826f8a78/),
+      await within(pane).findByText("Rejects a wrong password."),
     ).toBeInTheDocument();
+    expect(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows a requirement with its case count and the titles of its cases", async () => {
@@ -138,6 +174,17 @@ describe("App", () => {
     expect(
       await screen.findByText("行を選ぶと、事実と出所が、ここに出ます。"),
     ).toBeInTheDocument();
+  });
+
+  it("heads the detail of a picked row as related information", async () => {
+    render(<App backend={fakeBackend()} />);
+    await screen.findByText("Login requirement");
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).queryByText("関連する情報")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Login requirement"));
+
+    expect(within(pane).getByText("関連する情報")).toBeInTheDocument();
   });
 
   it("shows the picked requirement in the detail pane with where its facts come from", async () => {
@@ -184,7 +231,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
@@ -220,7 +270,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     expect(
@@ -238,11 +291,14 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
-    expect(within(pane).getByText("自動")).toBeInTheDocument();
+    expect(within(pane).getByText("自動(参照)")).toBeInTheDocument();
     expect(
       within(pane).getByText(/tests\/login\.spec\.ts/),
     ).toBeInTheDocument();
@@ -259,7 +315,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Login requirement"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Log in with a password/ }),
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -337,6 +396,29 @@ describe("App", () => {
       expect(screen.getByText("High-Level")).toBeInTheDocument();
       expect(screen.getByText("Login")).toBeInTheDocument();
       expect(screen.queryByText("StrictDoc: 更新中")).not.toBeInTheDocument();
+    });
+
+    it("shows a dash where a requirement has no parent", async () => {
+      render(<App backend={withStrictDoc()} />);
+
+      const hlr = (await screen.findByText("Manage accounts")).closest("tr");
+      if (!hlr) throw new Error("row not found");
+
+      expect(within(hlr).getByText("—")).toBeInTheDocument();
+    });
+
+    it("names the source on the headings of the columns it fills", async () => {
+      render(<App backend={withStrictDoc()} />);
+      await screen.findByText("Manage accounts");
+
+      expect(
+        screen.getByRole("columnheader", { name: /^親の要求\s*StrictDoc$/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("columnheader", {
+          name: /^紐づくケース\s*markharness$/,
+        }),
+      ).toBeInTheDocument();
     });
 
     it("shows a parent beside the requirement and how many requirements point at it", async () => {
@@ -438,6 +520,66 @@ describe("App", () => {
 
     expect(screen.queryByText("StrictDoc: 更新中")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  describe("with descriptions", () => {
+    const described = (overrides: Partial<Backend> = {}) =>
+      fakeBackend({
+        getRequirementDescriptions: async () => [
+          { uid: "R1", description: "Users can log in." },
+          { uid: "R2", description: null },
+        ],
+        ...overrides,
+      });
+
+    it("shows the description under the requirement in the row, and again in the detail pane", async () => {
+      render(<App backend={described()} />);
+
+      const row = (await screen.findByText("Users can log in.")).closest("tr");
+      if (!row) throw new Error("not inside a table row");
+      expect(within(row).getByText("Login requirement")).toBeInTheDocument();
+
+      fireEvent.click(within(row).getByText("Login requirement"));
+
+      const pane = screen.getByRole("complementary", { name: "詳細" });
+      expect(
+        within(pane).getByRole("heading", { name: /^要求内容/ }),
+      ).toHaveTextContent("markharness");
+      expect(within(pane).getByText("Users can log in.")).toBeInTheDocument();
+    });
+
+    it("asks only for requirements whose content markharness holds, at the displayed commit", async () => {
+      const asked: unknown[][] = [];
+      const backend = described({
+        getRequirementDescriptions: async (...args) => {
+          asked.push(args);
+          return [];
+        },
+      });
+      render(<App backend={backend} />);
+
+      await screen.findByText("Login requirement");
+
+      await waitFor(() =>
+        expect(asked).toEqual([
+          [["R1", "R2"], "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78"],
+        ]),
+      );
+    });
+
+    it("tells why the descriptions could not be read, and keeps the rows", async () => {
+      const backend = described({
+        getRequirementDescriptions: async () => {
+          throw new Error("markharnessを起動できません");
+        },
+      });
+      render(<App backend={backend} />);
+
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "markharnessを起動できません",
+      );
+      expect(screen.getByText("Login requirement")).toBeInTheDocument();
+    });
   });
 
   it("shows only the error, with nothing partial, when the project cannot be read", async () => {

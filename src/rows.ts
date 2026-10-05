@@ -8,10 +8,12 @@ export interface RequirementRow {
   /** Where the requirement's content lives: markharness, or an external spec (StrictDoc). */
   source: "native" | "external";
   title: string;
+  /** What markharness holds as the requirement's description; an external requirement has none. */
+  description?: string;
   /** The StrictDoc document and sections the requirement sits under. */
   headings: string[];
   gaps: { label: string; value: string }[];
-  cases: { caseUid: string; title: string }[];
+  cases: { caseUid: string; title: string; belongsTo: string }[];
   /** What StrictDoc reports; absent for a project that does not use it. */
   strictdoc?: {
     uid: string | null;
@@ -45,6 +47,7 @@ function flatten(strictdoc: StrictDoc): Flat[] {
 export function buildRequirementRows(
   project: Project,
   strictdoc: StrictDoc | null = null,
+  descriptions: Record<string, string> = {},
 ): RequirementRow[] {
   const { traceability, coverage } = project;
   const scenarioByUid = new Map(
@@ -66,6 +69,7 @@ export function buildRequirementRows(
   const known = (r: Known | undefined, title: string, headings: string[]) => ({
     requirementUid: r?.requirement_uid,
     requirementId: r?.requirement_id,
+    description: r ? descriptions[r.requirement_uid] : undefined,
     source: r?.source ?? ("external" as const),
     title,
     headings,
@@ -83,9 +87,21 @@ export function buildRequirementRows(
         const scenario = scenarioByUid.get(
           scenarioUidByCase.get(c.case_uid) ?? "",
         );
+        const behavior = traceability.behaviors.find(
+          (b) => b.behavior_uid === scenario?.behavior_uid,
+        );
+        const feature = traceability.features.find(
+          (f) => f.feature_uid === behavior?.feature_uid,
+        );
         return {
           caseUid: c.case_uid,
           title: scenario?.label ?? scenario?.scenario_id ?? c.case_uid,
+          belongsTo: [
+            feature && (feature.label ?? feature.feature_id),
+            behavior && (behavior.label ?? behavior.behavior_id),
+          ]
+            .filter(Boolean)
+            .join(" › "),
         };
       },
     ),

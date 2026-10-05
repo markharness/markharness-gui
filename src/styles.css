@@ -190,8 +190,32 @@ td.count {
   font-size: 12px;
 }
 
+/* Each case in a row is a box of its own, so how many there are shows at a glance. */
+.chips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 td .case {
-  display: block;
+  padding: 3px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td .case:hover {
+  background: var(--bg-subtle);
+  text-decoration: none;
+}
+
+td .case[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--bg-selected);
 }
 
 td .parent {
@@ -235,9 +259,44 @@ aside h3 {
 }
 
 aside .element {
-  margin-top: var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
+}
+
+aside .element .badge {
+  margin-left: 0;
+}
+
+aside .related {
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* One element and its facts: the picked one stands out; the elements above it stay small. */
+.card {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.card.selected {
+  padding: var(--space-3);
+  border: 2px solid var(--accent);
+}
+
+.card h3 {
+  font-size: 13px;
+}
+
+.belongs-to {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 aside .id {
@@ -318,4 +377,13 @@ aside .placeholder {
 
 td .parent {
   white-space: nowrap;
+}
+
+/* Sections and requirements are indented by how deep they sit in StrictDoc's documents. */
+tbody th[scope="colgroup"] {
+  padding-left: calc(var(--space-3) + var(--depth, 0) * 16px);
+}
+
+tbody th[scope="row"] {
+  padding-left: calc(var(--space-3) + var(--depth, 0) * 16px);
 }
