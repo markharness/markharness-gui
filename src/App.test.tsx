@@ -64,6 +64,7 @@ describe("App", () => {
             behavior_id: "submit",
             behavior_uid: "B1",
             feature_id: "login",
+            feature_uid: "F1",
             label: "Submit credentials",
           },
         ],
@@ -72,14 +73,12 @@ describe("App", () => {
             scenario_id: "valid",
             scenario_uid: "S1",
             behavior_id: "submit",
+            behavior_uid: "B1",
             label: "Valid login",
           },
         ],
-        test_cases: [{ case_id: "tc-1", case_uid: "C1" }],
-        relations: [
-          { from_uid: "F1", to_uid: "R1", kind: "contributes_to" },
-          { from_uid: "C1", to_uid: "S1", kind: "generated_from" },
-        ],
+        test_cases: [{ case_id: "tc-1", case_uid: "C1", scenario_uid: "S1" }],
+        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
       }),
     });
 
@@ -126,6 +125,71 @@ describe("App", () => {
     const two = itemOf(screen.getByText("Requirement two"));
     expect(within(one).getByText("Shared feature")).toBeInTheDocument();
     expect(within(two).getByText("Shared feature")).toBeInTheDocument();
+  });
+
+  it("places each scenario under its own behavior when behaviors share a slug", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...empty,
+        requirements: [
+          {
+            requirement_id: "req",
+            requirement_uid: "R1",
+            source: "native",
+            label: "Requirement",
+          },
+        ],
+        features: [
+          { feature_id: "feature-a", feature_uid: "FA", label: "Feature A" },
+          { feature_id: "feature-b", feature_uid: "FB", label: "Feature B" },
+        ],
+        behaviors: [
+          {
+            behavior_id: "submit",
+            behavior_uid: "BA",
+            feature_id: "feature-a",
+            feature_uid: "FA",
+            label: "A submit",
+          },
+          {
+            behavior_id: "submit",
+            behavior_uid: "BB",
+            feature_id: "feature-b",
+            feature_uid: "FB",
+            label: "B submit",
+          },
+        ],
+        scenarios: [
+          {
+            scenario_id: "ok",
+            scenario_uid: "SA",
+            behavior_id: "submit",
+            behavior_uid: "BA",
+            label: "A ok",
+          },
+          {
+            scenario_id: "ok",
+            scenario_uid: "SB",
+            behavior_id: "submit",
+            behavior_uid: "BB",
+            label: "B ok",
+          },
+        ],
+        relations: [
+          { from_uid: "FA", to_uid: "R1", kind: "contributes_to" },
+          { from_uid: "FB", to_uid: "R1", kind: "contributes_to" },
+        ],
+      }),
+    });
+
+    render(<App backend={backend} />);
+
+    const featureA = itemOf(await screen.findByText("Feature A"));
+    const featureB = itemOf(screen.getByText("Feature B"));
+    expect(within(featureA).getByText("A ok")).toBeInTheDocument();
+    expect(within(featureA).queryByText("B ok")).not.toBeInTheDocument();
+    expect(within(featureB).getByText("B ok")).toBeInTheDocument();
+    expect(within(featureB).queryByText("A ok")).not.toBeInTheDocument();
   });
 
   it("groups features without a requirement under a separate heading", async () => {
@@ -204,6 +268,7 @@ describe("App", () => {
             behavior_id: "b",
             behavior_uid: "B1",
             feature_id: "f",
+            feature_uid: "F1",
             label: "Behavior",
           },
         ],
@@ -212,12 +277,14 @@ describe("App", () => {
             scenario_id: "s1",
             scenario_uid: "S1",
             behavior_id: "b",
+            behavior_uid: "B1",
             label: "Scenario elsewhere",
           },
           {
             scenario_id: "s2",
             scenario_uid: "S2",
             behavior_id: "b",
+            behavior_uid: "B1",
             label: "Scenario same",
           },
         ],

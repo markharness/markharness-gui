@@ -15,6 +15,7 @@ export interface Behavior {
   behavior_id: string;
   behavior_uid: string;
   feature_id: string;
+  feature_uid: string;
   label: string | null;
 }
 
@@ -22,12 +23,14 @@ export interface Scenario {
   scenario_id: string;
   scenario_uid: string;
   behavior_id: string;
+  behavior_uid: string;
   label: string | null;
 }
 
 export interface TestCase {
   case_id: string;
   case_uid: string;
+  scenario_uid: string;
 }
 
 export interface Relation {

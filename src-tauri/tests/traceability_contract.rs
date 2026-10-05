@@ -35,10 +35,14 @@ fn run(bin: &Path, args: &[&std::ffi::OsStr]) {
     );
 }
 
-fn create_sample_project(bin: &Path) -> PathBuf {
-    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/todo-minimal");
-    let project =
-        std::env::temp_dir().join(format!("markharness-gui-contract-{}", std::process::id()));
+fn create_sample_project(bin: &Path, fixture: &str) -> PathBuf {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(fixture);
+    let project = std::env::temp_dir().join(format!(
+        "markharness-gui-contract-{fixture}-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(&project).unwrap();
 
@@ -46,15 +50,17 @@ fn create_sample_project(bin: &Path) -> PathBuf {
         bin,
         &["init".as_ref(), "--dir".as_ref(), project.as_os_str()],
     );
-    for axis in std::fs::read_dir(fixtures.join("axes")).unwrap() {
-        let axis = axis.unwrap().path();
-        std::fs::copy(
-            &axis,
-            project
-                .join(".markharness/axes")
-                .join(axis.file_name().unwrap()),
-        )
-        .unwrap();
+    if let Ok(axes) = std::fs::read_dir(fixtures.join("axes")) {
+        for axis in axes {
+            let axis = axis.unwrap().path();
+            std::fs::copy(
+                &axis,
+                project
+                    .join(".markharness/axes")
+                    .join(axis.file_name().unwrap()),
+            )
+            .unwrap();
+        }
     }
     run(
         bin,
@@ -72,7 +78,7 @@ fn create_sample_project(bin: &Path) -> PathBuf {
 #[tokio::test]
 async fn reads_the_traceability_of_a_real_project() {
     let bin = markharness_bin();
-    let project = create_sample_project(&bin);
+    let project = create_sample_project(&bin, "todo-minimal");
 
     let result = read_traceability(&CommandRunner { bin }, &project).await;
     let _ = std::fs::remove_dir_all(&project);
@@ -85,4 +91,52 @@ async fn reads_the_traceability_of_a_real_project() {
     assert_eq!(t.behaviors[0].feature_id, "add-todo");
     assert_eq!(t.scenarios[0].scenario_id, "empty-title");
     assert_eq!(t.test_cases[0].scenario_id, "empty-title");
+}
+
+#[tokio::test]
+async fn resolves_parents_by_uid_when_features_share_a_behavior_slug() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "shared-slugs");
+
+    let result = read_traceability(&CommandRunner { bin }, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let t = result.expect("traceability should be readable");
+    let behavior = |label: &str| {
+        t.behaviors
+            .iter()
+            .find(|b| b.label.as_deref() == Some(label))
+            .unwrap()
+    };
+    let scenario = |label: &str| {
+        t.scenarios
+            .iter()
+            .find(|s| s.label.as_deref() == Some(label))
+            .unwrap()
+    };
+    let feature = |label: &str| {
+        t.features
+            .iter()
+            .find(|f| f.label.as_deref() == Some(label))
+            .unwrap()
+    };
+    assert_eq!(behavior("A-submit").feature_uid, feature("A").feature_uid);
+    assert_eq!(behavior("B-submit").feature_uid, feature("B").feature_uid);
+    assert_eq!(
+        scenario("A-ok").behavior_uid,
+        behavior("A-submit").behavior_uid
+    );
+    assert_eq!(
+        scenario("B-ok").behavior_uid,
+        behavior("B-submit").behavior_uid
+    );
+    let case_of = |scenario_label: &str| {
+        let uid = &scenario(scenario_label).scenario_uid;
+        t.test_cases
+            .iter()
+            .filter(|c| &c.scenario_uid == uid)
+            .count()
+    };
+    assert_eq!(case_of("A-ok"), 1);
+    assert_eq!(case_of("B-ok"), 1);
 }

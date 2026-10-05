@@ -89,6 +89,7 @@ pub struct Behavior {
     pub behavior_id: String,
     pub behavior_uid: String,
     pub feature_id: String,
+    pub feature_uid: String,
     pub label: Option<String>,
 }
 
@@ -97,6 +98,7 @@ pub struct Scenario {
     pub scenario_id: String,
     pub scenario_uid: String,
     pub behavior_id: String,
+    pub behavior_uid: String,
     pub label: Option<String>,
 }
 
@@ -107,6 +109,7 @@ pub struct TestCase {
     pub case_revision: String,
     pub relative_path: String,
     pub scenario_id: String,
+    pub scenario_uid: String,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -164,10 +167,6 @@ impl std::fmt::Display for ReadError {
             ReadError::Malformed(reason) => {
                 write!(f, "必要な項目が欠けているか、型が違います: {reason}")
             }
-            ReadError::AmbiguousParent { field, value } => write!(
-                f,
-                "{field} の値 {value} が、複数の要素に一致し、親を一意に決められません。誤った関係を表示しないため、表示を止めました。markharnessが、親をuidで示す出力に対応するまで、この構成は表示できません"
-            ),
             ReadError::CannotRun(reason) => write!(f, "markharnessを起動できません: {reason}"),
         }
     }
@@ -209,10 +208,6 @@ pub enum ReadError {
         actual: Option<u64>,
     },
     Malformed(String),
-    AmbiguousParent {
-        field: &'static str,
-        value: String,
-    },
     UnsupportedValue {
         field: &'static str,
         value: String,
@@ -259,19 +254,6 @@ pub async fn read_traceability(
     }
     let raw: RawTraceability =
         serde_json::from_value(value).map_err(|e| ReadError::Malformed(e.to_string()))?;
-    for scenario in &raw.scenarios {
-        let parents = raw
-            .behaviors
-            .iter()
-            .filter(|b| b.behavior_id == scenario.behavior_id)
-            .count();
-        if parents > 1 {
-            return Err(ReadError::AmbiguousParent {
-                field: "scenarios[].behavior_id",
-                value: scenario.behavior_id.clone(),
-            });
-        }
-    }
     let requirements = raw
         .requirements
         .into_iter()
@@ -358,11 +340,14 @@ mod tests {
         assert_eq!(t.scenarios[1].scenario_id, "max-length");
         assert_eq!(t.scenarios[1].behavior_id, "add-task");
         assert_eq!(t.test_cases[1].scenario_id, "max-length");
+        assert_eq!(t.behaviors[0].feature_uid, t.features[0].feature_uid);
+        assert_eq!(t.scenarios[1].behavior_uid, t.behaviors[0].behavior_uid);
+        assert_eq!(t.test_cases[1].scenario_uid, t.scenarios[1].scenario_uid);
         assert_eq!(
             t.relations[0],
             Relation {
-                from_uid: "01M3YJ5XPAGJDSDX25KS229D9E".to_string(),
-                to_uid: "01M3YJ5XPAJ3NE0SDXX1Y44G2Y".to_string(),
+                from_uid: "01M440JETKDKJAWSC7ND58HXQY".to_string(),
+                to_uid: "01M440JETKSN1RXENDC70HN1Q5".to_string(),
                 kind: RelationKind::ContributesTo,
             }
         );
@@ -503,7 +488,7 @@ mod tests {
     #[tokio::test]
     async fn stops_when_a_required_field_is_missing() {
         let missing =
-            TODO_MINIMAL.replace(r#""requirement_uid": "01M3YJ5XPAJ3NE0SDXX1Y44G2Y","#, "");
+            TODO_MINIMAL.replace(r#""requirement_uid": "01M440JETKSN1RXENDC70HN1Q5","#, "");
         let runner = FakeRunner::printing(&missing);
 
         let result = read_traceability(&runner, Path::new("/project")).await;
@@ -613,30 +598,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stops_when_a_parent_slug_matches_several_elements() {
+    async fn reads_elements_that_share_a_slug_by_their_parent_uids() {
         let runner = FakeRunner::printing(SHARED_SLUGS);
+
+        let t = read_traceability(&runner, Path::new("/project"))
+            .await
+            .unwrap();
+
+        assert_eq!(t.behaviors.len(), 2);
+        assert_ne!(t.behaviors[0].feature_uid, t.behaviors[1].feature_uid);
+        assert_eq!(t.scenarios.len(), 2);
+        assert_eq!(t.scenarios[0].behavior_uid, t.behaviors[0].behavior_uid);
+        assert_eq!(t.scenarios[1].behavior_uid, t.behaviors[1].behavior_uid);
+    }
+
+    #[tokio::test]
+    async fn stops_when_a_parent_uid_is_missing() {
+        let mut output: serde_json::Value = serde_json::from_str(TODO_MINIMAL).unwrap();
+        output["behaviors"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("feature_uid");
+        let runner = FakeRunner::printing(&output.to_string());
 
         let result = read_traceability(&runner, Path::new("/project")).await;
 
-        assert_eq!(
-            result.unwrap_err(),
-            ReadError::AmbiguousParent {
-                field: "scenarios[].behavior_id",
-                value: "submit".to_string(),
-            }
-        );
-    }
-
-    #[test]
-    fn explains_why_an_ambiguous_parent_cannot_be_shown() {
-        let error = ReadError::AmbiguousParent {
-            field: "scenarios[].behavior_id",
-            value: "submit".to_string(),
-        };
-
-        assert_eq!(
-            error.to_string(),
-            "scenarios[].behavior_id の値 submit が、複数の要素に一致し、親を一意に決められません。誤った関係を表示しないため、表示を止めました。markharnessが、親をuidで示す出力に対応するまで、この構成は表示できません"
-        );
+        match result.unwrap_err() {
+            ReadError::Malformed(message) => assert!(message.contains("feature_uid")),
+            other => panic!("expected Malformed, got {other:?}"),
+        }
     }
 }
