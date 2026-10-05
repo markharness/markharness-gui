@@ -190,8 +190,32 @@ td.count {
   font-size: 12px;
 }
 
+/* Each case in a row is a box of its own, so how many there are shows at a glance. */
+.chips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 td .case {
-  display: block;
+  padding: 3px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td .case:hover {
+  background: var(--bg-subtle);
+  text-decoration: none;
+}
+
+td .case[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--bg-selected);
 }
 
 td .parent {

@@ -118,22 +118,24 @@ export function RequirementTable({
               </th>
               <td className="count">{row.cases.length}</td>
               <td>
-                {row.cases.map((c) => (
-                  <button
-                    type="button"
-                    key={c.caseUid}
-                    className="case"
-                    aria-pressed={
-                      row.key === pickedKey && c.caseUid === pickedCaseUid
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPickCase(row.key, c.caseUid);
-                    }}
-                  >
-                    {c.title}
-                  </button>
-                ))}
+                <div className="chips">
+                  {row.cases.map((c) => (
+                    <button
+                      type="button"
+                      key={c.caseUid}
+                      className="case"
+                      aria-pressed={
+                        row.key === pickedKey && c.caseUid === pickedCaseUid
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPickCase(row.key, c.caseUid);
+                      }}
+                    >
+                      {c.title}
+                    </button>
+                  ))}
+                </div>
               </td>
             </tr>
           </Fragment>
