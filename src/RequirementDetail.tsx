@@ -1,22 +1,61 @@
-import { Section } from "./Section";
+import { ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
+
+function Links({
+  items,
+  onJump,
+}: {
+  items: { uid: string; key: string | undefined }[];
+  onJump: (key: string) => void;
+}) {
+  if (items.length === 0) return <p>なし</p>;
+  return (
+    <ul>
+      {items.map(({ uid, key }) => (
+        <li key={uid}>
+          {key ? (
+            <button type="button" onClick={() => onJump(key)}>
+              {uid}
+            </button>
+          ) : (
+            uid
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** The facts about one requirement, each under the name of the source that reports it. */
 export function RequirementDetail({
   row,
   onPickCase,
+  onJump,
 }: {
   row: RequirementRow;
   onPickCase: (caseUid: string) => void;
+  onJump: (key: string) => void;
 }) {
-  const source = row.source === "external" ? "StrictDoc" : "markharness";
+  const { strictdoc } = row;
   return (
     <>
-      <p>
-        <small>要求</small> <small>{source}</small>
-      </p>
-      <h2>{row.title}</h2>
-      <p>{row.requirementId}</p>
+      {strictdoc && (
+        <Section title="親の要求" badge="StrictDoc">
+          <Links items={strictdoc.parents} onJump={onJump} />
+        </Section>
+      )}
+      <ElementHeading
+        kind="要求"
+        source={row.source === "external" ? "StrictDoc" : "markharness"}
+        title={row.title}
+        id={row.requirementId ?? strictdoc?.uid ?? ""}
+        level={2}
+      />
+      {strictdoc?.statement && (
+        <Section title="要求内容" badge="StrictDoc">
+          <pre>{strictdoc.statement}</pre>
+        </Section>
+      )}
       <Section title="ケースとの紐づき" badge="markharness">
         <dl>
           <dt>紐づくケース</dt>
@@ -29,6 +68,14 @@ export function RequirementDetail({
           ))}
         </dl>
       </Section>
+      {strictdoc && (
+        <Section title="子の要求" badge="StrictDoc">
+          <Links
+            items={strictdoc.children.map((c) => ({ uid: c.uid, key: c.key }))}
+            onJump={onJump}
+          />
+        </Section>
+      )}
       <Section title="紐づくケース" badge="markharness">
         {row.cases.length === 0 ? (
           <p>紐づいていません。</p>
