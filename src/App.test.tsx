@@ -176,6 +176,17 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("heads the detail of a picked row as related information", async () => {
+    render(<App backend={fakeBackend()} />);
+    await screen.findByText("Login requirement");
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).queryByText("関連する情報")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Login requirement"));
+
+    expect(within(pane).getByText("関連する情報")).toBeInTheDocument();
+  });
+
   it("shows the picked requirement in the detail pane with where its facts come from", async () => {
     render(<App backend={fakeBackend()} />);
 

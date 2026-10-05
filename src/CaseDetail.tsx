@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Backend, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
-import { ElementHeading, Section } from "./Section";
+import { Card, ElementHeading, Section } from "./Section";
 import { sourceName } from "./sources";
 
 /**
@@ -36,72 +36,80 @@ export function CaseDetail({
 
   return (
     <>
-      <ElementHeading
-        kind="要求"
-        source={sourceName(view.requirement.source)}
-        title={view.requirement.title}
-        id={view.requirement.id}
-      />
-      {view.feature && (
+      <Card>
         <ElementHeading
-          kind="Feature"
-          source="markharness"
-          title={view.feature.title}
-          id={view.feature.id}
+          kind="要求"
+          source={sourceName(view.requirement.source)}
+          title={view.requirement.title}
+          id={view.requirement.id}
         />
+      </Card>
+      {view.feature && (
+        <Card>
+          <ElementHeading
+            kind="Feature"
+            source="markharness"
+            title={view.feature.title}
+            id={view.feature.id}
+          />
+        </Card>
       )}
       {view.behavior && (
+        <Card>
+          <ElementHeading
+            kind="Behavior"
+            source="markharness"
+            title={view.behavior.title}
+            id={view.behavior.id}
+          />
+        </Card>
+      )}
+      <Card selected>
         <ElementHeading
-          kind="Behavior"
+          kind="ケース"
           source="markharness"
-          title={view.behavior.title}
-          id={view.behavior.id}
+          title={picked.title}
+          id={picked.id}
+          level={2}
         />
-      )}
-      <ElementHeading
-        kind="ケース"
-        source="markharness"
-        title={picked.title}
-        id={picked.id}
-        level={2}
-      />
-      {error ? (
-        <pre role="alert">{error}</pre>
-      ) : !detail ? (
-        <p>読み込み中…</p>
-      ) : (
-        <>
-          {detail.description && (
-            <Section title="説明" badge="markharness">
-              <p>{detail.description}</p>
+        {error ? (
+          <pre role="alert">{error}</pre>
+        ) : !detail ? (
+          <p>読み込み中…</p>
+        ) : (
+          <>
+            {detail.description && (
+              <Section title="説明" badge="markharness">
+                <p>{detail.description}</p>
+              </Section>
+            )}
+            <Section title="手順と期待結果" badge="markharness">
+              {detail.phases.map((phase) => (
+                <div key={phase.steps.join(" / ")}>
+                  <ul>
+                    {phase.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ul>
+                  <p>→ {phase.results.join(" / ")}</p>
+                </div>
+              ))}
             </Section>
-          )}
-          <Section title="手順と期待結果" badge="markharness">
-            {detail.phases.map((phase) => (
-              <div key={phase.steps.join(" / ")}>
-                <ul>
-                  {phase.steps.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ul>
-                <p>→ {phase.results.join(" / ")}</p>
-              </div>
-            ))}
-          </Section>
-        </>
-      )}
-      <Section title="検証方法" badge="markharness">
-        <dl>
-          <dt>方法</dt>
-          <dd>{view.verification.method}</dd>
-          <dt>参照先</dt>
-          <dd>
-            {view.verification.reference
-              ? `${view.verification.reference.target}(${view.verification.reference.status})`
-              : "—"}
-          </dd>
-        </dl>
-      </Section>
+          </>
+        )}
+        <Section title="検証方法" badge="markharness">
+          <dl>
+            <dt>方法</dt>
+            <dd>{view.verification.method}</dd>
+            <dt>参照先</dt>
+            <dd>
+              {view.verification.reference
+                ? `${view.verification.reference.target}(${view.verification.reference.status})`
+                : "—"}
+            </dd>
+          </dl>
+        </Section>
+      </Card>
     </>
   );
 }

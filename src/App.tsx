@@ -59,6 +59,7 @@ export function App({ backend }: { backend: Backend }) {
           />
         </section>
         <aside className="detail" aria-label="詳細">
+          {picked && <p className="related">関連する情報</p>}
           {caseView ? (
             <CaseDetail
               view={caseView}

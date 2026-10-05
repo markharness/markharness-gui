@@ -1,6 +1,6 @@
-import { ElementHeading, Section } from "./Section";
-import { sourceName } from "./sources";
+import { Card, ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
+import { sourceName } from "./sources";
 
 function Links({
   items,
@@ -45,35 +45,37 @@ export function RequirementDetail({
           <Links items={strictdoc.parents} onJump={onJump} />
         </Section>
       )}
-      <ElementHeading
-        kind="要求"
-        source={sourceName(row.source)}
-        title={row.title}
-        id={row.requirementId ?? strictdoc?.uid ?? ""}
-        level={2}
-      />
-      {strictdoc?.statement && (
-        <Section title="要求内容" badge="StrictDoc">
-          <pre>{strictdoc.statement}</pre>
+      <Card selected>
+        <ElementHeading
+          kind="要求"
+          source={sourceName(row.source)}
+          title={row.title}
+          id={row.requirementId ?? strictdoc?.uid ?? ""}
+          level={2}
+        />
+        {strictdoc?.statement && (
+          <Section title="要求内容" badge="StrictDoc">
+            <pre>{strictdoc.statement}</pre>
+          </Section>
+        )}
+        {row.description && (
+          <Section title="要求内容" badge="markharness">
+            <pre>{row.description}</pre>
+          </Section>
+        )}
+        <Section title="ケースとの紐づき" badge="markharness">
+          <dl>
+            <dt>紐づくケース</dt>
+            <dd>{row.cases.length}件</dd>
+            {row.gaps.map((g) => (
+              <div key={g.label + g.value}>
+                <dt>{g.label}</dt>
+                <dd>{g.value}</dd>
+              </div>
+            ))}
+          </dl>
         </Section>
-      )}
-      {row.description && (
-        <Section title="要求内容" badge="markharness">
-          <pre>{row.description}</pre>
-        </Section>
-      )}
-      <Section title="ケースとの紐づき" badge="markharness">
-        <dl>
-          <dt>紐づくケース</dt>
-          <dd>{row.cases.length}件</dd>
-          {row.gaps.map((g) => (
-            <div key={g.label + g.value}>
-              <dt>{g.label}</dt>
-              <dd>{g.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Section>
+      </Card>
       {strictdoc && (
         <Section title="子の要求" badge="StrictDoc">
           <Links

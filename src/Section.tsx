@@ -38,12 +38,21 @@ export function ElementHeading({
   const Heading = level === 2 ? "h2" : "h3";
   return (
     <div className="element">
-      <p>
-        <small className="kind">{kind}</small>
-        <small className="badge">{source}</small>
-      </p>
+      <small className="kind">{kind}</small>
+      <small className="badge">{source}</small>
       <Heading>{title}</Heading>
-      <p className="id">{id}</p>
+      <span className="id">{id}</span>
     </div>
   );
+}
+
+/** A box around one element and the facts about it; the picked element's box stands out. */
+export function Card({
+  selected,
+  children,
+}: {
+  selected?: boolean;
+  children: ReactNode;
+}) {
+  return <div className={selected ? "card selected" : "card"}>{children}</div>;
 }
