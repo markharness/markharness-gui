@@ -54,6 +54,11 @@ export interface Coverage {
     requirement_uid: string;
     cases: { case_uid: string }[];
   }[];
+  gaps: {
+    kind: "requirement_has_no_feature" | "feature_has_no_case";
+    requirement_id: string;
+    feature_id: string | null;
+  }[];
 }
 
 /** The traceability and the coverage of one commit. */

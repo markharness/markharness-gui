@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import type { Backend, Project } from "./backend";
@@ -40,6 +40,13 @@ const project: Project = {
       { requirement_uid: "R1", cases: [{ case_uid: "C1" }] },
       { requirement_uid: "R2", cases: [] },
     ],
+    gaps: [
+      {
+        kind: "requirement_has_no_feature",
+        requirement_id: "req-2",
+        feature_id: null,
+      },
+    ],
   },
 };
 
@@ -76,7 +83,8 @@ describe("App", () => {
     const row = (await screen.findByText("Logout requirement")).closest("tr");
     if (!row) throw new Error("not inside a table row");
     expect(within(row).getByText("0")).toBeInTheDocument();
-    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+    // The title is the only control in the row: nothing flags the empty case list.
+    expect(within(row).getAllByRole("button")).toHaveLength(1);
   });
 
   it("lists the requirements in the order the backend returns them", async () => {
@@ -88,6 +96,45 @@ describe("App", () => {
       .slice(1)
       .map((r) => r.querySelector("th")?.textContent);
     expect(titles).toEqual(["Login requirement", "Logout requirement"]);
+  });
+
+  it("asks to pick a row until one is picked", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    expect(
+      await screen.findByText("行を選ぶと、事実と出所が、ここに出ます。"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the picked requirement in the detail pane with where its facts come from", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    fireEvent.click(await screen.findByText("Login requirement"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("Login requirement")).toBeInTheDocument();
+    expect(within(pane).getByText("req-1")).toBeInTheDocument();
+    expect(
+      within(pane).getByRole("heading", { name: /^紐づくケース/ }),
+    ).toBeInTheDocument();
+    expect(within(pane).getByText("1件")).toBeInTheDocument();
+    expect(
+      within(pane).getByText("Log in with a password"),
+    ).toBeInTheDocument();
+    expect(within(pane).getAllByText("markharness").length).toBeGreaterThan(0);
+  });
+
+  it("shows why the core reports a requirement as not covered, only in the detail pane", async () => {
+    render(<App backend={fakeBackend()} />);
+    await screen.findByText("Logout requirement");
+    expect(screen.queryByText("機能のない要求")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Logout requirement"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("機能のない要求")).toBeInTheDocument();
+    expect(within(pane).getByText("紐づいていません。")).toBeInTheDocument();
+    expect(within(pane).getByText("0件")).toBeInTheDocument();
   });
 
   it("shows only the error, with nothing partial, when the project cannot be read", async () => {

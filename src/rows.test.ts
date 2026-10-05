@@ -53,6 +53,18 @@ function project(overrides: Partial<Project> = {}): Project {
         },
         { requirement_uid: "RB", cases: [] },
       ],
+      gaps: [
+        {
+          kind: "requirement_has_no_feature",
+          requirement_id: "req-b",
+          feature_id: null,
+        },
+        {
+          kind: "feature_has_no_case",
+          requirement_id: "req-a",
+          feature_id: "f-1",
+        },
+      ],
     },
     ...overrides,
   };
@@ -93,5 +105,19 @@ describe("buildRequirementRows", () => {
     const rows = buildRequirementRows(p);
 
     expect(rows.every((r) => r.cases.length === 0)).toBe(true);
+  });
+
+  it("carries the requirement id and where its content lives", () => {
+    const [rb] = buildRequirementRows(project());
+
+    expect(rb.requirementId).toBe("req-b");
+    expect(rb.source).toBe("native");
+  });
+
+  it("says in words why the core reports a requirement as not covered", () => {
+    const [rb, ra] = buildRequirementRows(project());
+
+    expect(rb.gaps).toEqual([{ label: "機能のない要求", value: "" }]);
+    expect(ra.gaps).toEqual([{ label: "ケースがない機能", value: "f-1" }]);
   });
 });
