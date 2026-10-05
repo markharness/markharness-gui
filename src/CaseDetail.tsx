@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import type { Backend, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
 import { ElementHeading, Section } from "./Section";
-
-const sourceName = (source: "native" | "external") =>
-  source === "external" ? "StrictDoc" : "markharness";
+import { sourceName } from "./sources";
 
 /**
  * A picked case, under the elements above it. Its description and steps are read when it is

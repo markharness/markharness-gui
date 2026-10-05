@@ -1,4 +1,5 @@
 import { ElementHeading, Section } from "./Section";
+import { sourceName } from "./sources";
 import type { RequirementRow } from "./rows";
 
 function Links({
@@ -46,7 +47,7 @@ export function RequirementDetail({
       )}
       <ElementHeading
         kind="要求"
-        source={row.source === "external" ? "StrictDoc" : "markharness"}
+        source={sourceName(row.source)}
         title={row.title}
         id={row.requirementId ?? strictdoc?.uid ?? ""}
         level={2}

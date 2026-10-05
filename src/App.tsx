@@ -1,70 +1,24 @@
-import { Fragment, useEffect, useState } from "react";
-import type { Backend, Project, StrictDoc } from "./backend";
+import { useState } from "react";
+import type { Backend } from "./backend";
 import { CaseDetail } from "./CaseDetail";
 import { describeCase } from "./caseView";
+import { ContextBar } from "./ContextBar";
 import { RequirementDetail } from "./RequirementDetail";
+import { RequirementTable } from "./RequirementTable";
 import { buildRequirementRows } from "./rows";
-
-type StrictDocState =
-  | { status: "loading" }
-  | { status: "done"; strictdoc: StrictDoc | null };
-
-/** The headings that start at this row: the levels past those shared with the row before. */
-function newHeadings(previous: string[], current: string[]): string[] {
-  let shared = 0;
-  while (
-    shared < previous.length &&
-    shared < current.length &&
-    previous[shared] === current[shared]
-  )
-    shared += 1;
-  return current.slice(shared);
-}
+import { Toast } from "./Toast";
+import { useProjectData } from "./useProjectData";
 
 export function App({ backend }: { backend: Backend }) {
-  const [projectRoot, setProjectRoot] = useState<string>();
-  const [project, setProject] = useState<Project>();
-  const [error, setError] = useState<string>();
-  const [strictdoc, setStrictDoc] = useState<StrictDocState>({
-    status: "loading",
-  });
-  const [toast, setToast] = useState<string>();
-  const [reloads, setReloads] = useState(0);
+  const data = useProjectData(backend);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
 
-  useEffect(() => {
-    let current = true;
-    setError(undefined);
-    setStrictDoc({ status: "loading" });
-    Promise.all([backend.getProjectRoot(), backend.getProject()]).then(
-      ([root, p]) => {
-        if (!current) return;
-        setProjectRoot(root);
-        setProject(p);
-      },
-      (e) => current && setError(String(e)),
-    );
-    // StrictDoc is read apart from the project, so that the project shows first.
-    backend.getStrictDoc(reloads > 0).then(
-      (s) => current && setStrictDoc({ status: "done", strictdoc: s }),
-      (e) => {
-        if (!current) return;
-        setStrictDoc({ status: "done", strictdoc: null });
-        setToast(String(e));
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [backend, reloads]);
+  if (data.error) return <pre role="alert">{data.error}</pre>;
+  if (!data.loaded) return <p>読み込み中…</p>;
 
-  if (error) return <pre role="alert">{error}</pre>;
-  if (!projectRoot || !project) return <p>読み込み中…</p>;
-
-  const loadedStrictDoc =
-    strictdoc.status === "done" ? strictdoc.strictdoc : null;
-  const rows = buildRequirementRows(project, loadedStrictDoc);
+  const { projectRoot, project } = data.loaded;
+  const rows = buildRequirementRows(project, data.strictdoc);
   const picked = rows.find((r) => r.key === pickedKey);
   const caseView =
     picked?.requirementUid && pickedCaseUid
@@ -77,118 +31,26 @@ export function App({ backend }: { backend: Backend }) {
       .getElementById(`row-${key}`)
       ?.scrollIntoView?.({ block: "center" });
   };
-  const columns = loadedStrictDoc ? 4 : 3;
 
   return (
     <main className="app">
-      <header className="context">
-        <span className="root">{projectRoot}</span>
-        <span>
-          表示中のコミット <code>{project.at_commit}</code>
-        </span>
-        <span>検証結果は表示していません</span>
-        {strictdoc.status === "loading" && <span>StrictDoc: 更新中</span>}
-        <button
-          type="button"
-          className="reload"
-          onClick={() => setReloads(reloads + 1)}
-        >
-          再読み込み
-        </button>
-      </header>
-      {toast && (
-        <div role="status">
-          <pre>{toast}</pre>
-          <button type="button" onClick={() => setToast(undefined)}>
-            閉じる
-          </button>
-        </div>
+      <ContextBar
+        projectRoot={projectRoot}
+        atCommit={project.at_commit}
+        strictdocLoading={data.strictdocLoading}
+        onReload={data.reload}
+      />
+      {data.notice && (
+        <Toast message={data.notice} onDismiss={data.dismissNotice} />
       )}
       <div className="panes">
         <section className="list">
-          <table>
-            <thead>
-              <tr>
-                {loadedStrictDoc && (
-                  <th scope="col" className="col-parent">
-                    親の要求
-                  </th>
-                )}
-                <th scope="col">要求</th>
-                <th scope="col" className="col-count">
-                  ケース数
-                </th>
-                <th scope="col" className="col-cases">
-                  紐づくケース
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <Fragment key={row.key}>
-                  {newHeadings(rows[i - 1]?.headings ?? [], row.headings).map(
-                    (title) => (
-                      <tr key={`${row.key}-${title}`}>
-                        <th colSpan={columns} scope="colgroup">
-                          {title}
-                        </th>
-                      </tr>
-                    ),
-                  )}
-                  <tr
-                    id={`row-${row.key}`}
-                    className={row.key === pickedKey ? "selected" : undefined}
-                  >
-                    {loadedStrictDoc && (
-                      <td>
-                        {row.strictdoc?.parents.map((p) =>
-                          p.key ? (
-                            <button
-                              type="button"
-                              key={p.uid}
-                              className="parent"
-                              onClick={() => p.key && pick(p.key)}
-                            >
-                              {p.uid}
-                            </button>
-                          ) : (
-                            <span key={p.uid} className="parent">
-                              {p.uid}
-                            </span>
-                          ),
-                        )}
-                      </td>
-                    )}
-                    <th scope="row">
-                      <button
-                        type="button"
-                        aria-pressed={row.key === pickedKey}
-                        onClick={() => pick(row.key)}
-                      >
-                        {row.title}
-                      </button>
-                      {row.strictdoc && (
-                        <p className="statement">{row.strictdoc.statement}</p>
-                      )}
-                      {row.strictdoc && row.strictdoc.children.length > 0 && (
-                        <p className="children">
-                          子の要求: {row.strictdoc.children.length}件
-                        </p>
-                      )}
-                    </th>
-                    <td className="count">{row.cases.length}</td>
-                    <td>
-                      {row.cases.map((c) => (
-                        <span key={c.caseUid} className="case">
-                          {c.title}
-                        </span>
-                      ))}
-                    </td>
-                  </tr>
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+          <RequirementTable
+            rows={rows}
+            showParents={data.strictdoc !== null}
+            pickedKey={pickedKey}
+            onPick={pick}
+          />
         </section>
         <aside className="detail" aria-label="詳細">
           {caseView ? (
