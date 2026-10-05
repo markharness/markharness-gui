@@ -2,6 +2,7 @@ pub mod coverage;
 pub mod detail;
 pub mod launch;
 pub mod project;
+pub mod strictdoc;
 pub mod traceability;
 
 use launch::LaunchConfig;
