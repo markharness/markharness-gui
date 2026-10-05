@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import "./styles.css";
 import type { Backend, CaseDetail, Project, StrictDoc } from "./backend";
 
 const backend: Backend = {

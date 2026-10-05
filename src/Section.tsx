@@ -13,7 +13,8 @@ export function Section({
   return (
     <section>
       <h3>
-        {title} <small>{badge}</small>
+        {title}
+        <small className="badge">{badge}</small>
       </h3>
       {children}
     </section>
@@ -36,12 +37,13 @@ export function ElementHeading({
 }) {
   const Heading = level === 2 ? "h2" : "h3";
   return (
-    <div>
+    <div className="element">
       <p>
-        <small>{kind}</small> <small>{source}</small>
+        <small className="kind">{kind}</small>
+        <small className="badge">{source}</small>
       </p>
       <Heading>{title}</Heading>
-      <p>{id}</p>
+      <p className="id">{id}</p>
     </div>
   );
 }

@@ -80,14 +80,22 @@ export function App({ backend }: { backend: Backend }) {
   const columns = loadedStrictDoc ? 4 : 3;
 
   return (
-    <main>
-      <p>{projectRoot}</p>
-      <p>表示中のコミット {project.at_commit}</p>
-      <p>検証結果は表示していません</p>
-      {strictdoc.status === "loading" && <p>StrictDoc: 更新中</p>}
-      <button type="button" onClick={() => setReloads(reloads + 1)}>
-        再読み込み
-      </button>
+    <main className="app">
+      <header className="context">
+        <span className="root">{projectRoot}</span>
+        <span>
+          表示中のコミット <code>{project.at_commit}</code>
+        </span>
+        <span>検証結果は表示していません</span>
+        {strictdoc.status === "loading" && <span>StrictDoc: 更新中</span>}
+        <button
+          type="button"
+          className="reload"
+          onClick={() => setReloads(reloads + 1)}
+        >
+          再読み込み
+        </button>
+      </header>
       {toast && (
         <div role="status">
           <pre>{toast}</pre>
@@ -96,86 +104,112 @@ export function App({ backend }: { backend: Backend }) {
           </button>
         </div>
       )}
-      <table>
-        <thead>
-          <tr>
-            {loadedStrictDoc && <th scope="col">親の要求</th>}
-            <th scope="col">要求</th>
-            <th scope="col">ケース数</th>
-            <th scope="col">紐づくケース</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <Fragment key={row.key}>
-              {newHeadings(rows[i - 1]?.headings ?? [], row.headings).map(
-                (title) => (
-                  <tr key={`${row.key}-${title}`}>
-                    <th colSpan={columns} scope="colgroup">
-                      {title}
-                    </th>
-                  </tr>
-                ),
-              )}
-              <tr id={`row-${row.key}`}>
+      <div className="panes">
+        <section className="list">
+          <table>
+            <thead>
+              <tr>
                 {loadedStrictDoc && (
-                  <td>
-                    {row.strictdoc?.parents.map((p) =>
-                      p.key ? (
-                        <button
-                          type="button"
-                          key={p.uid}
-                          onClick={() => p.key && pick(p.key)}
-                        >
-                          {p.uid}
-                        </button>
-                      ) : (
-                        <span key={p.uid}>{p.uid}</span>
-                      ),
-                    )}
-                  </td>
+                  <th scope="col" className="col-parent">
+                    親の要求
+                  </th>
                 )}
-                <th scope="row">
-                  <button
-                    type="button"
-                    aria-pressed={row.key === pickedKey}
-                    onClick={() => pick(row.key)}
-                  >
-                    {row.title}
-                  </button>
-                  {row.strictdoc && <p>{row.strictdoc.statement}</p>}
-                  {row.strictdoc && row.strictdoc.children.length > 0 && (
-                    <p>子の要求: {row.strictdoc.children.length}件</p>
-                  )}
+                <th scope="col">要求</th>
+                <th scope="col" className="col-count">
+                  ケース数
                 </th>
-                <td>{row.cases.length}</td>
-                <td>
-                  {row.cases.map((c) => (
-                    <span key={c.caseUid}>{c.title}</span>
-                  ))}
-                </td>
+                <th scope="col" className="col-cases">
+                  紐づくケース
+                </th>
               </tr>
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
-      <aside aria-label="詳細">
-        {caseView ? (
-          <CaseDetail
-            view={caseView}
-            backend={backend}
-            atCommit={project.at_commit}
-          />
-        ) : picked ? (
-          <RequirementDetail
-            row={picked}
-            onPickCase={setPickedCaseUid}
-            onJump={pick}
-          />
-        ) : (
-          <p>行を選ぶと、事実と出所が、ここに出ます。</p>
-        )}
-      </aside>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <Fragment key={row.key}>
+                  {newHeadings(rows[i - 1]?.headings ?? [], row.headings).map(
+                    (title) => (
+                      <tr key={`${row.key}-${title}`}>
+                        <th colSpan={columns} scope="colgroup">
+                          {title}
+                        </th>
+                      </tr>
+                    ),
+                  )}
+                  <tr
+                    id={`row-${row.key}`}
+                    className={row.key === pickedKey ? "selected" : undefined}
+                  >
+                    {loadedStrictDoc && (
+                      <td>
+                        {row.strictdoc?.parents.map((p) =>
+                          p.key ? (
+                            <button
+                              type="button"
+                              key={p.uid}
+                              className="parent"
+                              onClick={() => p.key && pick(p.key)}
+                            >
+                              {p.uid}
+                            </button>
+                          ) : (
+                            <span key={p.uid} className="parent">
+                              {p.uid}
+                            </span>
+                          ),
+                        )}
+                      </td>
+                    )}
+                    <th scope="row">
+                      <button
+                        type="button"
+                        aria-pressed={row.key === pickedKey}
+                        onClick={() => pick(row.key)}
+                      >
+                        {row.title}
+                      </button>
+                      {row.strictdoc && (
+                        <p className="statement">{row.strictdoc.statement}</p>
+                      )}
+                      {row.strictdoc && row.strictdoc.children.length > 0 && (
+                        <p className="children">
+                          子の要求: {row.strictdoc.children.length}件
+                        </p>
+                      )}
+                    </th>
+                    <td className="count">{row.cases.length}</td>
+                    <td>
+                      {row.cases.map((c) => (
+                        <span key={c.caseUid} className="case">
+                          {c.title}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <aside className="detail" aria-label="詳細">
+          {caseView ? (
+            <CaseDetail
+              view={caseView}
+              backend={backend}
+              atCommit={project.at_commit}
+            />
+          ) : picked ? (
+            <RequirementDetail
+              row={picked}
+              onPickCase={setPickedCaseUid}
+              onJump={pick}
+            />
+          ) : (
+            <p className="placeholder">
+              行を選ぶと、事実と出所が、ここに出ます。
+            </p>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }
