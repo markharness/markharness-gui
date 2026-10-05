@@ -48,7 +48,22 @@ export interface Traceability {
   relations: Relation[];
 }
 
+export interface Coverage {
+  at_commit: string;
+  requirements: {
+    requirement_uid: string;
+    cases: { case_uid: string }[];
+  }[];
+}
+
+/** The traceability and the coverage of one commit. */
+export interface Project {
+  at_commit: string;
+  traceability: Traceability;
+  coverage: Coverage;
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
-  getTraceability(): Promise<Traceability>;
+  getProject(): Promise<Project>;
 }
