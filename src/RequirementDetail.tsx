@@ -1,26 +1,14 @@
+import { Section } from "./Section";
 import type { RequirementRow } from "./rows";
 
-function Section({
-  title,
-  badge,
-  children,
-}: {
-  title: string;
-  badge: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h3>
-        {title} <small>{badge}</small>
-      </h3>
-      {children}
-    </section>
-  );
-}
-
 /** The facts about one requirement, each under the name of the source that reports it. */
-export function RequirementDetail({ row }: { row: RequirementRow }) {
+export function RequirementDetail({
+  row,
+  onPickCase,
+}: {
+  row: RequirementRow;
+  onPickCase: (caseUid: string) => void;
+}) {
   const source = row.source === "external" ? "StrictDoc" : "markharness";
   return (
     <>
@@ -47,7 +35,11 @@ export function RequirementDetail({ row }: { row: RequirementRow }) {
         ) : (
           <ul>
             {row.cases.map((c) => (
-              <li key={c.caseUid}>{c.title}</li>
+              <li key={c.caseUid}>
+                <button type="button" onClick={() => onPickCase(c.caseUid)}>
+                  {c.title}
+                </button>
+              </li>
             ))}
           </ul>
         )}

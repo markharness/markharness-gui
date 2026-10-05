@@ -52,7 +52,12 @@ export interface Coverage {
   at_commit: string;
   requirements: {
     requirement_uid: string;
-    cases: { case_uid: string }[];
+    cases: {
+      case_uid: string;
+      binding_mode: string | null;
+      binding_reference: string | null;
+      reference_status: "exists" | "missing" | "not_checked" | null;
+    }[];
   }[];
   gaps: {
     kind: "requirement_has_no_feature" | "feature_has_no_case";
@@ -68,7 +73,17 @@ export interface Project {
   coverage: Coverage;
 }
 
+export interface CaseDetail {
+  description: string | null;
+  phases: { steps: string[]; results: string[] }[];
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
   getProject(): Promise<Project>;
+  getCaseDetail(
+    caseUid: string,
+    scenarioUid: string,
+    atCommit: string,
+  ): Promise<CaseDetail>;
 }

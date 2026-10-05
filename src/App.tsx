@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Backend, Project } from "./backend";
+import { CaseDetail } from "./CaseDetail";
+import { describeCase } from "./caseView";
 import { RequirementDetail } from "./RequirementDetail";
 import { buildRequirementRows } from "./rows";
 
@@ -8,6 +10,7 @@ export function App({ backend }: { backend: Backend }) {
   const [project, setProject] = useState<Project>();
   const [error, setError] = useState<string>();
   const [pickedUid, setPickedUid] = useState<string>();
+  const [pickedCaseUid, setPickedCaseUid] = useState<string>();
 
   useEffect(() => {
     Promise.all([backend.getProjectRoot(), backend.getProject()]).then(
@@ -24,11 +27,16 @@ export function App({ backend }: { backend: Backend }) {
 
   const rows = buildRequirementRows(project);
   const picked = rows.find((r) => r.requirementUid === pickedUid);
+  const caseView =
+    pickedUid && pickedCaseUid
+      ? describeCase(project, pickedUid, pickedCaseUid)
+      : undefined;
 
   return (
     <main>
       <p>{projectRoot}</p>
       <p>表示中のコミット {project.at_commit}</p>
+      <p>検証結果は表示していません</p>
       <table>
         <thead>
           <tr>
@@ -44,7 +52,10 @@ export function App({ backend }: { backend: Backend }) {
                 <button
                   type="button"
                   aria-pressed={row.requirementUid === pickedUid}
-                  onClick={() => setPickedUid(row.requirementUid)}
+                  onClick={() => {
+                    setPickedUid(row.requirementUid);
+                    setPickedCaseUid(undefined);
+                  }}
                 >
                   {row.title}
                 </button>
@@ -60,8 +71,14 @@ export function App({ backend }: { backend: Backend }) {
         </tbody>
       </table>
       <aside aria-label="詳細">
-        {picked ? (
-          <RequirementDetail row={picked} />
+        {caseView ? (
+          <CaseDetail
+            view={caseView}
+            backend={backend}
+            atCommit={project.at_commit}
+          />
+        ) : picked ? (
+          <RequirementDetail row={picked} onPickCase={setPickedCaseUid} />
         ) : (
           <p>行を選ぶと、事実と出所が、ここに出ます。</p>
         )}
