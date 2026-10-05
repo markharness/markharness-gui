@@ -23,6 +23,13 @@ pub trait MarkharnessRunner {
         &self,
         project_root: &Path,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
+    fn traceability_show(
+        &self,
+        project_root: &Path,
+        uid: &str,
+        at: Option<&str>,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
 pub struct CommandRunner {
@@ -63,6 +70,24 @@ impl MarkharnessRunner for CommandRunner {
         command
             .args(["coverage", "--requirements", "all", "--dir"])
             .arg(project_root);
+        self.run(command).await
+    }
+
+    async fn traceability_show(
+        &self,
+        project_root: &Path,
+        uid: &str,
+        at: Option<&str>,
+    ) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        // `--uid=` keeps a uid that starts with `-` from being read as an option.
+        command
+            .args(["traceability", "show"])
+            .arg(format!("--uid={uid}"));
+        if let Some(at) = at {
+            command.arg("--at").arg(at);
+        }
+        command.arg("--dir").arg(project_root);
         self.run(command).await
     }
 }
@@ -365,6 +390,15 @@ mod tests {
         }
 
         async fn coverage(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn traceability_show(
+            &self,
+            _project_root: &Path,
+            _uid: &str,
+            _at: Option<&str>,
+        ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
     }

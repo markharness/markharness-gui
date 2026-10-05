@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use markharness_gui_lib::detail::read_case_detail;
 use markharness_gui_lib::project::read_project;
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
 
@@ -184,4 +185,30 @@ async fn reads_the_traceability_and_the_coverage_of_one_commit() {
         .find(|r| r.requirement_uid == requirement.requirement_uid)
         .expect("coverage should report the requirement");
     assert!(!covered.cases.is_empty());
+}
+
+#[tokio::test]
+async fn reads_the_steps_and_the_description_of_a_case() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    commit_all(&project);
+    let runner = CommandRunner { bin };
+    let p = read_project(&runner, &project)
+        .await
+        .expect("project should be readable");
+    let case = &p.traceability.test_cases[0];
+
+    let result = read_case_detail(
+        &runner,
+        &project,
+        &case.case_uid,
+        &case.scenario_uid,
+        &p.at_commit,
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let d = result.expect("case detail should be readable");
+    assert!(!d.phases.is_empty());
+    assert!(d.phases.iter().all(|phase| !phase.steps.is_empty()));
 }

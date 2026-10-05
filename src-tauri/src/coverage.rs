@@ -35,6 +35,19 @@ pub struct CoverageRequirement {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoverageCase {
     pub case_uid: String,
+    /// The verification means the case declares. Declaring one does not mean anything ran.
+    pub binding_mode: Option<String>,
+    pub binding_reference: Option<String>,
+    /// Present exactly when `binding_reference` is.
+    pub reference_status: Option<ReferenceStatus>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReferenceStatus {
+    Exists,
+    Missing,
+    NotChecked,
 }
 
 pub async fn read_coverage(
@@ -76,6 +89,15 @@ mod tests {
                 stderr: String::new(),
             })
         }
+
+        async fn traceability_show(
+            &self,
+            _project_root: &Path,
+            _uid: &str,
+            _at: Option<&str>,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
     }
 
     #[tokio::test]
@@ -103,6 +125,26 @@ mod tests {
             ]
         );
         assert!(c.requirements[1].cases.is_empty());
+    }
+
+    #[tokio::test]
+    async fn reads_how_each_case_declares_to_be_verified() {
+        let runner = FakeRunner(REPRESENTATIVE.to_string());
+
+        let c = read_coverage(&runner, Path::new("/project")).await.unwrap();
+
+        let [undeclared, declared] = &c.requirements[0].cases[..] else {
+            panic!("expected two cases");
+        };
+        assert_eq!(undeclared.binding_mode, None);
+        assert_eq!(undeclared.binding_reference, None);
+        assert_eq!(undeclared.reference_status, None);
+        assert_eq!(declared.binding_mode.as_deref(), Some("automated"));
+        assert_eq!(
+            declared.binding_reference.as_deref(),
+            Some("tests/jump.spec.ts")
+        );
+        assert_eq!(declared.reference_status, Some(ReferenceStatus::Exists));
     }
 
     #[tokio::test]

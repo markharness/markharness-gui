@@ -64,6 +64,15 @@ mod tests {
         async fn coverage(&self, _project_root: &Path) -> Result<CommandOutput, String> {
             printing(COVERAGE)
         }
+
+        async fn traceability_show(
+            &self,
+            _project_root: &Path,
+            _uid: &str,
+            _at: Option<&str>,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
     }
 
     #[tokio::test]
