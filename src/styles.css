@@ -1,0 +1,321 @@
+/* Every color and size lives in a variable here; a dark theme only redefines them. */
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f6f7f9;
+  --bg-band: #eef0f4;
+  --bg-selected: #eaf1fb;
+  --text: #1d2330;
+  --text-muted: #5a6475;
+  --border: #dfe3ea;
+  --accent: #1f5fbf;
+  --focus: #1f5fbf;
+
+  --font-ui:
+    "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --detail-width: 400px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* A button that reads as text: titles, parent links, case titles. */
+td button,
+th button,
+aside li button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+
+td button:hover,
+th button:hover,
+aside li button:hover {
+  text-decoration: underline;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.context .root {
+  color: var(--text);
+}
+
+.context .reload {
+  margin-left: auto;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.list {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.detail {
+  flex: none;
+  width: var(--detail-width);
+  padding: var(--space-4);
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: normal;
+  text-align: left;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+
+tbody td,
+tbody th[scope="row"] {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: top;
+  font-weight: normal;
+  text-align: left;
+}
+
+tbody th[scope="colgroup"] {
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-band);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: normal;
+  text-align: left;
+}
+
+tbody tr.selected {
+  background: var(--bg-selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+td.count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.statement,
+.children {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+td .case {
+  display: block;
+}
+
+td .parent {
+  display: block;
+}
+
+/* The source that reports a fact: text in a quiet outline, never a color of its own. */
+.badge {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: normal;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+.kind {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+aside h2,
+aside h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+aside h2 {
+  font-size: 16px;
+}
+
+aside h3 {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-1);
+  font-size: 13px;
+}
+
+aside .element {
+  margin-top: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+aside .id {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+aside ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+aside dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+aside dt {
+  color: var(--text-muted);
+}
+
+aside dd {
+  margin: 0;
+}
+
+aside .placeholder {
+  color: var(--text-muted);
+}
+
+[role="alert"] {
+  margin: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+/* A failure to read StrictDoc: a small notice in the corner that leaves everything else usable. */
+[role="status"] {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  max-width: 420px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  font-size: 12px;
+}
+
+[role="status"] button {
+  margin-top: var(--space-2);
+  padding: 2px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+/* Column widths: the requirement takes what the others leave. */
+.col-parent {
+  width: 110px;
+  white-space: nowrap;
+}
+
+.col-count {
+  width: 72px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.col-cases {
+  width: 260px;
+}
+
+td .parent {
+  white-space: nowrap;
+}
