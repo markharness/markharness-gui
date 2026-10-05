@@ -3,6 +3,8 @@ export interface Requirement {
   requirement_uid: string;
   source: "native" | "external";
   label: string | null;
+  /** For an external requirement, the MID of the StrictDoc requirement that holds its content. */
+  source_key?: string | null;
 }
 
 export interface Feature {
@@ -78,9 +80,27 @@ export interface CaseDetail {
   phases: { steps: string[]; results: string[] }[];
 }
 
+export type StrictDocNode =
+  | { kind: "section"; title: string; nodes: StrictDocNode[] }
+  | {
+      kind: "requirement";
+      mid: string;
+      uid: string | null;
+      title: string;
+      statement: string;
+      parents: string[];
+    };
+
+/** The requirements StrictDoc exports, in the order of its documents and sections. */
+export interface StrictDoc {
+  documents: { title: string; nodes: StrictDocNode[] }[];
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
   getProject(): Promise<Project>;
+  /** `null` when the project does not use StrictDoc. */
+  getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getCaseDetail(
     caseUid: string,
     scenarioUid: string,
