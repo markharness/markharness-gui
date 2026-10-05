@@ -8,6 +8,22 @@ use crate::traceability::{parse_record, MarkharnessRunner, ReadError};
 pub struct Coverage {
     pub at_commit: String,
     pub requirements: Vec<CoverageRequirement>,
+    pub gaps: Vec<Gap>,
+}
+
+/// Why the core reports a requirement as not fully covered.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Gap {
+    pub kind: GapKind,
+    pub requirement_id: String,
+    pub feature_id: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GapKind {
+    RequirementHasNoFeature,
+    FeatureHasNoCase,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -87,5 +103,40 @@ mod tests {
             ]
         );
         assert!(c.requirements[1].cases.is_empty());
+    }
+
+    #[tokio::test]
+    async fn reads_why_a_requirement_has_no_cases() {
+        let runner = FakeRunner(REPRESENTATIVE.to_string());
+
+        let c = read_coverage(&runner, Path::new("/project")).await.unwrap();
+
+        assert_eq!(
+            c.gaps,
+            [
+                Gap {
+                    kind: GapKind::FeatureHasNoCase,
+                    requirement_id: "controls".to_string(),
+                    feature_id: Some("player-duck".to_string()),
+                },
+                Gap {
+                    kind: GapKind::RequirementHasNoFeature,
+                    requirement_id: "orphan".to_string(),
+                    feature_id: None,
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_a_gap_kind_it_does_not_know() {
+        let output = REPRESENTATIVE.replace("feature_has_no_case", "something_new");
+        let runner = FakeRunner(output);
+
+        let err = read_coverage(&runner, Path::new("/project"))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ReadError::Malformed(_)), "{err:?}");
     }
 }
