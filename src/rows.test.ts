@@ -49,7 +49,20 @@ function project(overrides: Partial<Project> = {}): Project {
       requirements: [
         {
           requirement_uid: "RA",
-          cases: [{ case_uid: "C1" }, { case_uid: "C2" }],
+          cases: [
+            {
+              case_uid: "C1",
+              binding_mode: null,
+              binding_reference: null,
+              reference_status: null,
+            },
+            {
+              case_uid: "C2",
+              binding_mode: null,
+              binding_reference: null,
+              reference_status: null,
+            },
+          ],
         },
         { requirement_uid: "RB", cases: [] },
       ],
