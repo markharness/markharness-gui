@@ -4,7 +4,9 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+use markharness_gui_lib::project::read_project;
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
 
 fn markharness_bin() -> PathBuf {
@@ -39,9 +41,12 @@ fn create_sample_project(bin: &Path, fixture: &str) -> PathBuf {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
         .join(fixture);
+    // Tests run in parallel, and two of them may use the same fixture.
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let project = std::env::temp_dir().join(format!(
-        "markharness-gui-contract-{fixture}-{}",
-        std::process::id()
+        "markharness-gui-contract-{fixture}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
     ));
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(&project).unwrap();
@@ -80,7 +85,7 @@ async fn reads_the_traceability_of_a_real_project() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "todo-minimal");
 
-    let result = read_traceability(&CommandRunner { bin }, &project).await;
+    let result = read_traceability(&CommandRunner { bin }, &project, None).await;
     let _ = std::fs::remove_dir_all(&project);
 
     let t = result.expect("traceability should be readable");
@@ -98,7 +103,7 @@ async fn resolves_parents_by_uid_when_features_share_a_behavior_slug() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "shared-slugs");
 
-    let result = read_traceability(&CommandRunner { bin }, &project).await;
+    let result = read_traceability(&CommandRunner { bin }, &project, None).await;
     let _ = std::fs::remove_dir_all(&project);
 
     let t = result.expect("traceability should be readable");
@@ -139,4 +144,44 @@ async fn resolves_parents_by_uid_when_features_share_a_behavior_slug() {
     };
     assert_eq!(case_of("A-ok"), 1);
     assert_eq!(case_of("B-ok"), 1);
+}
+
+fn commit_all(project: &Path) {
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(["-c", "user.name=test", "-c", "user.email=test@example.com"])
+            .args(args)
+            .current_dir(project)
+            .output()
+            .expect("run git");
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "sample"]);
+}
+
+#[tokio::test]
+async fn reads_the_traceability_and_the_coverage_of_one_commit() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    commit_all(&project);
+
+    let result = read_project(&CommandRunner { bin }, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let p = result.expect("project should be readable");
+    assert_eq!(p.at_commit.len(), 40);
+    let requirement = &p.traceability.requirements[0];
+    let covered = p
+        .coverage
+        .requirements
+        .iter()
+        .find(|r| r.requirement_uid == requirement.requirement_uid)
+        .expect("coverage should report the requirement");
+    assert!(!covered.cases.is_empty());
 }

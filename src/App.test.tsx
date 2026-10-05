@@ -1,39 +1,114 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { Backend, Traceability } from "./backend";
+import type { Backend, Project } from "./backend";
 
-const empty: Traceability = {
-  requirements: [],
-  features: [],
-  behaviors: [],
-  scenarios: [],
-  test_cases: [],
-  relations: [],
+const project: Project = {
+  at_commit: "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78",
+  traceability: {
+    requirements: [
+      {
+        requirement_id: "req-1",
+        requirement_uid: "R1",
+        source: "native",
+        label: "Login requirement",
+      },
+      {
+        requirement_id: "req-2",
+        requirement_uid: "R2",
+        source: "native",
+        label: "Logout requirement",
+      },
+    ],
+    features: [],
+    behaviors: [],
+    scenarios: [
+      {
+        scenario_id: "sc-1",
+        scenario_uid: "S1",
+        behavior_id: "b",
+        behavior_uid: "B",
+        label: "Log in with a password",
+      },
+    ],
+    test_cases: [{ case_id: "tc-1", case_uid: "C1", scenario_uid: "S1" }],
+    relations: [],
+  },
+  coverage: {
+    at_commit: "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78",
+    requirements: [
+      { requirement_uid: "R1", cases: [{ case_uid: "C1" }] },
+      { requirement_uid: "R2", cases: [] },
+    ],
+  },
 };
 
 function fakeBackend(overrides: Partial<Backend> = {}): Backend {
   return {
     getProjectRoot: async () => "/work/project",
-    getTraceability: async () => empty,
+    getProject: async () => project,
     ...overrides,
   };
 }
 
-function itemOf(element: HTMLElement): HTMLElement {
-  const item = element.closest("li");
-  if (!item) throw new Error("not inside a list item");
-  return item;
-}
-
 describe("App", () => {
-  it("shows the project root returned by the backend", async () => {
+  it("shows the project root and the commit being displayed", async () => {
     render(<App backend={fakeBackend()} />);
 
     expect(await screen.findByText("/work/project")).toBeInTheDocument();
+    expect(
+      screen.getByText(/45c7fc13cfc0749fb0df9f2cdca724d0826f8a78/),
+    ).toBeInTheDocument();
   });
 
-  it("shows the error when the backend fails", async () => {
+  it("shows a requirement with its case count and the titles of its cases", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    expect(within(row).getByText("1")).toBeInTheDocument();
+    expect(within(row).getByText("Log in with a password")).toBeInTheDocument();
+  });
+
+  it("shows a requirement with no cases as 0, without marking it", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    const row = (await screen.findByText("Logout requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    expect(within(row).getByText("0")).toBeInTheDocument();
+    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("lists the requirements in the order the backend returns them", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    await screen.findByText("Login requirement");
+    const titles = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => r.querySelector("th")?.textContent);
+    expect(titles).toEqual(["Login requirement", "Logout requirement"]);
+  });
+
+  it("shows only the error, with nothing partial, when the project cannot be read", async () => {
+    const backend = fakeBackend({
+      getProject: async () => {
+        throw new Error(
+          "対応しているschema_versionは 1 ですが、受け取ったのは 2 です",
+        );
+      },
+    });
+
+    render(<App backend={backend} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "対応しているschema_versionは 1 ですが、受け取ったのは 2 です",
+    );
+    expect(screen.queryByText("/work/project")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows the error when the project root cannot be determined", async () => {
     const backend = fakeBackend({
       getProjectRoot: async () => {
         throw new Error("usage: markharness-gui --dir <project root>");
@@ -47,286 +122,9 @@ describe("App", () => {
     );
   });
 
-  it("shows requirement, feature, behavior, scenario and test case as a nested tree", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        requirements: [
-          {
-            requirement_id: "req-1",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Login requirement",
-          },
-        ],
-        features: [{ feature_id: "login", feature_uid: "F1", label: "Login" }],
-        behaviors: [
-          {
-            behavior_id: "submit",
-            behavior_uid: "B1",
-            feature_id: "login",
-            feature_uid: "F1",
-            label: "Submit credentials",
-          },
-        ],
-        scenarios: [
-          {
-            scenario_id: "valid",
-            scenario_uid: "S1",
-            behavior_id: "submit",
-            behavior_uid: "B1",
-            label: "Valid login",
-          },
-        ],
-        test_cases: [{ case_id: "tc-1", case_uid: "C1", scenario_uid: "S1" }],
-        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    const requirement = itemOf(await screen.findByText("Login requirement"));
-    const feature = itemOf(within(requirement).getByText("Login"));
-    const behavior = itemOf(within(feature).getByText("Submit credentials"));
-    const scenario = itemOf(within(behavior).getByText("Valid login"));
-    expect(within(scenario).getByText("tc-1")).toBeInTheDocument();
-  });
-
-  it("shows a feature under every requirement it contributes to", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        ...empty,
-        requirements: [
-          {
-            requirement_id: "req-1",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Requirement one",
-          },
-          {
-            requirement_id: "req-2",
-            requirement_uid: "R2",
-            source: "native",
-            label: "Requirement two",
-          },
-        ],
-        features: [
-          { feature_id: "shared", feature_uid: "F1", label: "Shared feature" },
-        ],
-        relations: [
-          { from_uid: "F1", to_uid: "R1", kind: "contributes_to" },
-          { from_uid: "F1", to_uid: "R2", kind: "contributes_to" },
-        ],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    const one = itemOf(await screen.findByText("Requirement one"));
-    const two = itemOf(screen.getByText("Requirement two"));
-    expect(within(one).getByText("Shared feature")).toBeInTheDocument();
-    expect(within(two).getByText("Shared feature")).toBeInTheDocument();
-  });
-
-  it("places each scenario under its own behavior when behaviors share a slug", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        ...empty,
-        requirements: [
-          {
-            requirement_id: "req",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Requirement",
-          },
-        ],
-        features: [
-          { feature_id: "feature-a", feature_uid: "FA", label: "Feature A" },
-          { feature_id: "feature-b", feature_uid: "FB", label: "Feature B" },
-        ],
-        behaviors: [
-          {
-            behavior_id: "submit",
-            behavior_uid: "BA",
-            feature_id: "feature-a",
-            feature_uid: "FA",
-            label: "A submit",
-          },
-          {
-            behavior_id: "submit",
-            behavior_uid: "BB",
-            feature_id: "feature-b",
-            feature_uid: "FB",
-            label: "B submit",
-          },
-        ],
-        scenarios: [
-          {
-            scenario_id: "ok",
-            scenario_uid: "SA",
-            behavior_id: "submit",
-            behavior_uid: "BA",
-            label: "A ok",
-          },
-          {
-            scenario_id: "ok",
-            scenario_uid: "SB",
-            behavior_id: "submit",
-            behavior_uid: "BB",
-            label: "B ok",
-          },
-        ],
-        relations: [
-          { from_uid: "FA", to_uid: "R1", kind: "contributes_to" },
-          { from_uid: "FB", to_uid: "R1", kind: "contributes_to" },
-        ],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    const featureA = itemOf(await screen.findByText("Feature A"));
-    const featureB = itemOf(screen.getByText("Feature B"));
-    expect(within(featureA).getByText("A ok")).toBeInTheDocument();
-    expect(within(featureA).queryByText("B ok")).not.toBeInTheDocument();
-    expect(within(featureB).getByText("B ok")).toBeInTheDocument();
-    expect(within(featureB).queryByText("A ok")).not.toBeInTheDocument();
-  });
-
-  it("groups features without a requirement under a separate heading", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        ...empty,
-        requirements: [
-          {
-            requirement_id: "req-1",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Requirement one",
-          },
-        ],
-        features: [
-          { feature_id: "linked", feature_uid: "F1", label: "Linked feature" },
-          { feature_id: "orphan", feature_uid: "F2", label: "Orphan feature" },
-        ],
-        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    const group = itemOf(await screen.findByText("要求に紐づかない"));
-    expect(within(group).getByText("Orphan feature")).toBeInTheDocument();
-    expect(within(group).queryByText("Linked feature")).not.toBeInTheDocument();
-  });
-
-  it("has no heading for features without a requirement when every feature is linked", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        ...empty,
-        requirements: [
-          {
-            requirement_id: "req-1",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Requirement one",
-          },
-        ],
-        features: [
-          { feature_id: "linked", feature_uid: "F1", label: "Linked feature" },
-        ],
-        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    await screen.findByText("Requirement one");
-    expect(screen.queryByText("要求に紐づかない")).not.toBeInTheDocument();
-  });
-
-  it("names a requirement beside a scenario only when the feature does not contribute to it", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => ({
-        ...empty,
-        requirements: [
-          {
-            requirement_id: "req-1",
-            requirement_uid: "R1",
-            source: "native",
-            label: "Requirement one",
-          },
-          {
-            requirement_id: "req-2",
-            requirement_uid: "R2",
-            source: "native",
-            label: "Requirement two",
-          },
-        ],
-        features: [{ feature_id: "f", feature_uid: "F1", label: "Feature" }],
-        behaviors: [
-          {
-            behavior_id: "b",
-            behavior_uid: "B1",
-            feature_id: "f",
-            feature_uid: "F1",
-            label: "Behavior",
-          },
-        ],
-        scenarios: [
-          {
-            scenario_id: "s1",
-            scenario_uid: "S1",
-            behavior_id: "b",
-            behavior_uid: "B1",
-            label: "Scenario elsewhere",
-          },
-          {
-            scenario_id: "s2",
-            scenario_uid: "S2",
-            behavior_id: "b",
-            behavior_uid: "B1",
-            label: "Scenario same",
-          },
-        ],
-        relations: [
-          { from_uid: "F1", to_uid: "R1", kind: "contributes_to" },
-          { from_uid: "S1", to_uid: "R2", kind: "contributes_to" },
-          { from_uid: "S2", to_uid: "R1", kind: "contributes_to" },
-        ],
-      }),
-    });
-
-    render(<App backend={backend} />);
-
-    const elsewhere = itemOf(await screen.findByText("Scenario elsewhere"));
-    const same = itemOf(screen.getByText("Scenario same"));
-    expect(
-      within(elsewhere).getByText("要求: Requirement two"),
-    ).toBeInTheDocument();
-    expect(within(same).queryByText(/^要求:/)).not.toBeInTheDocument();
-  });
-
-  it("shows only the error, with nothing partial, when the traceability cannot be read", async () => {
-    const backend = fakeBackend({
-      getTraceability: async () => {
-        throw new Error(
-          "対応しているschema_versionは 1 ですが、受け取ったのは 2 です",
-        );
-      },
-    });
-
-    render(<App backend={backend} />);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "対応しているschema_versionは 1 ですが、受け取ったのは 2 です",
-    );
-    expect(screen.queryByText("/work/project")).not.toBeInTheDocument();
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
-  });
-
   it("shows that it is loading until the backend answers", () => {
     const pending = new Promise<never>(() => {});
-    const backend = fakeBackend({ getTraceability: () => pending });
+    const backend = fakeBackend({ getProject: () => pending });
 
     render(<App backend={backend} />);
 
