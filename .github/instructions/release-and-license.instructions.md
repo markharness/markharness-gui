@@ -13,7 +13,7 @@ markharness-guiは、markharnessの配布物に、同梱される。そのため
 
 ## 依存のライセンス
 
-- 依存は、(1) markharnessをMITとして提供でき、(2) 配布時に生じる義務を、プロジェクトが機械的に、確実に履行できるものに限る。義務は、リリースの自動の手順で果たされ、CIで検証されるものとし、利用者の操作や、依存ごとの人の判断に頼らない。判断の詳細は、[ADR 0004](../../docs/decisions/0004-dependency-license-policy.md) にある。
+- 依存は、(1) markharnessをMITとして提供でき、(2) 配布時に生じる義務を、プロジェクトが機械的に、確実に履行できるものに限る。義務は、リリースの自動の手順で果たされ、CIで検証されるものとし、利用者の操作や、依存ごとの人の判断に頼らない。判断の詳細は、[ADR 0004](../../docs/adr/0004-dependency-license-policy.md) にある。
 - 新しい依存を追加する前に、そのライセンスを確認する。許可するライセンスは、MIT、MIT-0、Apache-2.0、Apache-2.0 WITH LLVM-exception、BSD-2-Clause、BSD-3-Clause、BSL-1.0、Unicode-3.0、Unlicense、Zlibと、改変しない場合のMPL-2.0である。複数のライセンスを選べる依存は、少なくとも1つの選択肢が、許可リストにあればよい。
 - 許可リストに新しいライセンスを加えるときは、上の(1)(2)に対する検証の結果を、ADRに書く。
 - 配布物には、含まれるすべての依存の、第三者ライセンスの表示を同梱する。生成した表示が、古い、または欠けているときは、CIを失敗させる。MPL-2.0のクレートには、ソースの入手先を載せる。MPL-2.0の依存を、改変(`[patch]`、gitやpathの依存による差し替え)してはならない。この仕組みは、最初のリリースの前に整える。
@@ -30,7 +30,7 @@ markharness-guiは、markharnessの配布物に、同梱される。そのため
 ## ドキュメントの配置
 
 - `docs/` は、日本語だけで書く。日英の鏡合わせは行わない。
-- `docs/decisions/` には、すべてのArchitecture Decision Record(ADR)を、単一のディレクトリに、単一の番号連番(`NNNN-slug.md`)で置く。これは、Michael NygardのADRの元の提案(「Documenting Architecture Decisions」、https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions)と、MADRのテンプレート(https://adr.github.io/madr/)に従う。1つのディレクトリ、1つの番号の連なりで、ライフサイクルは、その場で追跡する。
+- `docs/adr/` には、すべてのArchitecture Decision Record(ADR)を、単一のディレクトリに、単一の番号連番(`NNNN-slug.md`)で置く。これは、Michael NygardのADRの元の提案(「Documenting Architecture Decisions」、https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions)と、MADRのテンプレート(https://adr.github.io/madr/)に従う。1つのディレクトリ、1つの番号の連なりで、ライフサイクルは、その場で追跡する。
 - すべてのADRは、題名の直後、`## 背景` の前に、`## ステータス` の節で始め、Proposed、Accepted、Rejected、Deprecated、Superseded by ADR-NNNN のいずれかを述べる。必要なら、短い、プロジェクト固有の補足を添える(たとえば「Accepted、一部実施済み」)。
 - ADRは、実装の決断と、その理由・代替案だけを書く。体制や担当など、実装の決断でない記述は書かない。
 - 確定していない、または、まだ完全には実施されていないADRを表すために、別のディレクトリ(「internal-notes」や「drafts」のようなもの)を作ってはならない。状態が変わるたびに、番号付きのファイルをディレクトリの間で動かすと、番号の空間が、複数のディレクトリに分断され(「次の番号は何か」が曖昧になる)、移動したファイルの中の、相対リンクと、それを参照するすべてのファイルのリンクが壊れる。markharness本体で、この不具合が、実際に1度起きている(ある決定の文書が、移動された別の決定の古いパスを参照し続け、参照が陳腐化した)。代わりに、`## ステータス` の行を、その場で変更する。
@@ -39,6 +39,6 @@ markharness-guiは、markharnessの配布物に、同梱される。そのため
 
 ## CIのゲート
 
-- PRのゲート(`.github/workflows/` のCI、すべてのpushとPRで動く): [PROJECT.md](../../PROJECT.md) の「Pre-PR チェックリスト」と同じ項目(テスト、Lint、フォーマット、依存の脆弱性、ライセンス)に、第三者ライセンス表示が最新であることの確認を加えた検査である(`.github/workflows/ci.yml`、Windows)。結合テストが呼ぶ `markharness` は、`.github/markharness-rev` に固定した、本体の `main` のコミットからビルドする([ADR 0007](../../docs/decisions/0007-pin-core-main-commit.md))。
+- PRのゲート(`.github/workflows/` のCI、すべてのpushとPRで動く): [PROJECT.md](../../PROJECT.md) の「Pre-PR チェックリスト」と同じ項目(テスト、Lint、フォーマット、依存の脆弱性、ライセンス)に、第三者ライセンス表示が最新であることの確認を加えた検査である(`.github/workflows/ci.yml`、Windows)。結合テストが呼ぶ `markharness` は、`.github/markharness-rev` に固定した、本体の `main` のコミットからビルドする([ADR 0007](../../docs/adr/0007-pin-core-main-commit.md))。
 - リリースのパイプライン(`v*` のタグのpushで動く): タグとバージョンの一致を確認し、成果物をビルドし、チェックサムを付けて、GitHub Releaseを公開する。変更履歴は、Conventional Commitsから生成する。
 - CIのチェックが赤いPRを、マージしてはならない。失敗しているゲートを回避するために、`--no-verify` やスキップのフラグを、加えてはならない。根本の問題を直す。

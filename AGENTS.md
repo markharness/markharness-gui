@@ -33,7 +33,7 @@
 
 ### 依存・バージョニング・docsの配置
 
-依存を追加する前のライセンス確認、バージョニング、`docs/decisions`(ADR)と `docs/design`(実装設計)の使い分けに従う。詳細: [release-and-license](.github/instructions/release-and-license.instructions.md)
+依存を追加する前のライセンス確認、バージョニング、`docs/adr`(ADR)と `docs/design`(実装設計)の使い分けに従う。詳細: [release-and-license](.github/instructions/release-and-license.instructions.md)
 
 ## 設計の方針
 
@@ -55,7 +55,7 @@ GUIは、markharnessのJSON出力だけを読む。
 ## ドキュメントとコメント
 
 - **ドキュメントは日本語のみ** — `docs/` 配下を含め、このリポジトリのドキュメントは日本語だけで書く。日英の鏡合わせは行わない。
-- **ADRの管理(番号付き決定記録)** — `docs/decisions/` を単一のディレクトリ・単一の番号連番(`NNNN-slug.md`)で運用し、確定度やライフサイクル(Proposed/Accepted/Rejected/Deprecated/Superseded)によって、別のディレクトリへ移さない。各ファイルの冒頭に `## ステータス` のセクションを置き、状態が変わったら、その行を書き換える(ファイルの移動はしない)。ADRは、実装の決断とその理由・代替案だけを書く。体制や担当など、実装の決断でない記述は書かない。
+- **ADRの管理(番号付き決定記録)** — `docs/adr/` を単一のディレクトリ・単一の番号連番(`NNNN-slug.md`)で運用し、確定度やライフサイクル(Proposed/Accepted/Rejected/Deprecated/Superseded)によって、別のディレクトリへ移さない。各ファイルの冒頭に `## ステータス` のセクションを置き、状態が変わったら、その行を書き換える(ファイルの移動はしない)。ADRは、実装の決断とその理由・代替案だけを書く。体制や担当など、実装の決断でない記述は書かない。
 - **情報の配置とコメントの責務** — コメントを書く、またはレビューするときは、[CONTRIBUTING.md](CONTRIBUTING.md#情報の配置とコメント) を適用すること。
   - コードは現在のWhat/Howの正である。
   - コメントは、局所的なWhy・不変条件・コードから明らかでない制約を残す。書く前に、コード・型・テスト・命名で表現できないか確認し、実装の逐語説明や、設計全体の理由・変更履歴は書かない。

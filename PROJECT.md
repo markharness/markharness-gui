@@ -14,11 +14,11 @@
 
 ## 技術スタック
 
-実行形態は、Tauri 2のネイティブウィンドウである([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
+実行形態は、Tauri 2のネイティブウィンドウである([ADR 0001](./docs/adr/0001-runtime-shell-tauri.md))。
 
 | 項目 | 値 |
 |------|----|
-| 言語・実行形態 | バックエンドはRust、フロントエンドはTypeScriptとReact([ADR 0002](./docs/decisions/0002-ui-framework-react.md))。Tauri 2のネイティブウィンドウ。実行時にNodeは要らない |
+| 言語・実行形態 | バックエンドはRust、フロントエンドはTypeScriptとReact([ADR 0002](./docs/adr/0002-ui-framework-react.md))。Tauri 2のネイティブウィンドウ。実行時にNodeは要らない |
 | テスト | Rustは `cargo test`(`markharness` の呼び出しは、境界の背後で、固定のJSONを返す偽の実装に差し替える)。フロントエンドは、ロジックにVitest、画面の部品にReact Testing Library。実物の `markharness` を呼ぶ結合テストを、`cargo test` に少数置く。ブラウザを駆動するE2Eは、安定後に実施し、ツールはその時点で決める |
 | Lint / Format | Rustはclippyとrustfmt。フロントエンドはBiome |
 | ビルド | Vite(フロントエンド)とTauri(成果物) |
@@ -27,7 +27,7 @@
 
 - 最初の安定版の対象は、Windows(x64)とmacOS(arm64)である。
 - 開発の検証は、Windowsを基準にする。開発中にmacOS関連のエラーが出たときは、Windowsを優先して対処する。
-- macOSの最初の検証は、macOS Ventura 13.7.8のIntel Macで行う。関係の画面(最初の機能)は実装済みで、検証は未実施である。実施するまで、macOSは未検証として扱う。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う([ADR 0001](./docs/decisions/0001-runtime-shell-tauri.md))。
+- macOSの最初の検証は、macOS Ventura 13.7.8のIntel Macで行う。関係の画面(最初の機能)は実装済みで、検証は未実施である。実施するまで、macOSは未検証として扱う。arm64の実行確認は、安定版のリリースのCIで、最小の起動テストとして行う([ADR 0001](./docs/adr/0001-runtime-shell-tauri.md))。
 
 ### 標準コマンド
 
@@ -43,14 +43,14 @@
 | フォーマットチェック | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` と `npm run format:check` |
 | 依存の脆弱性スキャン | `cargo audit --file src-tauri/Cargo.lock` と `npm audit` |
 | 第三者ライセンス表示の生成 | `npm run notices`(`THIRD-PARTY-NOTICES.md` を更新する。`cargo-about` が必要)。最新かの確認は `npm run notices:check` |
-| 対応する `markharness` のビルド | `cargo install --git https://github.com/markharness/markharness --rev <.github/markharness-rev の値> --locked --root <出力先> markharness`。結合テストは、環境変数 `MARKHARNESS_BIN` に、できた実行ファイルを指定して動かす([ADR 0007](./docs/decisions/0007-pin-core-main-commit.md)) |
-| 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/decisions/0004-dependency-license-policy.md)) |
+| 対応する `markharness` のビルド | `cargo install --git https://github.com/markharness/markharness --rev <.github/markharness-rev の値> --locked --root <出力先> markharness`。結合テストは、環境変数 `MARKHARNESS_BIN` に、できた実行ファイルを指定して動かす([ADR 0007](./docs/adr/0007-pin-core-main-commit.md)) |
+| 依存のライセンス確認 | `cargo deny --manifest-path src-tauri/Cargo.toml check licenses`(許可リストは [release-and-license](./.github/instructions/release-and-license.instructions.md) と [ADR 0004](./docs/adr/0004-dependency-license-policy.md)) |
 
 ## 外部との接点
 
 | 対象 | 用途 | 備考 |
 |------|------|------|
-| `markharness` CLI | 関係・Change Impact・Release Coverageの取得(JSON)、編集(`knowledge reconcile`、削除は `knowledge remove`) | `markharness gui` が環境変数 `MARKHARNESS_BIN` で、起動した `markharness` のパスを渡す。GUIを単独で起動したときだけ、`PATH` 上の `markharness` を使う。対応する版は、`.github/markharness-rev` のコミット([ADR 0007](./docs/decisions/0007-pin-core-main-commit.md)) |
+| `markharness` CLI | 関係・Change Impact・Release Coverageの取得(JSON)、編集(`knowledge reconcile`、削除は `knowledge remove`) | `markharness gui` が環境変数 `MARKHARNESS_BIN` で、起動した `markharness` のパスを渡す。GUIを単独で起動したときだけ、`PATH` 上の `markharness` を使う。対応する版は、`.github/markharness-rev` のコミット([ADR 0007](./docs/adr/0007-pin-core-main-commit.md)) |
 | `strictdoc` CLI | StrictDocの要求の見出し・階層(`strictdoc export --formats=json`) | 任意の連携。無い環境では、markharnessのデータだけを表示する |
 
 GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のファイルを直接読み書きしない(StrictDocのエクスポートを除く)。詳細は引き継ぎ文書を参照する。
@@ -70,7 +70,7 @@ GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のフ�
 docs/
 ├── core-handoff.md   # markharness本体からの引き継ぎ文書(契約と方針)
 ├── review-policy.md  # レビューの方針
-├── decisions/        # ADR(番号付き決定記録、日本語のみ)
+├── adr/              # ADR(番号付き決定記録、日本語のみ)
 └── design/           # 実装設計
 ```
 
