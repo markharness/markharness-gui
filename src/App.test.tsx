@@ -104,6 +104,8 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
       { id: "functional", label: "機能" },
       { id: "ui", label: "画面" },
     ],
+    getUnusedAxes: async () => [],
+    deleteUnusedAxes: async () => {},
     addAxis: async () => {},
     editKnowledge: async () => {},
     ...overrides,
@@ -1108,5 +1110,42 @@ describe("App comparison with a tag", () => {
 
     expect(await within(pane).findByLabelText("perf")).toBeChecked();
     expect(added).toEqual([["perf", undefined]]);
+  });
+
+  it("deletes the unused categories from the form of the feature, and offers what the core now lists", async () => {
+    let axes = [
+      { id: "functional", label: "機能" },
+      { id: "ui", label: "画面" },
+    ];
+    const backend = fakeBackend({
+      getAxes: async () => axes,
+      getUnusedAxes: async () => ["functional"],
+      deleteUnusedAxes: async () => {
+        axes = axes.filter((a) => a.id !== "functional");
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    );
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "未使用の分類を削除" }),
+    );
+    const confirm = await within(pane).findByRole("group", {
+      name: "未使用の分類を削除",
+    });
+
+    fireEvent.click(within(confirm).getByRole("button", { name: "削除" }));
+
+    await waitFor(() =>
+      expect(within(pane).queryByLabelText("機能")).not.toBeInTheDocument(),
+    );
+    expect(within(pane).getByLabelText("画面")).toBeInTheDocument();
   });
 });

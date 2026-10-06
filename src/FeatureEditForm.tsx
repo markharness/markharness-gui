@@ -7,6 +7,8 @@ export function FeatureEditForm({
   candidates: initialCandidates,
   save,
   addAxis,
+  unusedAxes,
+  deleteUnusedAxes,
   onSaved,
   onCancel,
 }: {
@@ -15,6 +17,10 @@ export function FeatureEditForm({
   save: (edit: FeatureEdit) => Promise<void>;
   /** Registers a new axis and returns the axes to choose from, the new one included. */
   addAxis: (id: string, label: string) => Promise<Axis[]>;
+  /** The ids of the categories no element uses. */
+  unusedAxes: () => Promise<string[]>;
+  /** Deletes the categories no element uses and returns the axes to choose from. */
+  deleteUnusedAxes: () => Promise<Axis[]>;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -26,6 +32,9 @@ export function FeatureEditForm({
   const [newLabel, setNewLabel] = useState("");
   const [axisError, setAxisError] = useState<string>();
   const [adding, setAdding] = useState(false);
+  const [unused, setUnused] = useState<string[]>();
+  const [nothingUnused, setNothingUnused] = useState(false);
+  const [pruneError, setPruneError] = useState<string>();
   const closeNewCategory = () => {
     setAdding(false);
     setNewId("");
@@ -113,6 +122,65 @@ export function FeatureEditForm({
           {axisError && <pre role="alert">{axisError}</pre>}
         </fieldset>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          setNothingUnused(false);
+          setPruneError(undefined);
+          unusedAxes().then(
+            (ids) =>
+              ids.length === 0 ? setNothingUnused(true) : setUnused(ids),
+            (reason) => setPruneError(String(reason)),
+          );
+        }}
+      >
+        未使用の分類を削除
+      </button>
+      {nothingUnused && <p role="status">未使用の分類は、ありません。</p>}
+      {unused && (
+        <fieldset>
+          <legend>未使用の分類を削除</legend>
+          <p>どの要素からも使われていない、次の分類を削除します。</p>
+          <ul>
+            {unused.map((id) => (
+              <li key={id}>
+                {candidates.find((c) => c.id === id)?.label ?? id}
+              </li>
+            ))}
+          </ul>
+          <p>この操作は元に戻せません。</p>
+          <p>
+            このフォームで選んだだけで、保存していない分類も、使われていないものとして、削除されます。
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              deleteUnusedAxes().then(
+                (axes) => {
+                  setCandidates(axes);
+                  setAxis((current) =>
+                    current.filter((id) => axes.some((a) => a.id === id)),
+                  );
+                  setUnused(undefined);
+                },
+                (reason) => setPruneError(String(reason)),
+              )
+            }
+          >
+            削除
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setUnused(undefined);
+              setPruneError(undefined);
+            }}
+          >
+            キャンセル
+          </button>
+        </fieldset>
+      )}
+      {pruneError && <pre role="alert">{pruneError}</pre>}
       <button type="submit">保存</button>
       <button type="button" onClick={onCancel}>
         キャンセル

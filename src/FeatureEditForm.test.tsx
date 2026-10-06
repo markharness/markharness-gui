@@ -24,6 +24,8 @@ function renderForm(
     onSaved?: () => void;
     onCancel?: () => void;
     addAxis?: (id: string, label: string) => Promise<Axis[]>;
+    unusedAxes?: () => Promise<string[]>;
+    deleteUnusedAxes?: () => Promise<Axis[]>;
   } = {},
 ) {
   return render(
@@ -32,6 +34,8 @@ function renderForm(
       candidates={candidates}
       save={save}
       addAxis={handlers.addAxis ?? (async () => candidates)}
+      unusedAxes={handlers.unusedAxes ?? (async () => [])}
+      deleteUnusedAxes={handlers.deleteUnusedAxes ?? (async () => candidates)}
       onSaved={handlers.onSaved ?? (() => {})}
       onCancel={handlers.onCancel ?? (() => {})}
     />,
@@ -259,5 +263,109 @@ describe("FeatureEditForm", () => {
     expect(
       screen.queryByRole("button", { name: "閉じる" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("lists the categories nobody uses and asks before deleting them", async () => {
+    const deleteUnusedAxes = vi.fn(async () => candidates);
+    renderForm(undefined, {
+      unusedAxes: async () => ["functional"],
+      deleteUnusedAxes,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "未使用の分類を削除" }));
+
+    const confirm = await screen.findByRole("group", {
+      name: "未使用の分類を削除",
+    });
+    expect(within(confirm).getByText("機能")).toBeInTheDocument();
+    expect(confirm).toHaveTextContent("この操作は元に戻せません");
+    expect(confirm).toHaveTextContent("保存していない");
+    expect(deleteUnusedAxes).not.toHaveBeenCalled();
+  });
+
+  it("deletes the unused categories once confirmed, and offers what is left", async () => {
+    const save = vi.fn(async () => {});
+    const deleteUnusedAxes = vi.fn(async () => [candidates[1]]);
+    renderForm(save, {
+      unusedAxes: async () => ["functional"],
+      deleteUnusedAxes,
+    });
+    fireEvent.click(screen.getByLabelText("機能"));
+    fireEvent.click(screen.getByRole("button", { name: "未使用の分類を削除" }));
+    const confirm = await screen.findByRole("group", {
+      name: "未使用の分類を削除",
+    });
+
+    fireEvent.click(within(confirm).getByRole("button", { name: "削除" }));
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("機能")).not.toBeInTheDocument(),
+    );
+    expect(deleteUnusedAxes).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("画面")).toBeChecked();
+    expect(
+      screen.queryByRole("group", { name: "未使用の分類を削除" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        kind: "feature",
+        uid: "F1",
+        label: "Sign in",
+        axis: ["ui"],
+      }),
+    );
+  });
+
+  it("closes the confirmation on cancel without deleting", async () => {
+    const deleteUnusedAxes = vi.fn(async () => candidates);
+    renderForm(undefined, {
+      unusedAxes: async () => ["functional"],
+      deleteUnusedAxes,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "未使用の分類を削除" }));
+    const confirm = await screen.findByRole("group", {
+      name: "未使用の分類を削除",
+    });
+
+    fireEvent.click(
+      within(confirm).getByRole("button", { name: "キャンセル" }),
+    );
+
+    expect(
+      screen.queryByRole("group", { name: "未使用の分類を削除" }),
+    ).not.toBeInTheDocument();
+    expect(deleteUnusedAxes).not.toHaveBeenCalled();
+  });
+
+  it("says so when no category is unused, instead of asking to delete nothing", async () => {
+    renderForm(undefined, { unusedAxes: async () => [] });
+
+    fireEvent.click(screen.getByRole("button", { name: "未使用の分類を削除" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "未使用の分類は、ありません",
+    );
+    expect(
+      screen.queryByRole("button", { name: "削除" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows what the core said when the categories could not be deleted", async () => {
+    renderForm(undefined, {
+      unusedAxes: async () => ["functional"],
+      deleteUnusedAxes: () => Promise.reject("error: cannot write axes/"),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "未使用の分類を削除" }));
+    const confirm = await screen.findByRole("group", {
+      name: "未使用の分類を削除",
+    });
+
+    fireEvent.click(within(confirm).getByRole("button", { name: "削除" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "error: cannot write axes/",
+    );
+    expect(screen.getByLabelText("機能")).toBeInTheDocument();
   });
 });

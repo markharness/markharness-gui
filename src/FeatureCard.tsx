@@ -43,6 +43,11 @@ export function FeatureCard({
           }}
           candidates={editing.candidates}
           save={(e) => backend.editKnowledge(e)}
+          unusedAxes={() => backend.getUnusedAxes()}
+          deleteUnusedAxes={async () => {
+            await backend.deleteUnusedAxes();
+            return backend.getAxes();
+          }}
           addAxis={async (id, label) => {
             await backend.addAxis(id, label === "" ? undefined : label);
             return backend.getAxes();
