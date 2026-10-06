@@ -185,4 +185,48 @@ describe("FeatureEditForm", () => {
 
     expect(within(newCategory()).getByLabelText("ラベル")).toBeInTheDocument();
   });
+
+  it("keeps the plus button below the box of the categories, also while the fields are open", () => {
+    renderForm();
+    const plus = () => screen.getByRole("button", { name: "＋ 分類を追加" });
+
+    expect(
+      within(screen.getByRole("group", { name: "分類" })).queryByRole(
+        "button",
+        {
+          name: "＋ 分類を追加",
+        },
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("group", { name: "分類" })
+        .compareDocumentPosition(plus()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(plus());
+
+    expect(plus()).toBeInTheDocument();
+  });
+
+  it("closes the fields of a new category and forgets what was typed in them", async () => {
+    renderForm(undefined, {
+      addAxis: () => Promise.reject("error: not a valid slug"),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+    fireEvent.change(within(newCategory()).getByLabelText("id"), {
+      target: { value: "Bad Id" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    await screen.findByRole("alert");
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    expect(
+      screen.queryByRole("group", { name: "新しい分類" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+    expect(within(newCategory()).getByLabelText("id")).toHaveValue("");
+  });
 });
