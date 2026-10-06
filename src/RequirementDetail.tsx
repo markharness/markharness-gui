@@ -97,16 +97,21 @@ export function RequirementDetail({
         {row.cases.length === 0 ? (
           <p>紐づいていません。</p>
         ) : (
-          <ul>
+          <div className="case-boxes">
             {row.cases.map((c) => (
-              <li key={c.caseUid}>
-                <button type="button" onClick={() => onPickCase(c.caseUid)}>
+              <button
+                type="button"
+                key={c.caseUid}
+                className="case-box"
+                onClick={() => onPickCase(c.caseUid)}
+              >
+                <span className="case-box-title" title={c.title}>
                   {c.title}
-                </button>
+                </span>
                 <small className="belongs-to">{c.belongsTo}</small>
-              </li>
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </Section>
     </>
