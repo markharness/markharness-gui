@@ -92,7 +92,13 @@ describe("describeCase", () => {
       id: "f-1",
       label: "Sign in",
     });
-    expect(view?.behavior).toEqual({ title: "b-1", id: "b-1" });
+    expect(view?.behavior).toEqual({
+      uid: "B1",
+      featureUid: "F1",
+      title: "b-1",
+      id: "b-1",
+      label: null,
+    });
     expect(view?.case).toEqual({
       caseUid: "C1",
       title: "Wrong password",

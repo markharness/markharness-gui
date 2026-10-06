@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
-import type { FeatureEdit } from "./edit";
+import type { Edit } from "./edit";
 import type {
   Axis,
   Backend,
@@ -35,8 +35,7 @@ const backend: Backend = {
     await invoke<string[]>("delete_unused_axes");
   },
   addAxis: (id, label) => invoke<void>("add_axis", { id, label }),
-  editKnowledge: (edit: FeatureEdit) =>
-    invoke<void>("edit_knowledge", { edit }),
+  editKnowledge: (edit: Edit) => invoke<void>("edit_knowledge", { edit }),
 };
 
 const root = document.getElementById("root");

@@ -27,13 +27,18 @@ function renderForm(
     onCancel?: () => void;
     addAxis?: (id: string, label: string) => Promise<Axis[]>;
     unusedAxes?: () => Promise<string[]>;
+    description?: string | null;
     deleteUnusedAxes?: () => Promise<Axis[]>;
   } = {},
 ) {
   return render(
     <ElementEditForm
       noun="Feature"
-      element={feature}
+      element={
+        handlers.description === undefined
+          ? feature
+          : { ...feature, description: handlers.description }
+      }
       candidates={candidates}
       save={save}
       addAxis={handlers.addAxis ?? (async () => candidates)}
@@ -402,5 +407,30 @@ describe("ElementEditForm", () => {
     renderForm();
 
     expect(screen.queryByText("Featureの変更を")).not.toBeInTheDocument();
+  });
+
+  it("has no description field for an element without a description", () => {
+    renderForm();
+
+    expect(screen.queryByLabelText("説明")).not.toBeInTheDocument();
+  });
+
+  it("starts from the description and saves it with the label and the categories", async () => {
+    const save = vi.fn(async () => {});
+    renderForm(save, { description: "Checks the password.\n" });
+    expect(screen.getByLabelText("説明")).toHaveValue("Checks the password.\n");
+
+    fireEvent.change(screen.getByLabelText("説明"), {
+      target: { value: "Checks the password twice." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        label: "Sign in",
+        axis: ["ui"],
+        description: "Checks the password twice.",
+      }),
+    );
   });
 });

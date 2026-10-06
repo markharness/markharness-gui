@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Backend, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
-import { FeatureCard } from "./FeatureCard";
+import { ElementCard } from "./ElementCard";
 import { Card, ElementHeading, Section } from "./Section";
 import { sourceName } from "./sources";
 
@@ -48,21 +48,33 @@ export function CaseDetail({
         />
       </Card>
       {view.feature && (
-        <FeatureCard
-          feature={view.feature}
+        <ElementCard
+          noun="Feature"
+          element={view.feature}
+          describe={false}
+          toEdit={(values) => ({
+            kind: "feature",
+            uid: view.feature?.uid ?? "",
+            ...values,
+          })}
           backend={backend}
           onEdited={onEdited}
         />
       )}
       {view.behavior && (
-        <Card>
-          <ElementHeading
-            kind="Behavior"
-            source="markharness"
-            title={view.behavior.title}
-            id={view.behavior.id}
-          />
-        </Card>
+        <ElementCard
+          noun="Behavior"
+          element={view.behavior}
+          describe
+          toEdit={(values) => ({
+            kind: "behavior",
+            feature_uid: view.behavior?.featureUid ?? "",
+            uid: view.behavior?.uid ?? "",
+            ...values,
+          })}
+          backend={backend}
+          onEdited={onEdited}
+        />
       )}
       <Card selected>
         <ElementHeading

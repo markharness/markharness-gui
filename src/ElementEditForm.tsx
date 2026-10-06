@@ -14,10 +14,19 @@ export function ElementEditForm({
 }: {
   /** What the element is called to the user, as in "Featureの保存とキャンセル". */
   noun: string;
-  element: { label: string | null; axis: string[] };
+  /** `description` is given only for an element whose description is edited too. */
+  element: {
+    label: string | null;
+    axis: string[];
+    description?: string | null;
+  };
   candidates: Axis[];
   /** Saves the label and the axes as the form holds them. */
-  save: (values: { label: string; axis: string[] }) => Promise<void>;
+  save: (values: {
+    label: string;
+    axis: string[];
+    description?: string;
+  }) => Promise<void>;
   /** Registers a new axis and returns the axes to choose from, the new one included. */
   addAxis: (id: string, label: string) => Promise<Axis[]>;
   /** The ids of the categories no element uses. */
@@ -29,6 +38,7 @@ export function ElementEditForm({
 }) {
   const [label, setLabel] = useState(element.label ?? "");
   const [axis, setAxis] = useState(element.axis);
+  const [description, setDescription] = useState(element.description ?? "");
   const [error, setError] = useState<string>();
   const [candidates, setCandidates] = useState(initialCandidates);
   const [newId, setNewId] = useState("");
@@ -50,9 +60,11 @@ export function ElementEditForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);
-        save({ label, axis }).then(onSaved, (reason) =>
-          setError(String(reason)),
-        );
+        save(
+          element.description === undefined
+            ? { label, axis }
+            : { label, axis, description },
+        ).then(onSaved, (reason) => setError(String(reason)));
       }}
     >
       {error && <pre role="alert">{error}</pre>}
@@ -60,6 +72,15 @@ export function ElementEditForm({
         <span>ラベル</span>
         <input value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
+      {element.description !== undefined && (
+        <label className="field">
+          <span>説明</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </label>
+      )}
       <fieldset>
         <legend>分類</legend>
         {candidates.map((c) => (
@@ -79,7 +100,7 @@ export function ElementEditForm({
           </label>
         ))}
       </fieldset>
-      <div role="group" aria-label="分類の操作" className="category-actions">
+      <fieldset aria-label="分類の操作" className="category-actions">
         <button
           type="button"
           aria-expanded={adding}
@@ -101,7 +122,7 @@ export function ElementEditForm({
         >
           未使用の分類を削除
         </button>
-      </div>
+      </fieldset>
       {nothingUnused && <p role="status">未使用の分類は、ありません。</p>}
       {adding && (
         <fieldset className="new-category">
@@ -185,8 +206,7 @@ export function ElementEditForm({
         </fieldset>
       )}
       {pruneError && <pre role="alert">{pruneError}</pre>}
-      <div
-        role="group"
+      <fieldset
         aria-label={`${noun}の保存とキャンセル`}
         className="form-actions"
       >
@@ -196,7 +216,7 @@ export function ElementEditForm({
         <button type="button" onClick={onCancel}>
           キャンセル
         </button>
-      </div>
+      </fieldset>
     </form>
   );
 }

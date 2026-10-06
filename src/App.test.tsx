@@ -1148,4 +1148,66 @@ describe("App comparison with a tag", () => {
     );
     expect(within(pane).getByLabelText("画面")).toBeInTheDocument();
   });
+
+  it("edits the behavior of a case, with its description, and shows the label the core now has", async () => {
+    let label = "Password check";
+    const edits: unknown[] = [];
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        behaviors: [
+          {
+            behavior_id: "b-1",
+            behavior_uid: "B",
+            feature_id: "f-1",
+            feature_uid: "F1",
+            label,
+          },
+        ],
+      }),
+      getElementDetail: async (uid) =>
+        uid === "B"
+          ? { axis: ["ui"], description: "Checks the password." }
+          : { axis: [], description: null },
+      editKnowledge: async (edit) => {
+        edits.push(edit);
+        label = "Credentials check";
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
+    );
+    expect(await within(pane).findByLabelText("説明")).toHaveValue(
+      "Checks the password.",
+    );
+    fireEvent.change(within(pane).getByLabelText("ラベル"), {
+      target: { value: "Credentials check" },
+    });
+    fireEvent.change(within(pane).getByLabelText("説明"), {
+      target: { value: "Checks the user and the password." },
+    });
+    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+
+    expect(
+      await within(pane).findByText("Credentials check"),
+    ).toBeInTheDocument();
+    expect(edits).toEqual([
+      {
+        kind: "behavior",
+        feature_uid: "F1",
+        uid: "B",
+        label: "Credentials check",
+        description: "Checks the user and the password.",
+        axis: ["ui"],
+      },
+    ]);
+  });
 });

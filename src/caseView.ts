@@ -5,7 +5,15 @@ export interface CaseView {
   feature:
     | { uid: string; title: string; id: string; label: string | null }
     | undefined;
-  behavior: { title: string; id: string } | undefined;
+  behavior:
+    | {
+        uid: string;
+        featureUid: string;
+        title: string;
+        id: string;
+        label: string | null;
+      }
+    | undefined;
   case: { caseUid: string; title: string; id: string; scenarioUid: string };
   /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
   verification?: {
@@ -64,8 +72,11 @@ export function describeCase(
       label: feature.label,
     },
     behavior: behavior && {
+      uid: behavior.behavior_uid,
+      featureUid: behavior.feature_uid,
       title: behavior.label ?? behavior.behavior_id,
       id: behavior.behavior_id,
+      label: behavior.label,
     },
     case: {
       caseUid: testCase.case_uid,
