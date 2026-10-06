@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
 use markharness_gui_lib::coverage::read_coverage;
-use markharness_gui_lib::detail::{read_case_detail, read_element_detail};
+use markharness_gui_lib::detail::{read_case_detail, read_element_detail, read_scenario_detail};
 use markharness_gui_lib::edit::{apply_edit, Edit};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
@@ -401,5 +401,38 @@ async fn a_behavior_is_edited_and_its_own_description_can_be_sent_back_as_read()
     assert_eq!(read.description.as_deref(), Some("新しい説明\n"));
     assert_eq!(read.axis, ["ui"]);
     assert_eq!(again, Ok(()));
+    assert_eq!(reread, read);
+}
+
+#[tokio::test]
+async fn a_scenario_is_edited_and_its_note_can_be_set_but_not_emptied() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+        t.scenarios[0].scenario_uid.clone(),
+    );
+    let edit = |note: &str| Edit::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        uid: uid.clone(),
+        label: Some("新しい名前".into()),
+        description: Some("新しい説明".into()),
+        implementation_note: Some(note.into()),
+    };
+
+    let set = apply_edit(&runner, &project, &edit("実装メモ")).await;
+    let read = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let emptied = apply_edit(&runner, &project, &edit("")).await;
+    let reread = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(set, Ok(()));
+    assert_eq!(read.description.as_deref(), Some("新しい説明\n"));
+    assert_eq!(read.implementation_note.as_deref(), Some("実装メモ\n"));
+    assert!(emptied.unwrap_err().contains("must not be empty"));
     assert_eq!(reread, read);
 }

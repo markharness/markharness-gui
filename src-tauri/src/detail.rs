@@ -81,6 +81,26 @@ pub async fn read_element_detail(
         .map_err(|e| ReadError::Malformed(e.to_string()))
 }
 
+/// What the core records on a scenario, to start an edit from.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ScenarioDetail {
+    pub description: Option<String>,
+    pub implementation_note: Option<String>,
+}
+
+pub async fn read_scenario_detail(
+    runner: &impl MarkharnessRunner,
+    project_root: &Path,
+    uid: &str,
+) -> Result<ScenarioDetail, ReadError> {
+    let output = runner
+        .traceability_show(project_root, uid)
+        .await
+        .map_err(ReadError::CannotRun)?;
+    serde_json::from_value(parse_record(output, "traceability_detail")?)
+        .map_err(|e| ReadError::Malformed(e.to_string()))
+}
+
 pub async fn read_case_detail(
     runner: &impl MarkharnessRunner,
     project_root: &Path,
@@ -340,5 +360,47 @@ mod tests {
             .unwrap();
 
         assert_eq!(detail.description, None);
+    }
+
+    #[tokio::test]
+    async fn reads_the_description_and_the_implementation_note_of_a_scenario() {
+        let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+        value["implementation_note"] = "Uses the jump key.
+"
+        .into();
+        let runner = FixedRunner(value.to_string());
+
+        let detail = read_scenario_detail(&runner, Path::new("/project"), "scenario-uid")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            detail,
+            ScenarioDetail {
+                description: Some(
+                    "From the ground.
+"
+                    .to_string()
+                ),
+                implementation_note: Some(
+                    "Uses the jump key.
+"
+                    .to_string()
+                ),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn a_scenario_without_an_implementation_note_has_none() {
+        let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+        value.as_object_mut().unwrap().remove("implementation_note");
+        let runner = FixedRunner(value.to_string());
+
+        let detail = read_scenario_detail(&runner, Path::new("/project"), "scenario-uid")
+            .await
+            .unwrap();
+
+        assert_eq!(detail.implementation_note, None);
     }
 }

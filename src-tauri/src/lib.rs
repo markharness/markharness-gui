@@ -127,6 +127,20 @@ async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Ax
         .map_err(|e| e.to_string())
 }
 
+/// What the core records as the description and the implementation note of a scenario.
+#[tauri::command]
+async fn get_scenario_detail(
+    config: tauri::State<'_, LaunchConfig>,
+    uid: String,
+) -> Result<detail::ScenarioDetail, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    detail::read_scenario_detail(&runner, &config.project_root, &uid)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// The ids of the axes no requirement, feature or behavior uses.
 #[tauri::command]
 async fn get_unused_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
@@ -194,6 +208,7 @@ pub fn run() {
             get_strictdoc,
             get_requirement_descriptions,
             get_element_detail,
+            get_scenario_detail,
             get_axes,
             add_axis,
             get_unused_axes,
