@@ -114,6 +114,11 @@ export interface RequirementDescription {
   description: string | null;
 }
 
+export interface ElementDetail {
+  axis: string[];
+  description: string | null;
+}
+
 export interface Axis {
   id: string;
   label: string;
@@ -133,8 +138,8 @@ export interface Backend {
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;
   getCaseDetail(caseUid: string, scenarioUid: string): Promise<CaseDetail>;
-  /** The axes the core records on a requirement, a feature or a behavior. */
-  getAxis(uid: string): Promise<string[]>;
+  /** The axes and the description the core records on a requirement, a feature or a behavior. */
+  getElementDetail(uid: string): Promise<ElementDetail>;
   /** The axes the project defines. */
   getAxes(): Promise<Axis[]>;
   /** The ids of the axes no requirement, feature or behavior uses. */

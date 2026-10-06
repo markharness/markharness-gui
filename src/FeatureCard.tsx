@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Axis, Backend } from "./backend";
-import { FeatureEditForm } from "./FeatureEditForm";
+import { ElementEditForm } from "./ElementEditForm";
 import { Card, ElementHeading } from "./Section";
 
 /** The feature of a picked case, which turns into a form to edit it in place. */
@@ -20,8 +20,11 @@ export function FeatureCard({
   const [error, setError] = useState<string>();
 
   const edit = () =>
-    Promise.all([backend.getAxis(feature.uid), backend.getAxes()]).then(
-      ([axis, candidates]) => setEditing({ axis, candidates }),
+    Promise.all([
+      backend.getElementDetail(feature.uid),
+      backend.getAxes(),
+    ]).then(
+      ([detail, candidates]) => setEditing({ axis: detail.axis, candidates }),
       (reason) => setError(String(reason)),
     );
 
@@ -35,14 +38,17 @@ export function FeatureCard({
       />
       {error && <pre role="alert">{error}</pre>}
       {editing ? (
-        <FeatureEditForm
-          feature={{
-            uid: feature.uid,
-            label: feature.label,
-            axis: editing.axis,
-          }}
+        <ElementEditForm
+          noun="Feature"
+          element={{ label: feature.label, axis: editing.axis }}
           candidates={editing.candidates}
-          save={(e) => backend.editKnowledge(e)}
+          save={(values) =>
+            backend.editKnowledge({
+              kind: "feature",
+              uid: feature.uid,
+              ...values,
+            })
+          }
           unusedAxes={() => backend.getUnusedAxes()}
           deleteUnusedAxes={async () => {
             await backend.deleteUnusedAxes();

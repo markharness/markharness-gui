@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { Axis } from "./backend";
-import type { FeatureEdit } from "./edit";
 
-export function FeatureEditForm({
-  feature,
+export function ElementEditForm({
+  noun,
+  element,
   candidates: initialCandidates,
   save,
   addAxis,
@@ -12,9 +12,12 @@ export function FeatureEditForm({
   onSaved,
   onCancel,
 }: {
-  feature: { uid: string; label: string | null; axis: string[] };
+  /** What the element is called to the user, as in "Featureの保存とキャンセル". */
+  noun: string;
+  element: { label: string | null; axis: string[] };
   candidates: Axis[];
-  save: (edit: FeatureEdit) => Promise<void>;
+  /** Saves the label and the axes as the form holds them. */
+  save: (values: { label: string; axis: string[] }) => Promise<void>;
   /** Registers a new axis and returns the axes to choose from, the new one included. */
   addAxis: (id: string, label: string) => Promise<Axis[]>;
   /** The ids of the categories no element uses. */
@@ -24,8 +27,8 @@ export function FeatureEditForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
-  const [label, setLabel] = useState(feature.label ?? "");
-  const [axis, setAxis] = useState(feature.axis);
+  const [label, setLabel] = useState(element.label ?? "");
+  const [axis, setAxis] = useState(element.axis);
   const [error, setError] = useState<string>();
   const [candidates, setCandidates] = useState(initialCandidates);
   const [newId, setNewId] = useState("");
@@ -47,9 +50,8 @@ export function FeatureEditForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);
-        save({ kind: "feature", uid: feature.uid, label, axis }).then(
-          onSaved,
-          (reason) => setError(String(reason)),
+        save({ label, axis }).then(onSaved, (reason) =>
+          setError(String(reason)),
         );
       }}
     >
@@ -185,7 +187,7 @@ export function FeatureEditForm({
       {pruneError && <pre role="alert">{pruneError}</pre>}
       <div
         role="group"
-        aria-label="Featureの保存とキャンセル"
+        aria-label={`${noun}の保存とキャンセル`}
         className="form-actions"
       >
         <button type="submit" className="primary">

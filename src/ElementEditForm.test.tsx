@@ -7,8 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Axis } from "./backend";
-import type { FeatureEdit } from "./edit";
-import { FeatureEditForm } from "./FeatureEditForm";
+import { ElementEditForm } from "./ElementEditForm";
 
 const feature = { uid: "F1", label: "Sign in", axis: ["ui"] };
 const candidates = [
@@ -19,7 +18,10 @@ const candidates = [
 const newCategory = () => screen.getByRole("group", { name: "新しい分類" });
 
 function renderForm(
-  save: (edit: FeatureEdit) => Promise<void> = async () => {},
+  save: (values: {
+    label: string;
+    axis: string[];
+  }) => Promise<void> = async () => {},
   handlers: {
     onSaved?: () => void;
     onCancel?: () => void;
@@ -29,8 +31,9 @@ function renderForm(
   } = {},
 ) {
   return render(
-    <FeatureEditForm
-      feature={feature}
+    <ElementEditForm
+      noun="Feature"
+      element={feature}
       candidates={candidates}
       save={save}
       addAxis={handlers.addAxis ?? (async () => candidates)}
@@ -42,7 +45,7 @@ function renderForm(
   );
 }
 
-describe("FeatureEditForm", () => {
+describe("ElementEditForm", () => {
   it("starts from the label and the axes the feature has", () => {
     renderForm();
 
@@ -63,8 +66,6 @@ describe("FeatureEditForm", () => {
 
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith({
-        kind: "feature",
-        uid: "F1",
         label: "Log in",
         axis: ["ui", "functional"],
       }),
@@ -78,12 +79,7 @@ describe("FeatureEditForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith({
-        kind: "feature",
-        uid: "F1",
-        label: "Sign in",
-        axis: ["ui"],
-      }),
+      expect(save).toHaveBeenCalledWith({ label: "Sign in", axis: ["ui"] }),
     );
   });
 
@@ -308,12 +304,7 @@ describe("FeatureEditForm", () => {
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith({
-        kind: "feature",
-        uid: "F1",
-        label: "Sign in",
-        axis: ["ui"],
-      }),
+      expect(save).toHaveBeenCalledWith({ label: "Sign in", axis: ["ui"] }),
     );
   });
 

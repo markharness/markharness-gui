@@ -99,7 +99,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
         },
       ],
     }),
-    getAxis: async () => ["ui"],
+    getElementDetail: async () => ({ axis: ["ui"], description: null }),
     getAxes: async () => [
       { id: "functional", label: "機能" },
       { id: "ui", label: "画面" },
