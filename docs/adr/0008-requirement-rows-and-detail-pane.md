@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted(2026-10-05決定)。第1版の最小の形である。親子の集計、件数の扱い、折り畳み、強調と優先づけ、視点の切り替え、読む文脈の選択は、第1版に含めない([0009](0009-fact-provenance-and-human-attention.md))。StrictDocの親子は、関係そのものだけを示す。
+Accepted(2026-10-05決定)。「画面は、1つのコミットに固定して、`traceability` と `coverage` を、同じコミットで読む」(「影響」の最後の項目)は、[0011](0011-list-from-working-tree-traceability.md) が置き換える。第1版の最小の形である。親子の集計、件数の扱い、折り畳み、強調と優先づけ、視点の切り替え、読む文脈の選択は、第1版に含めない([0009](0009-fact-provenance-and-human-attention.md))。StrictDocの親子は、関係そのものだけを示す。
 
 ## 背景
 

@@ -57,16 +57,16 @@ GUIがすること:
 markharness traceability --dir <root>
 ```
 
-`--at <git ref>` を省略すると、作業ツリー(未コミットの編集を含む今の状態)を読みます。指定すると、そのコミット時点を読みます。閲覧の途中段階では省略して使います。
+常に作業ツリー(未コミットの編集を含む今の状態)を読みます。`--at` と `--format` はありません(本体のADR 0043)。コミット済みの特定時点は、`coverage --at` で読みます。
 
 ```json
 {
   "schema_version": 1,
   "record_kind": "traceability",
-  "at": "working-tree",
   "requirements": [
     { "requirement_id": "req-1", "requirement_uid": "01M39R…", "source": "external",
-      "label": null, "source_locator": "docs/requirements.sdoc", "source_key": "2222…" }
+      "label": null, "source_locator": "docs/requirements.sdoc", "source_key": "2222…",
+      "case_uids": ["80d453ad-…"] }
   ],
   "features":  [ { "feature_id": "login", "feature_uid": "01M39R…", "label": "ログイン" } ],
   "behaviors": [ { "behavior_id": "submit-credentials", "behavior_uid": "01M39R…",
@@ -88,6 +88,7 @@ markharness traceability --dir <root>
 
 - 要素の同一性は `*_uid` で判断します。`*_id` は人が読む名前(slug)で、名前の変更で変わりえます。
 - Requirementの `source` は `native`(markharnessが内容を持つ)か `external`(StrictDocなど外部の仕様書が内容を持つ)です。`external` では `label` が `null` で、見出しや本文は含まれません(5章)。
+- Requirementの `case_uids` は、その要求に紐づくケースの `case_uid` の一覧です。紐づけの規則は `coverage` と同じで、本体が決めます(本体のADR 0042)。GUIは、`relations` から要求とケースの紐づきを、自分で計算しません。
 - 親子関係は、`behaviors[].feature_id` や `scenarios[].behavior_id` のようなフィールドで表します。FeatureとScenarioからRequirementへの `contributes_to` は多対多で、`relations` が表します。
 
 ### 検証手段: `markharness binding list`
