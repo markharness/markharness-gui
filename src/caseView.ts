@@ -2,7 +2,9 @@ import type { Coverage, Traceability } from "./backend";
 
 export interface CaseView {
   requirement: { title: string; id: string; source: "native" | "external" };
-  feature: { title: string; id: string } | undefined;
+  feature:
+    | { uid: string; title: string; id: string; label: string | null }
+    | undefined;
   behavior: { title: string; id: string } | undefined;
   case: { caseUid: string; title: string; id: string; scenarioUid: string };
   /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
@@ -56,8 +58,10 @@ export function describeCase(
       source: requirement.source,
     },
     feature: feature && {
+      uid: feature.feature_uid,
       title: feature.label ?? feature.feature_id,
       id: feature.feature_id,
+      label: feature.label,
     },
     behavior: behavior && {
       title: behavior.label ?? behavior.behavior_id,

@@ -17,6 +17,8 @@ export interface ProjectData {
   notice?: string;
   dismissNotice: () => void;
   reload: () => void;
+  /** Reads the traceability again, after an edit; the coverage, StrictDoc and descriptions stay as they are. */
+  refreshTraceability: () => void;
 }
 
 /**
@@ -25,6 +27,8 @@ export interface ProjectData {
  */
 export function useProjectData(backend: Backend): ProjectData {
   const [loaded, setLoaded] = useState<ProjectData["loaded"]>();
+  // Held apart from `loaded`, so that an edit does not read the coverage and the descriptions again.
+  const [refreshed, setRefreshed] = useState<Traceability>();
   const [error, setError] = useState<string>();
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [coverageLoading, setCoverageLoading] = useState(true);
@@ -40,8 +44,11 @@ export function useProjectData(backend: Backend): ProjectData {
     setStrictDoc(null);
     setStrictDocLoading(true);
     Promise.all([backend.getProjectRoot(), backend.getTraceability()]).then(
-      ([projectRoot, traceability]) =>
-        current && setLoaded({ projectRoot, traceability }),
+      ([projectRoot, traceability]) => {
+        if (!current) return;
+        setRefreshed(undefined);
+        setLoaded({ projectRoot, traceability });
+      },
       (e) => current && setError(String(e)),
     );
     backend.getStrictDoc(reloads > 0).then(
@@ -111,7 +118,8 @@ export function useProjectData(backend: Backend): ProjectData {
   }, [backend, loaded]);
 
   return {
-    loaded,
+    loaded:
+      loaded && refreshed ? { ...loaded, traceability: refreshed } : loaded,
     error,
     coverage,
     coverageLoading,
@@ -121,5 +129,8 @@ export function useProjectData(backend: Backend): ProjectData {
     notice,
     dismissNotice: () => setNotice(undefined),
     reload: () => setReloads((n) => n + 1),
+    refreshTraceability: () => {
+      backend.getTraceability().then(setRefreshed, (e) => setNotice(String(e)));
+    },
   };
 }

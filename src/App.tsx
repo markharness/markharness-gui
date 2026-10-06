@@ -84,6 +84,7 @@ export function App({ backend }: { backend: Backend }) {
               view={caseView}
               backend={backend}
               coverageLoading={data.coverageLoading}
+              onEdited={data.refreshTraceability}
             />
           ) : picked ? (
             <RequirementDetail

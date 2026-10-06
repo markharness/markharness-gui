@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Backend, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
+import { FeatureCard } from "./FeatureCard";
 import { Card, ElementHeading, Section } from "./Section";
 import { sourceName } from "./sources";
 
@@ -12,10 +13,12 @@ export function CaseDetail({
   view,
   backend,
   coverageLoading,
+  onEdited,
 }: {
   view: CaseView;
   backend: Backend;
   coverageLoading: boolean;
+  onEdited: () => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -45,14 +48,11 @@ export function CaseDetail({
         />
       </Card>
       {view.feature && (
-        <Card>
-          <ElementHeading
-            kind="Feature"
-            source="markharness"
-            title={view.feature.title}
-            id={view.feature.id}
-          />
-        </Card>
+        <FeatureCard
+          feature={view.feature}
+          backend={backend}
+          onEdited={onEdited}
+        />
       )}
       {view.behavior && (
         <Card>

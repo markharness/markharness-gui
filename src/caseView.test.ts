@@ -86,7 +86,12 @@ describe("describeCase", () => {
       id: "req-1",
       source: "native",
     });
-    expect(view?.feature).toEqual({ title: "Sign in", id: "f-1" });
+    expect(view?.feature).toEqual({
+      uid: "F1",
+      title: "Sign in",
+      id: "f-1",
+      label: "Sign in",
+    });
     expect(view?.behavior).toEqual({ title: "b-1", id: "b-1" });
     expect(view?.case).toEqual({
       caseUid: "C1",

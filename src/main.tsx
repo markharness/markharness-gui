@@ -2,7 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
+import type { FeatureEdit } from "./edit";
 import type {
+  Axis,
   Backend,
   CaseDetail,
   ChangeImpact,
@@ -24,6 +26,10 @@ const backend: Backend = {
     invoke<RequirementDescription[]>("get_requirement_descriptions", { uids }),
   getCaseDetail: (caseUid, scenarioUid) =>
     invoke<CaseDetail>("get_case_detail", { caseUid, scenarioUid }),
+  getAxis: (uid) => invoke<string[]>("get_axis", { uid }),
+  getAxes: () => invoke<Axis[]>("get_axes"),
+  editKnowledge: (edit: FeatureEdit) =>
+    invoke<void>("edit_knowledge", { edit }),
 };
 
 const root = document.getElementById("root");

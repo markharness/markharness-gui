@@ -1,3 +1,5 @@
+import type { FeatureEdit } from "./edit";
+
 export interface Requirement {
   requirement_id: string;
   requirement_uid: string;
@@ -112,6 +114,11 @@ export interface RequirementDescription {
   description: string | null;
 }
 
+export interface Axis {
+  id: string;
+  label: string;
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
   /** The working tree, including edits that are not committed yet. */
@@ -126,4 +133,10 @@ export interface Backend {
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;
   getCaseDetail(caseUid: string, scenarioUid: string): Promise<CaseDetail>;
+  /** The axes the core records on a requirement, a feature or a behavior. */
+  getAxis(uid: string): Promise<string[]>;
+  /** The axes the project defines. */
+  getAxes(): Promise<Axis[]>;
+  /** Writes the edit through the core; rejects with what the core said when it did not apply it. */
+  editKnowledge(edit: FeatureEdit): Promise<void>;
 }
