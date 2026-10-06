@@ -373,7 +373,9 @@ describe("FeatureEditForm", () => {
     renderForm();
 
     const categories = screen.getByRole("group", { name: "分類の操作" });
-    const feature = screen.getByRole("group", { name: "Featureの変更を" });
+    const feature = screen.getByRole("group", {
+      name: "Featureの保存とキャンセル",
+    });
 
     expect(
       within(categories).getByRole("button", { name: "＋ 分類を追加" }),
@@ -395,11 +397,19 @@ describe("FeatureEditForm", () => {
     renderForm();
     fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
 
-    const feature = screen.getByRole("group", { name: "Featureの変更を" });
+    const feature = screen.getByRole("group", {
+      name: "Featureの保存とキャンセル",
+    });
 
     expect(
       newCategory().compareDocumentPosition(feature) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("does not write a sentence before the save and cancel buttons", () => {
+    renderForm();
+
+    expect(screen.queryByText("Featureの変更を")).not.toBeInTheDocument();
   });
 });

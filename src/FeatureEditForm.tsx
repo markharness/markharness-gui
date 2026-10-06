@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import type { Axis } from "./backend";
 import type { FeatureEdit } from "./edit";
 
@@ -31,7 +31,6 @@ export function FeatureEditForm({
   const [newId, setNewId] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [axisError, setAxisError] = useState<string>();
-  const saveCaptionId = useId();
   const [adding, setAdding] = useState(false);
   const [unused, setUnused] = useState<string[]>();
   const [nothingUnused, setNothingUnused] = useState(false);
@@ -186,10 +185,9 @@ export function FeatureEditForm({
       {pruneError && <pre role="alert">{pruneError}</pre>}
       <div
         role="group"
-        aria-labelledby={saveCaptionId}
+        aria-label="Featureの保存とキャンセル"
         className="form-actions"
       >
-        <span id={saveCaptionId}>Featureの変更を</span>
         <button type="submit" className="primary">
           保存
         </button>
