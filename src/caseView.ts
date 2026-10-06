@@ -14,7 +14,13 @@ export interface CaseView {
         label: string | null;
       }
     | undefined;
-  case: { caseUid: string; title: string; id: string; scenarioUid: string };
+  case: {
+    caseUid: string;
+    title: string;
+    id: string;
+    scenarioUid: string;
+    label: string | null;
+  };
   /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
   verification?: {
     method: string;
@@ -83,6 +89,7 @@ export function describeCase(
       title: scenario?.label ?? scenario?.scenario_id ?? testCase.case_id,
       id: testCase.case_id,
       scenarioUid: testCase.scenario_uid,
+      label: scenario?.label ?? null,
     },
     verification: coverage
       ? {

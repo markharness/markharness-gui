@@ -104,6 +104,7 @@ describe("describeCase", () => {
       title: "Wrong password",
       id: "tc-1",
       scenarioUid: "S1",
+      label: "Wrong password",
     });
   });
 

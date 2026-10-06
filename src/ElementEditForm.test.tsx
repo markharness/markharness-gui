@@ -20,7 +20,9 @@ const newCategory = () => screen.getByRole("group", { name: "新しい分類" })
 function renderForm(
   save: (values: {
     label: string;
-    axis: string[];
+    axis?: string[];
+    description?: string;
+    implementationNote?: string;
   }) => Promise<void> = async () => {},
   handlers: {
     onSaved?: () => void;
@@ -432,5 +434,62 @@ describe("ElementEditForm", () => {
         description: "Checks the password twice.",
       }),
     );
+  });
+
+  describe("for a scenario, which has no categories and has an implementation note", () => {
+    function renderScenario(
+      save: (values: unknown) => Promise<void> = async () => {},
+    ) {
+      return render(
+        <ElementEditForm
+          noun="Scenario"
+          element={{
+            label: "Wrong password",
+            description: "Rejects it.",
+            implementationNote: "Uses the form.",
+          }}
+          candidates={candidates}
+          save={save}
+          addAxis={async () => candidates}
+          unusedAxes={async () => []}
+          deleteUnusedAxes={async () => candidates}
+          onSaved={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+    }
+
+    it("shows no categories", () => {
+      renderScenario();
+
+      expect(
+        screen.queryByRole("group", { name: "分類" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "＋ 分類を追加" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "未使用の分類を削除" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("starts from the implementation note and saves it with the others, and no axes", async () => {
+      const save = vi.fn(async () => {});
+      renderScenario(save);
+      expect(screen.getByLabelText("実装メモ")).toHaveValue("Uses the form.");
+
+      fireEvent.change(screen.getByLabelText("実装メモ"), {
+        target: { value: "Uses the page." },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+      await waitFor(() =>
+        expect(save).toHaveBeenCalledWith({
+          label: "Wrong password",
+          description: "Rejects it.",
+          implementationNote: "Uses the page.",
+        }),
+      );
+    });
   });
 });

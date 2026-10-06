@@ -119,6 +119,11 @@ export interface ElementDetail {
   description: string | null;
 }
 
+export interface ScenarioDetail {
+  description: string | null;
+  implementation_note: string | null;
+}
+
 export interface Axis {
   id: string;
   label: string;
@@ -140,6 +145,8 @@ export interface Backend {
   getCaseDetail(caseUid: string, scenarioUid: string): Promise<CaseDetail>;
   /** The axes and the description the core records on a requirement, a feature or a behavior. */
   getElementDetail(uid: string): Promise<ElementDetail>;
+  /** The description and the implementation note the core records on a scenario. */
+  getScenarioDetail(uid: string): Promise<ScenarioDetail>;
   /** The axes the project defines. */
   getAxes(): Promise<Axis[]>;
   /** The ids of the axes no requirement, feature or behavior uses. */

@@ -11,6 +11,7 @@ import type {
   Coverage,
   ElementDetail,
   RequirementDescription,
+  ScenarioDetail,
   StrictDoc,
   Traceability,
 } from "./backend";
@@ -29,6 +30,8 @@ const backend: Backend = {
     invoke<CaseDetail>("get_case_detail", { caseUid, scenarioUid }),
   getElementDetail: (uid) =>
     invoke<ElementDetail>("get_element_detail", { uid }),
+  getScenarioDetail: (uid) =>
+    invoke<ScenarioDetail>("get_scenario_detail", { uid }),
   getAxes: () => invoke<Axis[]>("get_axes"),
   getUnusedAxes: () => invoke<string[]>("get_unused_axes"),
   deleteUnusedAxes: async () => {

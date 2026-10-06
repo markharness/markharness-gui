@@ -104,6 +104,10 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
       { id: "functional", label: "機能" },
       { id: "ui", label: "画面" },
     ],
+    getScenarioDetail: async () => ({
+      description: null,
+      implementation_note: null,
+    }),
     getUnusedAxes: async () => [],
     deleteUnusedAxes: async () => {},
     addAxis: async () => {},
@@ -1207,6 +1211,77 @@ describe("App comparison with a tag", () => {
         label: "Credentials check",
         description: "Checks the user and the password.",
         axis: ["ui"],
+      },
+    ]);
+  });
+
+  it("edits the scenario of a case, and shows the description and the label the core now has", async () => {
+    let label = "Log in with a password";
+    let description = "Rejects a wrong password.";
+    const edits: unknown[] = [];
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        scenarios: [
+          {
+            scenario_id: "sc-1",
+            scenario_uid: "S1",
+            behavior_id: "b-1",
+            behavior_uid: "B",
+            label,
+          },
+        ],
+      }),
+      getCaseDetail: async () => ({ description, phases: [] }),
+      getScenarioDetail: async () => ({
+        description,
+        implementation_note: null,
+      }),
+      editKnowledge: async (edit) => {
+        edits.push(edit);
+        label = "Log in with a wrong password";
+        description = "Shows an error.";
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Scenarioを編集" }),
+    );
+    expect(await within(pane).findByLabelText("説明")).toHaveValue(
+      "Rejects a wrong password.",
+    );
+    expect(
+      within(pane).queryByRole("group", { name: "分類" }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(within(pane).getByLabelText("ラベル"), {
+      target: { value: "Log in with a wrong password" },
+    });
+    fireEvent.change(within(pane).getByLabelText("説明"), {
+      target: { value: "Shows an error." },
+    });
+    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(within(pane).getByText("Shows an error.")).toBeInTheDocument(),
+    );
+    expect(
+      within(pane).getAllByText("Log in with a wrong password").length,
+    ).toBeGreaterThan(0);
+    expect(edits).toEqual([
+      {
+        kind: "scenario",
+        feature_uid: "F1",
+        behavior_uid: "B",
+        uid: "S1",
+        label: "Log in with a wrong password",
+        description: "Shows an error.",
       },
     ]);
   });

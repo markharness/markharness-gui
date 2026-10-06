@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Backend, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
 import { ElementCard } from "./ElementCard";
+import { ElementEditor } from "./ElementEditor";
+import { scenarioEdit } from "./edit";
 import { Card, ElementHeading, Section } from "./Section";
 import { sourceName } from "./sources";
 
@@ -23,19 +25,24 @@ export function CaseDetail({
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
   const { case: picked } = view;
+  const reads = useRef(0);
 
-  useEffect(() => {
-    let current = true;
+  const read = useCallback(() => {
+    const mine = ++reads.current;
     setDetail(undefined);
     setError(undefined);
     backend.getCaseDetail(picked.caseUid, picked.scenarioUid).then(
-      (d) => current && setDetail(d),
-      (e) => current && setError(String(e)),
+      (d) => mine === reads.current && setDetail(d),
+      (e) => mine === reads.current && setError(String(e)),
     );
-    return () => {
-      current = false;
-    };
   }, [backend, picked.caseUid, picked.scenarioUid]);
+
+  useEffect(() => {
+    read();
+    return () => {
+      reads.current += 1;
+    };
+  }, [read]);
 
   return (
     <>
@@ -51,11 +58,17 @@ export function CaseDetail({
         <ElementCard
           noun="Feature"
           element={view.feature}
-          describe={false}
+          load={async () => {
+            const detail = await backend.getElementDetail(
+              view.feature?.uid ?? "",
+            );
+            return { axis: detail.axis };
+          }}
           toEdit={(values) => ({
             kind: "feature",
             uid: view.feature?.uid ?? "",
-            ...values,
+            label: values.label,
+            axis: values.axis ?? [],
           })}
           backend={backend}
           onEdited={onEdited}
@@ -65,12 +78,19 @@ export function CaseDetail({
         <ElementCard
           noun="Behavior"
           element={view.behavior}
-          describe
+          load={async () => {
+            const detail = await backend.getElementDetail(
+              view.behavior?.uid ?? "",
+            );
+            return { axis: detail.axis, description: detail.description };
+          }}
           toEdit={(values) => ({
             kind: "behavior",
             feature_uid: view.behavior?.featureUid ?? "",
             uid: view.behavior?.uid ?? "",
-            ...values,
+            label: values.label,
+            description: values.description,
+            axis: values.axis ?? [],
           })}
           backend={backend}
           onEdited={onEdited}
@@ -84,6 +104,37 @@ export function CaseDetail({
           id={picked.id}
           level={2}
         />
+        {view.feature && view.behavior && (
+          <ElementEditor
+            noun="Scenario"
+            label={picked.label}
+            load={async () => {
+              const detail = await backend.getScenarioDetail(
+                picked.scenarioUid,
+              );
+              return {
+                description: detail.description,
+                implementationNote: detail.implementation_note,
+              };
+            }}
+            toEdit={(values, detail) =>
+              scenarioEdit(
+                {
+                  featureUid: view.feature?.uid ?? "",
+                  behaviorUid: view.behavior?.uid ?? "",
+                  uid: picked.scenarioUid,
+                },
+                { implementationNote: detail.implementationNote ?? null },
+                values,
+              )
+            }
+            backend={backend}
+            onEdited={() => {
+              read();
+              onEdited();
+            }}
+          />
+        )}
         {error ? (
           <pre role="alert">{error}</pre>
         ) : !detail ? (
