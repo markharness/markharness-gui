@@ -74,11 +74,7 @@ mod tests {
     struct FakeRunner(String);
 
     impl MarkharnessRunner for FakeRunner {
-        async fn traceability(
-            &self,
-            _project_root: &Path,
-            _at: Option<&str>,
-        ) -> Result<CommandOutput, String> {
+        async fn traceability(&self, _project_root: &Path) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
 
@@ -94,7 +90,6 @@ mod tests {
             &self,
             _project_root: &Path,
             _uid: &str,
-            _at: Option<&str>,
         ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }

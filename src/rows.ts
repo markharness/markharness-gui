@@ -1,4 +1,9 @@
-import type { Project, StrictDoc, StrictDocNode } from "./backend";
+import type {
+  Coverage,
+  StrictDoc,
+  StrictDocNode,
+  Traceability,
+} from "./backend";
 
 export interface RequirementRow {
   /** Identifies the row on screen; a StrictDoc requirement markharness does not know has no uid. */
@@ -12,7 +17,8 @@ export interface RequirementRow {
   description?: string;
   /** The StrictDoc document and sections the requirement sits under. */
   headings: string[];
-  gaps: { label: string; value: string }[];
+  /** Why the core reports the requirement as not covered; unknown until the coverage is read. */
+  gaps?: { label: string; value: string }[];
   cases: { caseUid: string; title: string; belongsTo: string }[];
   /** What StrictDoc reports; absent for a project that does not use it. */
   strictdoc?: {
@@ -42,22 +48,20 @@ function flatten(strictdoc: StrictDoc): Flat[] {
 
 /**
  * One row per requirement. With StrictDoc, its requirements come first in its document and
- * section order and the rest follow; without it, the order is the traceability's.
+ * section order and the rest follow; without it, the order is the traceability's. The cases
+ * come from the traceability; the coverage only adds why a requirement is not covered.
  */
 export function buildRequirementRows(
-  project: Project,
+  traceability: Traceability,
   strictdoc: StrictDoc | null = null,
   descriptions: Record<string, string> = {},
+  coverage: Coverage | null = null,
 ): RequirementRow[] {
-  const { traceability, coverage } = project;
   const scenarioByUid = new Map(
     traceability.scenarios.map((s) => [s.scenario_uid, s]),
   );
   const scenarioUidByCase = new Map(
     traceability.test_cases.map((c) => [c.case_uid, c.scenario_uid]),
-  );
-  const casesByRequirement = new Map(
-    coverage.requirements.map((r) => [r.requirement_uid, r.cases]),
   );
   const requirementByMid = new Map(
     traceability.requirements.flatMap((r) =>
@@ -65,7 +69,7 @@ export function buildRequirementRows(
     ),
   );
 
-  type Known = Project["traceability"]["requirements"][number];
+  type Known = Traceability["requirements"][number];
   const known = (r: Known | undefined, title: string, headings: string[]) => ({
     requirementUid: r?.requirement_uid,
     requirementId: r?.requirement_id,
@@ -73,38 +77,36 @@ export function buildRequirementRows(
     source: r?.source ?? ("external" as const),
     title,
     headings,
-    gaps: r
-      ? coverage.gaps
-          .filter((g) => g.requirement_id === r.requirement_id)
-          .map((g) =>
-            g.kind === "requirement_has_no_feature"
-              ? { label: "機能のない要求", value: "" }
-              : { label: "ケースがない機能", value: g.feature_id ?? "" },
-          )
-      : [],
-    cases: (r ? (casesByRequirement.get(r.requirement_uid) ?? []) : []).map(
-      (c) => {
-        const scenario = scenarioByUid.get(
-          scenarioUidByCase.get(c.case_uid) ?? "",
-        );
-        const behavior = traceability.behaviors.find(
-          (b) => b.behavior_uid === scenario?.behavior_uid,
-        );
-        const feature = traceability.features.find(
-          (f) => f.feature_uid === behavior?.feature_uid,
-        );
-        return {
-          caseUid: c.case_uid,
-          title: scenario?.label ?? scenario?.scenario_id ?? c.case_uid,
-          belongsTo: [
-            feature && (feature.label ?? feature.feature_id),
-            behavior && (behavior.label ?? behavior.behavior_id),
-          ]
-            .filter(Boolean)
-            .join(" › "),
-        };
-      },
-    ),
+    gaps: coverage
+      ? r
+        ? coverage.gaps
+            .filter((g) => g.requirement_id === r.requirement_id)
+            .map((g) =>
+              g.kind === "requirement_has_no_feature"
+                ? { label: "機能のない要求", value: "" }
+                : { label: "ケースがない機能", value: g.feature_id ?? "" },
+            )
+        : []
+      : undefined,
+    cases: (r?.case_uids ?? []).map((caseUid) => {
+      const scenario = scenarioByUid.get(scenarioUidByCase.get(caseUid) ?? "");
+      const behavior = traceability.behaviors.find(
+        (b) => b.behavior_uid === scenario?.behavior_uid,
+      );
+      const feature = traceability.features.find(
+        (f) => f.feature_uid === behavior?.feature_uid,
+      );
+      return {
+        caseUid,
+        title: scenario?.label ?? scenario?.scenario_id ?? caseUid,
+        belongsTo: [
+          feature && (feature.label ?? feature.feature_id),
+          behavior && (behavior.label ?? behavior.behavior_id),
+        ]
+          .filter(Boolean)
+          .join(" › "),
+      };
+    }),
   });
 
   const fromStrictDoc: RequirementRow[] = [];

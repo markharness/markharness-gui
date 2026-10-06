@@ -1,19 +1,32 @@
 export function ContextBar({
   projectRoot,
-  atCommit,
+  coverageCommit,
+  coverageLoading,
   strictdocLoading,
   onReload,
 }: {
   projectRoot: string;
-  atCommit: string;
+  /** The commit the committed content was read at; `null` until it is read. */
+  coverageCommit: string | null;
+  coverageLoading: boolean;
   strictdocLoading: boolean;
   onReload: () => void;
 }) {
   return (
     <header className="context">
       <span className="root">{projectRoot}</span>
+      <span>作業ツリー(未コミットの編集を含む)を表示中</span>
       <span>
-        表示中のコミット <code>{atCommit.slice(0, 7)}</code> (HEAD)
+        コミット済みの内容:{" "}
+        {coverageCommit ? (
+          <>
+            <code>{coverageCommit.slice(0, 7)}</code> (HEAD)
+          </>
+        ) : coverageLoading ? (
+          "読み込み中"
+        ) : (
+          "読めませんでした"
+        )}
       </span>
       <span>検証結果は表示していません</span>
       {strictdocLoading && <span>StrictDoc: 更新中</span>}

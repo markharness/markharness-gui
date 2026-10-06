@@ -5,6 +5,8 @@ export interface Requirement {
   label: string | null;
   /** For an external requirement, the MID of the StrictDoc requirement that holds its content. */
   source_key?: string | null;
+  /** The cases the core relates to the requirement, by the same rule as the coverage. */
+  case_uids: string[];
 }
 
 export interface Feature {
@@ -50,6 +52,7 @@ export interface Traceability {
   relations: Relation[];
 }
 
+/** What the core reports about the committed content at `HEAD`. */
 export interface Coverage {
   at_commit: string;
   requirements: {
@@ -66,13 +69,6 @@ export interface Coverage {
     requirement_id: string;
     feature_id: string | null;
   }[];
-}
-
-/** The traceability and the coverage of one commit. */
-export interface Project {
-  at_commit: string;
-  traceability: Traceability;
-  coverage: Coverage;
 }
 
 export interface CaseDetail {
@@ -104,16 +100,12 @@ export interface RequirementDescription {
 
 export interface Backend {
   getProjectRoot(): Promise<string>;
-  getProject(): Promise<Project>;
+  /** The working tree, including edits that are not committed yet. */
+  getTraceability(): Promise<Traceability>;
+  /** The committed content at `HEAD`; it cannot read the working tree. */
+  getCoverage(): Promise<Coverage>;
   /** `null` when the project does not use StrictDoc. */
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
-  getRequirementDescriptions(
-    uids: string[],
-    atCommit: string,
-  ): Promise<RequirementDescription[]>;
-  getCaseDetail(
-    caseUid: string,
-    scenarioUid: string,
-    atCommit: string,
-  ): Promise<CaseDetail>;
+  getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;
+  getCaseDetail(caseUid: string, scenarioUid: string): Promise<CaseDetail>;
 }

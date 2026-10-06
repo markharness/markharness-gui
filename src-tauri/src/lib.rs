@@ -1,7 +1,6 @@
 pub mod coverage;
 pub mod detail;
 pub mod launch;
-pub mod project;
 pub mod strictdoc;
 pub mod strictdoc_export;
 pub mod traceability;
@@ -13,12 +12,28 @@ fn get_project_root(config: tauri::State<'_, LaunchConfig>) -> String {
     config.project_root.to_string_lossy().into_owned()
 }
 
+/// The working tree, including edits that are not committed yet.
 #[tauri::command]
-async fn get_project(config: tauri::State<'_, LaunchConfig>) -> Result<project::Project, String> {
+async fn get_traceability(
+    config: tauri::State<'_, LaunchConfig>,
+) -> Result<traceability::Traceability, String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
-    project::read_project(&runner, &config.project_root)
+    traceability::read_traceability(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The committed content at `HEAD`; `coverage` cannot read the working tree.
+#[tauri::command]
+async fn get_coverage(
+    config: tauri::State<'_, LaunchConfig>,
+) -> Result<coverage::Coverage, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    coverage::read_coverage(&runner, &config.project_root)
         .await
         .map_err(|e| e.to_string())
 }
@@ -28,20 +43,13 @@ async fn get_case_detail(
     config: tauri::State<'_, LaunchConfig>,
     case_uid: String,
     scenario_uid: String,
-    at_commit: String,
 ) -> Result<detail::CaseDetail, String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
-    detail::read_case_detail(
-        &runner,
-        &config.project_root,
-        &case_uid,
-        &scenario_uid,
-        &at_commit,
-    )
-    .await
-    .map_err(|e| e.to_string())
+    detail::read_case_detail(&runner, &config.project_root, &case_uid, &scenario_uid)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -61,12 +69,11 @@ async fn get_strictdoc(
 async fn get_requirement_descriptions(
     config: tauri::State<'_, LaunchConfig>,
     uids: Vec<String>,
-    at_commit: String,
 ) -> Result<Vec<detail::RequirementDescription>, String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
-    detail::read_requirement_descriptions(&runner, &config.project_root, &uids, &at_commit)
+    detail::read_requirement_descriptions(&runner, &config.project_root, &uids)
         .await
         .map_err(|e| e.to_string())
 }
@@ -83,7 +90,8 @@ pub fn run() {
         .manage(config)
         .invoke_handler(tauri::generate_handler![
             get_project_root,
-            get_project,
+            get_traceability,
+            get_coverage,
             get_case_detail,
             get_strictdoc,
             get_requirement_descriptions

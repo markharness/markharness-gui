@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::read_case_detail;
-use markharness_gui_lib::project::read_project;
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
 
 fn markharness_bin() -> PathBuf {
@@ -86,13 +86,14 @@ async fn reads_the_traceability_of_a_real_project() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "todo-minimal");
 
-    let result = read_traceability(&CommandRunner { bin }, &project, None).await;
+    let result = read_traceability(&CommandRunner { bin }, &project).await;
     let _ = std::fs::remove_dir_all(&project);
 
     let t = result.expect("traceability should be readable");
     assert_eq!(t.requirements.len(), 1);
     assert_eq!(t.requirements[0].requirement_id, "todo-management");
     assert_eq!(t.requirements[0].source, RequirementSource::Native);
+    assert!(!t.requirements[0].case_uids.is_empty());
     assert_eq!(t.features[0].feature_id, "add-todo");
     assert_eq!(t.behaviors[0].feature_id, "add-todo");
     assert_eq!(t.scenarios[0].scenario_id, "empty-title");
@@ -104,7 +105,7 @@ async fn resolves_parents_by_uid_when_features_share_a_behavior_slug() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "shared-slugs");
 
-    let result = read_traceability(&CommandRunner { bin }, &project, None).await;
+    let result = read_traceability(&CommandRunner { bin }, &project).await;
     let _ = std::fs::remove_dir_all(&project);
 
     let t = result.expect("traceability should be readable");
@@ -167,45 +168,45 @@ fn commit_all(project: &Path) {
 }
 
 #[tokio::test]
-async fn reads_the_traceability_and_the_coverage_of_one_commit() {
+async fn relates_the_same_cases_to_a_requirement_as_the_coverage_does() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "todo-minimal");
     commit_all(&project);
+    let runner = CommandRunner { bin };
 
-    let result = read_project(&CommandRunner { bin }, &project).await;
+    let traceability = read_traceability(&runner, &project).await;
+    let coverage = read_coverage(&runner, &project).await;
     let _ = std::fs::remove_dir_all(&project);
 
-    let p = result.expect("project should be readable");
-    assert_eq!(p.at_commit.len(), 40);
-    let requirement = &p.traceability.requirements[0];
-    let covered = p
-        .coverage
+    let t = traceability.expect("traceability should be readable");
+    let c = coverage.expect("coverage should be readable");
+    assert_eq!(c.at_commit.len(), 40);
+    let requirement = &t.requirements[0];
+    let mut covered: Vec<&String> = c
         .requirements
         .iter()
         .find(|r| r.requirement_uid == requirement.requirement_uid)
-        .expect("coverage should report the requirement");
-    assert!(!covered.cases.is_empty());
+        .expect("coverage should report the requirement")
+        .cases
+        .iter()
+        .map(|case| &case.case_uid)
+        .collect();
+    covered.sort();
+    assert!(!covered.is_empty());
+    assert_eq!(requirement.case_uids.iter().collect::<Vec<_>>(), covered);
 }
 
 #[tokio::test]
 async fn reads_the_steps_and_the_description_of_a_case() {
     let bin = markharness_bin();
     let project = create_sample_project(&bin, "todo-minimal");
-    commit_all(&project);
     let runner = CommandRunner { bin };
-    let p = read_project(&runner, &project)
+    let t = read_traceability(&runner, &project)
         .await
-        .expect("project should be readable");
-    let case = &p.traceability.test_cases[0];
+        .expect("traceability should be readable");
+    let case = &t.test_cases[0];
 
-    let result = read_case_detail(
-        &runner,
-        &project,
-        &case.case_uid,
-        &case.scenario_uid,
-        &p.at_commit,
-    )
-    .await;
+    let result = read_case_detail(&runner, &project, &case.case_uid, &case.scenario_uid).await;
     let _ = std::fs::remove_dir_all(&project);
 
     let d = result.expect("case detail should be readable");

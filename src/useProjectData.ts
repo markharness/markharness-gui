@@ -1,28 +1,33 @@
 import { useEffect, useState } from "react";
-import type { Backend, Project, StrictDoc } from "./backend";
+import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
 
 export interface ProjectData {
-  /** Set once the project root and the project are both read. */
-  loaded?: { projectRoot: string; project: Project };
-  /** The reason the project could not be read; nothing partial is shown then. */
+  /** Set once the project root and the traceability (the working tree) are both read. */
+  loaded?: { projectRoot: string; traceability: Traceability };
+  /** The reason the traceability could not be read; nothing partial is shown then. */
   error?: string;
+  /** The committed content, read apart from the traceability. */
+  coverage: Coverage | null;
+  coverageLoading: boolean;
   strictdoc: StrictDoc | null;
   strictdocLoading: boolean;
   /** What markharness holds as each requirement's description, by requirement uid. */
   descriptions: Record<string, string>;
-  /** Why StrictDoc or the descriptions could not be read. It never blocks the rest of the screen. */
+  /** Why the coverage, StrictDoc or the descriptions could not be read. It never blocks the rest of the screen. */
   notice?: string;
   dismissNotice: () => void;
   reload: () => void;
 }
 
 /**
- * Reads the project, and StrictDoc apart from it so that the project shows first.
- * A reload reads both again, skipping the saved StrictDoc export.
+ * Reads the traceability, and the coverage and StrictDoc apart from it so that the list shows first.
+ * A reload reads all of them again, skipping the saved StrictDoc export.
  */
 export function useProjectData(backend: Backend): ProjectData {
   const [loaded, setLoaded] = useState<ProjectData["loaded"]>();
   const [error, setError] = useState<string>();
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
+  const [coverageLoading, setCoverageLoading] = useState(true);
   const [strictdoc, setStrictDoc] = useState<StrictDoc | null>(null);
   const [strictdocLoading, setStrictDocLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
@@ -34,9 +39,9 @@ export function useProjectData(backend: Backend): ProjectData {
     setError(undefined);
     setStrictDoc(null);
     setStrictDocLoading(true);
-    Promise.all([backend.getProjectRoot(), backend.getProject()]).then(
-      ([projectRoot, project]) =>
-        current && setLoaded({ projectRoot, project }),
+    Promise.all([backend.getProjectRoot(), backend.getTraceability()]).then(
+      ([projectRoot, traceability]) =>
+        current && setLoaded({ projectRoot, traceability }),
       (e) => current && setError(String(e)),
     );
     backend.getStrictDoc(reloads > 0).then(
@@ -56,15 +61,38 @@ export function useProjectData(backend: Backend): ProjectData {
     };
   }, [backend, reloads]);
 
-  // Read apart from the project too: the rows show first and the descriptions fill in.
+  // The coverage reads only committed content, which takes longer than the traceability:
+  // the list shows first and the verification fills in.
   useEffect(() => {
     if (!loaded) return;
-    const { traceability, at_commit } = loaded.project;
-    const uids = traceability.requirements
+    let current = true;
+    setCoverage(null);
+    setCoverageLoading(true);
+    backend.getCoverage().then(
+      (c) => {
+        if (!current) return;
+        setCoverage(c);
+        setCoverageLoading(false);
+      },
+      (e) => {
+        if (!current) return;
+        setCoverageLoading(false);
+        setNotice(String(e));
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [backend, loaded]);
+
+  // Read apart from the traceability too: the rows show first and the descriptions fill in.
+  useEffect(() => {
+    if (!loaded) return;
+    const uids = loaded.traceability.requirements
       .filter((r) => r.source === "native")
       .map((r) => r.requirement_uid);
     let current = true;
-    backend.getRequirementDescriptions(uids, at_commit).then(
+    backend.getRequirementDescriptions(uids).then(
       (found) => {
         if (!current) return;
         setDescriptions(
@@ -85,6 +113,8 @@ export function useProjectData(backend: Backend): ProjectData {
   return {
     loaded,
     error,
+    coverage,
+    coverageLoading,
     strictdoc,
     strictdocLoading,
     descriptions,

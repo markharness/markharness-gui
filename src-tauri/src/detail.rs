@@ -43,12 +43,11 @@ pub async fn read_requirement_descriptions(
     runner: &impl MarkharnessRunner,
     project_root: &Path,
     uids: &[String],
-    at: &str,
 ) -> Result<Vec<RequirementDescription>, ReadError> {
     let mut out = Vec::new();
     for uid in uids {
         let output = runner
-            .traceability_show(project_root, uid, Some(at))
+            .traceability_show(project_root, uid)
             .await
             .map_err(ReadError::CannotRun)?;
         let raw: RawRequirement =
@@ -67,16 +66,15 @@ pub async fn read_case_detail(
     project_root: &Path,
     case_uid: &str,
     scenario_uid: &str,
-    at: &str,
 ) -> Result<CaseDetail, ReadError> {
     let case = runner
-        .traceability_show(project_root, case_uid, Some(at))
+        .traceability_show(project_root, case_uid)
         .await
         .map_err(ReadError::CannotRun)?;
     let case: RawTestCase = serde_json::from_value(parse_record(case, "traceability_detail")?)
         .map_err(|e| ReadError::Malformed(e.to_string()))?;
     let scenario = runner
-        .traceability_show(project_root, scenario_uid, Some(at))
+        .traceability_show(project_root, scenario_uid)
         .await
         .map_err(ReadError::CannotRun)?;
     let scenario: RawScenario =
@@ -101,15 +99,11 @@ mod tests {
 
     #[derive(Default)]
     struct FakeRunner {
-        asked: Mutex<Vec<(String, Option<String>)>>,
+        asked: Mutex<Vec<String>>,
     }
 
     impl MarkharnessRunner for FakeRunner {
-        async fn traceability(
-            &self,
-            _project_root: &Path,
-            _at: Option<&str>,
-        ) -> Result<CommandOutput, String> {
+        async fn traceability(&self, _project_root: &Path) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
 
@@ -121,12 +115,8 @@ mod tests {
             &self,
             _project_root: &Path,
             uid: &str,
-            at: Option<&str>,
         ) -> Result<CommandOutput, String> {
-            self.asked
-                .lock()
-                .unwrap()
-                .push((uid.to_string(), at.map(str::to_string)));
+            self.asked.lock().unwrap().push(uid.to_string());
             let stdout = if uid == "case-uid" {
                 TEST_CASE
             } else if uid.starts_with("req-") {
@@ -143,14 +133,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reads_the_description_of_each_requirement_at_the_commit() {
+    async fn reads_the_description_of_each_requirement() {
         let runner = FakeRunner::default();
 
         let descriptions = read_requirement_descriptions(
             &runner,
             Path::new("/project"),
             &["req-1".to_string(), "req-2".to_string()],
-            "abc123",
         )
         .await
         .unwrap();
@@ -176,13 +165,7 @@ mod tests {
                 },
             ]
         );
-        assert_eq!(
-            *runner.asked.lock().unwrap(),
-            [
-                ("req-1".to_string(), Some("abc123".to_string())),
-                ("req-2".to_string(), Some("abc123".to_string())),
-            ]
-        );
+        assert_eq!(*runner.asked.lock().unwrap(), ["req-1", "req-2"]);
     }
 
     #[tokio::test]
@@ -205,15 +188,9 @@ mod tests {
     async fn reads_the_scenario_description_and_the_steps_of_the_case() {
         let runner = FakeRunner::default();
 
-        let d = read_case_detail(
-            &runner,
-            Path::new("/project"),
-            "case-uid",
-            "scenario-uid",
-            "abc123",
-        )
-        .await
-        .unwrap();
+        let d = read_case_detail(&runner, Path::new("/project"), "case-uid", "scenario-uid")
+            .await
+            .unwrap();
 
         assert_eq!(d.description.as_deref(), Some("From the ground.\n"));
         assert_eq!(
@@ -230,27 +207,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reads_both_elements_at_the_commit_the_screen_shows() {
+    async fn reads_the_case_and_then_its_scenario() {
         let runner = FakeRunner::default();
 
-        read_case_detail(
-            &runner,
-            Path::new("/project"),
-            "case-uid",
-            "scenario-uid",
-            "abc123",
-        )
-        .await
-        .unwrap();
+        read_case_detail(&runner, Path::new("/project"), "case-uid", "scenario-uid")
+            .await
+            .unwrap();
 
         let asked = runner.asked.lock().unwrap();
-        assert_eq!(
-            *asked,
-            [
-                ("case-uid".to_string(), Some("abc123".to_string())),
-                ("scenario-uid".to_string(), Some("abc123".to_string())),
-            ]
-        );
+        assert_eq!(*asked, ["case-uid", "scenario-uid"]);
     }
 
     #[tokio::test]

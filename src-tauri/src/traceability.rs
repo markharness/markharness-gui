@@ -16,7 +16,6 @@ pub trait MarkharnessRunner {
     fn traceability(
         &self,
         project_root: &Path,
-        at: Option<&str>,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 
     fn coverage(
@@ -28,7 +27,6 @@ pub trait MarkharnessRunner {
         &self,
         project_root: &Path,
         uid: &str,
-        at: Option<&str>,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
@@ -51,17 +49,9 @@ impl CommandRunner {
 }
 
 impl MarkharnessRunner for CommandRunner {
-    async fn traceability(
-        &self,
-        project_root: &Path,
-        at: Option<&str>,
-    ) -> Result<CommandOutput, String> {
+    async fn traceability(&self, project_root: &Path) -> Result<CommandOutput, String> {
         let mut command = tokio::process::Command::new(&self.bin);
-        command.arg("traceability");
-        if let Some(at) = at {
-            command.arg("--at").arg(at);
-        }
-        command.arg("--dir").arg(project_root);
+        command.arg("traceability").arg("--dir").arg(project_root);
         self.run(command).await
     }
 
@@ -77,17 +67,14 @@ impl MarkharnessRunner for CommandRunner {
         &self,
         project_root: &Path,
         uid: &str,
-        at: Option<&str>,
     ) -> Result<CommandOutput, String> {
         let mut command = tokio::process::Command::new(&self.bin);
         // `--uid=` keeps a uid that starts with `-` from being read as an option.
         command
             .args(["traceability", "show"])
-            .arg(format!("--uid={uid}"));
-        if let Some(at) = at {
-            command.arg("--at").arg(at);
-        }
-        command.arg("--dir").arg(project_root);
+            .arg(format!("--uid={uid}"))
+            .arg("--dir")
+            .arg(project_root);
         self.run(command).await
     }
 }
@@ -110,6 +97,8 @@ pub struct Requirement {
     pub label: Option<String>,
     pub source_locator: Option<String>,
     pub source_key: Option<String>,
+    /// The cases the core relates to the requirement, by the same rule as `coverage`.
+    pub case_uids: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -242,6 +231,7 @@ struct RawRequirement {
     label: Option<String>,
     source_locator: Option<String>,
     source_key: Option<String>,
+    case_uids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -308,10 +298,9 @@ pub(crate) fn parse_record(
 pub async fn read_traceability(
     runner: &impl MarkharnessRunner,
     project_root: &Path,
-    at: Option<&str>,
 ) -> Result<Traceability, ReadError> {
     let output = runner
-        .traceability(project_root, at)
+        .traceability(project_root)
         .await
         .map_err(ReadError::CannotRun)?;
     let value = parse_record(output, "traceability")?;
@@ -333,6 +322,7 @@ pub async fn read_traceability(
                 label: r.label,
                 source_locator: r.source_locator,
                 source_key: r.source_key,
+                case_uids: r.case_uids,
             })
         })
         .collect::<Result<Vec<_>, ReadError>>()?;
@@ -381,11 +371,7 @@ mod tests {
     }
 
     impl MarkharnessRunner for FakeRunner {
-        async fn traceability(
-            &self,
-            _project_root: &Path,
-            _at: Option<&str>,
-        ) -> Result<CommandOutput, String> {
+        async fn traceability(&self, _project_root: &Path) -> Result<CommandOutput, String> {
             self.0.clone()
         }
 
@@ -397,7 +383,6 @@ mod tests {
             &self,
             _project_root: &Path,
             _uid: &str,
-            _at: Option<&str>,
         ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
@@ -407,7 +392,7 @@ mod tests {
     async fn reads_the_elements_and_their_parents() {
         let runner = FakeRunner::printing(TODO_MINIMAL);
 
-        let t = read_traceability(&runner, Path::new("/project"), None)
+        let t = read_traceability(&runner, Path::new("/project"))
             .await
             .unwrap();
 
@@ -434,6 +419,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reads_the_cases_the_core_relates_to_each_requirement() {
+        let runner = FakeRunner::printing(TODO_MINIMAL);
+
+        let t = read_traceability(&runner, Path::new("/project"))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            t.requirements[0].case_uids,
+            [
+                "221867a0-2c83-59e3-bc11-3ec0b6c012f5",
+                "5384e545-0ead-5332-bc34-2b54d5ede65b"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn stops_when_the_cases_of_a_requirement_are_missing() {
+        let mut value: serde_json::Value = serde_json::from_str(TODO_MINIMAL).unwrap();
+        value["requirements"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("case_uids");
+        let runner = FakeRunner::printing(&value.to_string());
+
+        let result = read_traceability(&runner, Path::new("/project")).await;
+
+        match result.unwrap_err() {
+            ReadError::Malformed(message) => assert!(message.contains("case_uids")),
+            other => panic!("expected Malformed, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
     async fn returns_the_standard_error_verbatim_when_the_command_fails() {
         let stderr = "error: no markharness project found; run `markharness init` first
 ";
@@ -443,7 +462,7 @@ mod tests {
             stderr: stderr.to_string(),
         }));
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -458,7 +477,7 @@ mod tests {
     async fn reports_when_the_command_cannot_be_run() {
         let runner = FakeRunner(Err("program not found".to_string()));
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -470,7 +489,7 @@ mod tests {
     async fn rejects_output_that_is_not_json() {
         let runner = FakeRunner::printing("Traceability: 1 requirement");
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert!(matches!(result.unwrap_err(), ReadError::NotJson(_)));
     }
@@ -483,7 +502,7 @@ mod tests {
         );
         let runner = FakeRunner::printing(&coverage);
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -499,7 +518,7 @@ mod tests {
         let newer = TODO_MINIMAL.replace(r#""schema_version": 1"#, r#""schema_version": 2"#);
         let runner = FakeRunner::printing(&newer);
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -516,7 +535,7 @@ mod tests {
             TODO_MINIMAL.replacen(r#""kind": "generated_from""#, r#""kind": "verified_by""#, 1);
         let runner = FakeRunner::printing(&unknown);
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -532,7 +551,7 @@ mod tests {
         let unknown = TODO_MINIMAL.replace(r#""source": "native""#, r#""source": "imported""#);
         let runner = FakeRunner::printing(&unknown);
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         assert_eq!(
             result.unwrap_err(),
@@ -557,7 +576,7 @@ mod tests {
             );
         let runner = FakeRunner::printing(&extended);
 
-        let t = read_traceability(&runner, Path::new("/project"), None)
+        let t = read_traceability(&runner, Path::new("/project"))
             .await
             .unwrap();
 
@@ -571,7 +590,7 @@ mod tests {
             TODO_MINIMAL.replace(r#""requirement_uid": "01M440JETKSN1RXENDC70HN1Q5","#, "");
         let runner = FakeRunner::printing(&missing);
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         match result.unwrap_err() {
             ReadError::Malformed(message) => assert!(message.contains("requirement_uid")),
@@ -681,7 +700,7 @@ mod tests {
     async fn reads_elements_that_share_a_slug_by_their_parent_uids() {
         let runner = FakeRunner::printing(SHARED_SLUGS);
 
-        let t = read_traceability(&runner, Path::new("/project"), None)
+        let t = read_traceability(&runner, Path::new("/project"))
             .await
             .unwrap();
 
@@ -701,7 +720,7 @@ mod tests {
             .remove("feature_uid");
         let runner = FakeRunner::printing(&output.to_string());
 
-        let result = read_traceability(&runner, Path::new("/project"), None).await;
+        let result = read_traceability(&runner, Path::new("/project")).await;
 
         match result.unwrap_err() {
             ReadError::Malformed(message) => assert!(message.contains("feature_uid")),

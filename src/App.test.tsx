@@ -7,10 +7,9 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { Backend, Project, StrictDoc } from "./backend";
+import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
 
-const project: Project = {
-  at_commit: "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78",
+const project: { traceability: Traceability; coverage: Coverage } = {
   traceability: {
     requirements: [
       {
@@ -18,12 +17,14 @@ const project: Project = {
         requirement_uid: "R1",
         source: "native",
         label: "Login requirement",
+        case_uids: ["C1"],
       },
       {
         requirement_id: "req-2",
         requirement_uid: "R2",
         source: "native",
         label: "Logout requirement",
+        case_uids: [],
       },
     ],
     features: [{ feature_id: "f-1", feature_uid: "F1", label: "Sign in" }],
@@ -77,7 +78,8 @@ const project: Project = {
 function fakeBackend(overrides: Partial<Backend> = {}): Backend {
   return {
     getProjectRoot: async () => "/work/project",
-    getProject: async () => project,
+    getTraceability: async () => project.traceability,
+    getCoverage: async () => project.coverage,
     getStrictDoc: async () => null,
     getRequirementDescriptions: async () => [],
     getCaseDetail: async () => ({
@@ -94,19 +96,78 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
 }
 
 describe("App", () => {
-  it("shows the project root and the commit being displayed", async () => {
+  it("shows the project root and the commit the committed content is read at", async () => {
     render(<App backend={fakeBackend()} />);
 
     expect(await screen.findByText("/work/project")).toBeInTheDocument();
-    expect(screen.getByText("45c7fc1")).toBeInTheDocument();
+    expect(await screen.findByText("45c7fc1")).toBeInTheDocument();
   });
 
-  it("shows the commit shortly", async () => {
+  it("shows the commit shortly, as the content that is committed", async () => {
     render(<App backend={fakeBackend()} />);
 
     const commit = await screen.findByText("45c7fc1");
 
+    expect(commit.parentElement).toHaveTextContent("コミット済みの内容");
     expect(commit.parentElement).toHaveTextContent("(HEAD)");
+  });
+
+  it("says that the list is the working tree, edits not yet committed included", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    expect(await screen.findByText(/作業ツリー/)).toHaveTextContent(
+      "未コミットの編集を含む",
+    );
+  });
+
+  it("shows the list before the coverage is read, and says it is being read", async () => {
+    const pending = new Promise<never>(() => {});
+    render(<App backend={fakeBackend({ getCoverage: () => pending })} />);
+
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+
+    expect(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/コミット済みの内容/)).toHaveTextContent(
+      "読み込み中",
+    );
+    expect(screen.queryByText("45c7fc1")).not.toBeInTheDocument();
+  });
+
+  it("says in the detail pane that the verification is being read, until the coverage is read", async () => {
+    let answer: (c: Coverage) => void = () => {};
+    const coverage = new Promise<Coverage>((resolve) => {
+      answer = resolve;
+    });
+    render(<App backend={fakeBackend({ getCoverage: () => coverage })} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    expect(within(pane).getByText("読み込み中…")).toBeInTheDocument();
+    expect(within(pane).queryByText("機能のない要求")).not.toBeInTheDocument();
+
+    answer(project.coverage);
+
+    expect(await within(pane).findByText("機能のない要求")).toBeInTheDocument();
+  });
+
+  it("tells why the coverage could not be read, keeps the list, and does not show what it would have", async () => {
+    const backend = fakeBackend({
+      getCoverage: async () => {
+        throw new Error("gitを起動できません");
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "gitを起動できません",
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("読めませんでした")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
   it("picks a requirement from anywhere in its row", async () => {
@@ -213,7 +274,7 @@ describe("App", () => {
     fireEvent.click(screen.getByText("Logout requirement"));
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
-    expect(within(pane).getByText("機能のない要求")).toBeInTheDocument();
+    expect(await within(pane).findByText("機能のない要求")).toBeInTheDocument();
     expect(within(pane).getByText("紐づいていません。")).toBeInTheDocument();
     expect(within(pane).getByText("0件")).toBeInTheDocument();
   });
@@ -250,7 +311,7 @@ describe("App", () => {
     expect(found.map((e) => e.textContent)).toEqual(titles);
   });
 
-  it("reads the description and the steps of the picked case at the displayed commit", async () => {
+  it("reads the description and the steps of the picked case", async () => {
     const calls: unknown[][] = [];
     const backend = fakeBackend({
       getCaseDetail: async (...args) => {
@@ -281,9 +342,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Enter a wrong password\./)).toBeInTheDocument();
     expect(screen.getByText(/An error is shown\./)).toBeInTheDocument();
-    expect(calls).toEqual([
-      ["C1", "S1", "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78"],
-    ]);
+    expect(calls).toEqual([["C1", "S1"]]);
   });
 
   it("shows the declared verification means and whether its reference resolves", async () => {
@@ -298,7 +357,7 @@ describe("App", () => {
     );
 
     const pane = screen.getByRole("complementary", { name: "詳細" });
-    expect(within(pane).getByText("自動(参照)")).toBeInTheDocument();
+    expect(await within(pane).findByText("自動(参照)")).toBeInTheDocument();
     expect(
       within(pane).getByText(/tests\/login\.spec\.ts/),
     ).toBeInTheDocument();
@@ -359,24 +418,22 @@ describe("App", () => {
         },
       ],
     };
-    const linked: Project = {
-      ...project,
-      traceability: {
-        ...project.traceability,
-        requirements: [
-          {
-            requirement_id: "llr-1",
-            requirement_uid: "R1",
-            source: "external",
-            label: null,
-            source_key: "m-l",
-          },
-        ],
-      },
+    const linked: Traceability = {
+      ...project.traceability,
+      requirements: [
+        {
+          requirement_id: "llr-1",
+          requirement_uid: "R1",
+          source: "external",
+          label: null,
+          source_key: "m-l",
+          case_uids: ["C1"],
+        },
+      ],
     };
     const withStrictDoc = (overrides: Partial<Backend> = {}) =>
       fakeBackend({
-        getProject: async () => linked,
+        getTraceability: async () => linked,
         getStrictDoc: async () => strictdoc,
         ...overrides,
       });
@@ -487,15 +544,20 @@ describe("App", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
 
-    it("reads both again, skipping the saved StrictDoc export, when reloaded", async () => {
+    it("reads everything again, skipping the saved StrictDoc export, when reloaded", async () => {
       const skipped: boolean[] = [];
-      let projects = 0;
+      let reads = 0;
+      let coverages = 0;
       render(
         <App
           backend={withStrictDoc({
-            getProject: async () => {
-              projects += 1;
+            getTraceability: async () => {
+              reads += 1;
               return linked;
+            },
+            getCoverage: async () => {
+              coverages += 1;
+              return project.coverage;
             },
             getStrictDoc: async (skipSaved) => {
               skipped.push(skipSaved);
@@ -509,7 +571,8 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
 
       await waitFor(() => expect(skipped).toEqual([false, true]));
-      expect(projects).toBe(2);
+      expect(reads).toBe(2);
+      await waitFor(() => expect(coverages).toBe(2));
     });
   });
 
@@ -548,7 +611,7 @@ describe("App", () => {
       expect(within(pane).getByText("Users can log in.")).toBeInTheDocument();
     });
 
-    it("asks only for requirements whose content markharness holds, at the displayed commit", async () => {
+    it("asks only for requirements whose content markharness holds", async () => {
       const asked: unknown[][] = [];
       const backend = described({
         getRequirementDescriptions: async (...args) => {
@@ -560,11 +623,7 @@ describe("App", () => {
 
       await screen.findByText("Login requirement");
 
-      await waitFor(() =>
-        expect(asked).toEqual([
-          [["R1", "R2"], "45c7fc13cfc0749fb0df9f2cdca724d0826f8a78"],
-        ]),
-      );
+      await waitFor(() => expect(asked).toEqual([[["R1", "R2"]]]));
     });
 
     it("tells why the descriptions could not be read, and keeps the rows", async () => {
@@ -584,7 +643,7 @@ describe("App", () => {
 
   it("shows only the error, with nothing partial, when the project cannot be read", async () => {
     const backend = fakeBackend({
-      getProject: async () => {
+      getTraceability: async () => {
         throw new Error(
           "対応しているschema_versionは 1 ですが、受け取ったのは 2 です",
         );
@@ -616,7 +675,7 @@ describe("App", () => {
 
   it("shows that it is loading until the backend answers", () => {
     const pending = new Promise<never>(() => {});
-    const backend = fakeBackend({ getProject: () => pending });
+    const backend = fakeBackend({ getTraceability: () => pending });
 
     render(<App backend={backend} />);
 

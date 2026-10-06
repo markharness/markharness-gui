@@ -30,10 +30,12 @@ function Links({
 /** The facts about one requirement, each under the name of the source that reports it. */
 export function RequirementDetail({
   row,
+  coverageLoading,
   onPickCase,
   onJump,
 }: {
   row: RequirementRow;
+  coverageLoading: boolean;
   onPickCase: (caseUid: string) => void;
   onJump: (key: string) => void;
 }) {
@@ -67,12 +69,19 @@ export function RequirementDetail({
           <dl>
             <dt>紐づくケース</dt>
             <dd>{row.cases.length}件</dd>
-            {row.gaps.map((g) => (
-              <div key={g.label + g.value}>
-                <dt>{g.label}</dt>
-                <dd>{g.value}</dd>
+            {row.gaps ? (
+              row.gaps.map((g) => (
+                <div key={g.label + g.value}>
+                  <dt>{g.label}</dt>
+                  <dd>{g.value}</dd>
+                </div>
+              ))
+            ) : (
+              <div>
+                <dt>ケースがない理由</dt>
+                <dd>{coverageLoading ? "読み込み中…" : "読めませんでした"}</dd>
               </div>
-            ))}
+            )}
           </dl>
         </Section>
       </Card>
