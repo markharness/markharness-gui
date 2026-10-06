@@ -1091,11 +1091,17 @@ describe("App comparison with a tag", () => {
     fireEvent.click(
       await within(pane).findByRole("button", { name: "Featureを編集" }),
     );
-    fireEvent.change(await within(pane).findByLabelText("軸のID"), {
-      target: { value: "perf" },
-    });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "＋ 分類を追加" }),
+    );
+    fireEvent.change(
+      within(pane).getByLabelText("識別子(半角の小文字英数字とハイフン)"),
+      {
+        target: { value: "perf" },
+      },
+    );
 
-    fireEvent.click(within(pane).getByRole("button", { name: "軸を追加" }));
+    fireEvent.click(within(pane).getByRole("button", { name: "追加" }));
 
     expect(await within(pane).findByLabelText("perf")).toBeChecked();
     expect(added).toEqual([["perf", undefined]]);

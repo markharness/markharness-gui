@@ -126,19 +126,25 @@ describe("FeatureEditForm", () => {
       target: { value: "Log in" },
     });
 
-    fireEvent.change(screen.getByLabelText("軸のID"), {
-      target: { value: "perf" },
-    });
-    fireEvent.change(screen.getByLabelText("軸のラベル(省略可)"), {
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+    fireEvent.change(
+      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
+      {
+        target: { value: "perf" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("表示名(省略可)"), {
       target: { value: "性能" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "軸を追加" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
 
     expect(await screen.findByLabelText("性能")).toBeChecked();
     expect(addAxis).toHaveBeenCalledWith("perf", "性能");
     expect(screen.getByLabelText("ラベル")).toHaveValue("Log in");
     expect(screen.getByLabelText("画面")).toBeChecked();
-    expect(screen.getByLabelText("軸のID")).toHaveValue("");
+    expect(
+      screen.queryByLabelText("識別子(半角の小文字英数字とハイフン)"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows what the core said when it refused the axis, and keeps what was typed", async () => {
@@ -148,16 +154,33 @@ describe("FeatureEditForm", () => {
           "error: axis 'perf' already exists under .markharness/axes/",
         ),
     });
-    fireEvent.change(screen.getByLabelText("軸のID"), {
-      target: { value: "perf" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+    fireEvent.change(
+      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
+      {
+        target: { value: "perf" },
+      },
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "軸を追加" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "axis 'perf' already exists",
     );
-    expect(screen.getByLabelText("軸のID")).toHaveValue("perf");
+    expect(
+      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
+    ).toHaveValue("perf");
     expect(screen.queryByLabelText("性能")).not.toBeInTheDocument();
+  });
+
+  it("shows the fields for a new category only after the plus button is pressed", () => {
+    renderForm();
+
+    expect(screen.queryByLabelText("表示名(省略可)")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "分類" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+
+    expect(screen.getByLabelText("表示名(省略可)")).toBeInTheDocument();
   });
 });
