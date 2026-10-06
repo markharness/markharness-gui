@@ -368,4 +368,38 @@ describe("FeatureEditForm", () => {
     );
     expect(screen.getByLabelText("機能")).toBeInTheDocument();
   });
+
+  it("groups the two operations on the categories apart from the save and cancel of the feature", () => {
+    renderForm();
+
+    const categories = screen.getByRole("group", { name: "分類の操作" });
+    const feature = screen.getByRole("group", { name: "Featureの変更を" });
+
+    expect(
+      within(categories).getByRole("button", { name: "＋ 分類を追加" }),
+    ).toBeInTheDocument();
+    expect(
+      within(categories).getByRole("button", { name: "未使用の分類を削除" }),
+    ).toBeInTheDocument();
+    expect(
+      within(feature).getByRole("button", { name: "保存" }),
+    ).toBeInTheDocument();
+    expect(
+      within(feature).getByRole("button", { name: "キャンセル" }),
+    ).toBeInTheDocument();
+    expect(within(feature).getAllByRole("button")).toHaveLength(2);
+    expect(within(categories).getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("keeps the save and cancel of the feature below the fields for a new category", () => {
+    renderForm();
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+
+    const feature = screen.getByRole("group", { name: "Featureの変更を" });
+
+    expect(
+      newCategory().compareDocumentPosition(feature) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Axis } from "./backend";
 import type { FeatureEdit } from "./edit";
 
@@ -31,6 +31,7 @@ export function FeatureEditForm({
   const [newId, setNewId] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [axisError, setAxisError] = useState<string>();
+  const saveCaptionId = useId();
   const [adding, setAdding] = useState(false);
   const [unused, setUnused] = useState<string[]>();
   const [nothingUnused, setNothingUnused] = useState(false);
@@ -77,13 +78,30 @@ export function FeatureEditForm({
           </label>
         ))}
       </fieldset>
-      <button
-        type="button"
-        aria-expanded={adding}
-        onClick={() => (adding ? closeNewCategory() : setAdding(true))}
-      >
-        {adding ? "－ 分類を追加" : "＋ 分類を追加"}
-      </button>
+      <div role="group" aria-label="分類の操作" className="category-actions">
+        <button
+          type="button"
+          aria-expanded={adding}
+          onClick={() => (adding ? closeNewCategory() : setAdding(true))}
+        >
+          {adding ? "－ 分類を追加" : "＋ 分類を追加"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setNothingUnused(false);
+            setPruneError(undefined);
+            unusedAxes().then(
+              (ids) =>
+                ids.length === 0 ? setNothingUnused(true) : setUnused(ids),
+              (reason) => setPruneError(String(reason)),
+            );
+          }}
+        >
+          未使用の分類を削除
+        </button>
+      </div>
+      {nothingUnused && <p role="status">未使用の分類は、ありません。</p>}
       {adding && (
         <fieldset className="new-category">
           <legend>新しい分類</legend>
@@ -122,21 +140,6 @@ export function FeatureEditForm({
           {axisError && <pre role="alert">{axisError}</pre>}
         </fieldset>
       )}
-      <button
-        type="button"
-        onClick={() => {
-          setNothingUnused(false);
-          setPruneError(undefined);
-          unusedAxes().then(
-            (ids) =>
-              ids.length === 0 ? setNothingUnused(true) : setUnused(ids),
-            (reason) => setPruneError(String(reason)),
-          );
-        }}
-      >
-        未使用の分類を削除
-      </button>
-      {nothingUnused && <p role="status">未使用の分類は、ありません。</p>}
       {unused && (
         <fieldset>
           <legend>未使用の分類を削除</legend>
@@ -181,10 +184,19 @@ export function FeatureEditForm({
         </fieldset>
       )}
       {pruneError && <pre role="alert">{pruneError}</pre>}
-      <button type="submit">保存</button>
-      <button type="button" onClick={onCancel}>
-        キャンセル
-      </button>
+      <div
+        role="group"
+        aria-labelledby={saveCaptionId}
+        className="form-actions"
+      >
+        <span id={saveCaptionId}>Featureの変更を</span>
+        <button type="submit" className="primary">
+          保存
+        </button>
+        <button type="button" onClick={onCancel}>
+          キャンセル
+        </button>
+      </div>
     </form>
   );
 }
