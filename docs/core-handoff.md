@@ -12,7 +12,7 @@ markharnessが管理するテスト知識について、次の3つを人が画�
 - **Change Impact**: 2つのコミットの間で、どの要求が変わり、対応するTestCaseが追随したか
 - **Release Coverage**: 指定した要求について、TestCaseと検証手段がそろっているか
 
-利用者には非開発者が含まれます。ターミナルに不慣れな人を想定してください。GUIは、**閲覧と編集の両方**を担います。閲覧だけの版は、開発の途中段階として作ってかまいませんが、markharnessの配布物には同梱されません。**同梱されるのは、テスト知識の編集ができる安定版からです**。閲覧だけでは、閲覧のあとにYAMLの直接編集へ戻る負担が残るためです(本体のADR 0038 決定10)。編集は、本体の `markharness knowledge reconcile`(作成・更新)と `markharness knowledge remove`(削除、本体のADR 0034)だけを通します(GUIがKnowledgeのファイルを直接書き換えることはしません)。`reconcile` の `mode: merge` では削除できないため、削除は `remove` を通します。
+利用者には非開発者が含まれます。ターミナルに不慣れな人を想定してください。GUIは、**閲覧と編集の両方**を担います。閲覧だけの版は、開発の途中段階として作ってかまいませんが、markharnessの配布物には同梱されません。**同梱されるのは、テスト知識の編集ができる安定版からです**。閲覧だけでは、閲覧のあとにYAMLの直接編集へ戻る負担が残るためです(本体のADR 0038 決定10)。編集は、本体の `markharness knowledge reconcile`(作成・更新)と `markharness knowledge remove`(削除、本体のADR 0034)を通し、成功後に `markharness generate` を呼びます(GUIがKnowledgeのファイルを直接書き換えることはしません)。`reconcile` の `mode: merge` では削除できないため、削除は `remove` を通します。GUIが呼んでよい `markharness` のコマンドは、種類を限りません([ADR 0013](adr/0013-call-any-markharness-command.md))。
 
 用語は本体の用語集(`CONTEXT.md`)に従います。「GUI」と呼び、「viewer」「ビューア」は使いません。
 
@@ -182,7 +182,7 @@ markharness impact --base <git ref> --head <git ref> --dir <root>
 
 ### 編集は同梱の条件
 
-編集は、スコープ外ではありません。GUIが本体の配布物に同梱されるための条件です。閲覧だけでは、閲覧のあとにYAMLの直接編集へ戻る負担が残るためです(本体のADR 0038 決定10)。閲覧だけの途中段階の後に、本体の `knowledge reconcile` と `knowledge remove` を通して作ってください。編集に必要な詳細項目の読み取り出力は、先に本体へ依頼します(下記)。
+編集は、スコープ外ではありません。GUIが本体の配布物に同梱されるための条件です。閲覧だけでは、閲覧のあとにYAMLの直接編集へ戻る負担が残るためです(本体のADR 0038 決定10)。閲覧だけの途中段階の後に、本体の `knowledge reconcile` と `knowledge remove` を通し、成功後に `generate` を呼んで作ってください。編集に必要な詳細項目の読み取り出力は、先に本体へ依頼します(下記)。
 
 ### 本体へ依頼すること
 

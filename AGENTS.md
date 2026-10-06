@@ -46,7 +46,7 @@
 GUIは、markharnessのJSON出力だけを読む。
 
 - `.markharness/` 配下のファイルを、直接読み書きしない(StrictDocのエクスポートを除く)。
-- 書き込みは、`markharness knowledge reconcile`(作成・更新)と `markharness knowledge remove`(削除)だけを通す。
+- `markharness` のコマンドは、種類を限らずに呼んでよい。Knowledgeの作成・更新は `knowledge reconcile`、削除は `knowledge remove` で行い、編集の成功後に `generate` を呼ぶ([ADR 0013](docs/adr/0013-call-any-markharness-command.md))。
 - 画面の内容は、markharnessのJSON出力だけから作る。ただし、refの候補(タグ、ブランチ、最近のコミット)を出すためだけに、読み取り専用の `git`(`for-each-ref`、`log`)を呼んでよい。書き込みを伴う `git` は呼ばない。
 - markharness本体のコードは、このリポジトリの作業では変更しない。足りない読み取り出力は、本体への依頼(issue)にする。
 
