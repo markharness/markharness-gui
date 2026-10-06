@@ -122,6 +122,12 @@ pub trait KnowledgeWriter {
         project_root: &Path,
         intent_yaml: &str,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
+    /// Rewrites the generated test cases from the knowledge.
+    fn generate(
+        &self,
+        project_root: &Path,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
 #[derive(Debug, PartialEq)]
@@ -131,6 +137,11 @@ pub enum EditError {
     Rejected(Vec<Diagnostic>),
     /// The core failed without a diagnostic to read; its stderr is shown as is.
     ReconcileFailed {
+        exit_code: Option<i32>,
+        stderr: String,
+    },
+    /// The edit is written, but the generated test cases did not follow it.
+    GenerateFailed {
         exit_code: Option<i32>,
         stderr: String,
     },
@@ -157,11 +168,20 @@ pub async fn apply_edit(
             stderr: output.stderr,
         });
     };
-    if reply.ok {
-        Ok(())
-    } else {
-        Err(EditError::Rejected(reply.diagnostics))
+    if !reply.ok {
+        return Err(EditError::Rejected(reply.diagnostics));
     }
+    let generated = writer
+        .generate(project_root)
+        .await
+        .map_err(EditError::CannotRun)?;
+    if generated.exit_code != Some(0) {
+        return Err(EditError::GenerateFailed {
+            exit_code: generated.exit_code,
+            stderr: generated.stderr,
+        });
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -296,6 +316,8 @@ mod tests {
     struct FakeWriter {
         reply: Result<CommandOutput, String>,
         intents: Mutex<Vec<String>>,
+        generate_reply: Result<CommandOutput, String>,
+        generated: Mutex<usize>,
     }
 
     impl FakeWriter {
@@ -307,6 +329,12 @@ mod tests {
                     stderr: String::new(),
                 }),
                 intents: Mutex::new(Vec::new()),
+                generate_reply: Ok(CommandOutput {
+                    exit_code: Some(0),
+                    stdout: r#"{"ok":true}"#.to_string(),
+                    stderr: String::new(),
+                }),
+                generated: Mutex::new(0),
             }
         }
     }
@@ -319,6 +347,11 @@ mod tests {
         ) -> Result<CommandOutput, String> {
             self.intents.lock().unwrap().push(intent_yaml.to_string());
             self.reply.clone()
+        }
+
+        async fn generate(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            *self.generated.lock().unwrap() += 1;
+            self.generate_reply.clone()
         }
     }
 
@@ -367,7 +400,7 @@ mod tests {
                 stdout: String::new(),
                 stderr: "error: no such project".to_string(),
             }),
-            intents: Mutex::new(Vec::new()),
+            ..FakeWriter::replying(0, "")
         };
 
         let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
@@ -385,7 +418,7 @@ mod tests {
     async fn a_core_that_cannot_be_run_is_reported_as_such() {
         let writer = FakeWriter {
             reply: Err("markharness: not found".to_string()),
-            intents: Mutex::new(Vec::new()),
+            ..FakeWriter::replying(0, "")
         };
 
         let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
@@ -393,6 +426,48 @@ mod tests {
         assert_eq!(
             result,
             Err(EditError::CannotRun("markharness: not found".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn generate_runs_once_after_a_reconcile_that_succeeds() {
+        let writer = FakeWriter::replying(0, r#"{"ok":true}"#);
+
+        apply_edit(&writer, Path::new("/project"), &feature_axis_edit())
+            .await
+            .unwrap();
+
+        assert_eq!(*writer.generated.lock().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn generate_does_not_run_when_the_edit_was_not_written() {
+        let writer = FakeWriter::replying(1, r#"{"ok":false,"diagnostics":[]}"#);
+
+        let _ = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
+
+        assert_eq!(*writer.generated.lock().unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_failing_generate_is_not_reported_as_a_failed_edit() {
+        let writer = FakeWriter {
+            generate_reply: Ok(CommandOutput {
+                exit_code: Some(1),
+                stdout: String::new(),
+                stderr: "error: cannot write generated/".to_string(),
+            }),
+            ..FakeWriter::replying(0, r#"{"ok":true}"#)
+        };
+
+        let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
+
+        assert_eq!(
+            result,
+            Err(EditError::GenerateFailed {
+                exit_code: Some(1),
+                stderr: "error: cannot write generated/".into(),
+            })
         );
     }
 }
