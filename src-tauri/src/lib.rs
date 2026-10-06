@@ -1,5 +1,6 @@
 pub mod coverage;
 pub mod detail;
+pub mod edit;
 pub mod impact;
 pub mod launch;
 pub mod refs;
