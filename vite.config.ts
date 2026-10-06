@@ -5,5 +5,6 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  server: { watch: { ignored: ["**/src-tauri/**"] } },
   test: { environment: "jsdom", setupFiles: ["./src/test-setup.ts"] },
 });
