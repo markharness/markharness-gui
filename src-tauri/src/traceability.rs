@@ -28,6 +28,13 @@ pub trait MarkharnessRunner {
         project_root: &Path,
         uid: &str,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
+    /// What the requirements touched between `base` and `HEAD` have as cases to confirm.
+    fn impact(
+        &self,
+        project_root: &Path,
+        base: &str,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
 pub struct CommandRunner {
@@ -74,6 +81,17 @@ impl MarkharnessRunner for CommandRunner {
             .args(["traceability", "show"])
             .arg(format!("--uid={uid}"))
             .arg("--dir")
+            .arg(project_root);
+        self.run(command).await
+    }
+
+    async fn impact(&self, project_root: &Path, base: &str) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        // `--base=` keeps a base that starts with `-` from being read as an option.
+        command
+            .arg("impact")
+            .arg(format!("--base={base}"))
+            .args(["--head", "HEAD", "--dir"])
             .arg(project_root);
         self.run(command).await
     }
@@ -384,6 +402,10 @@ mod tests {
             _project_root: &Path,
             _uid: &str,
         ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
     }

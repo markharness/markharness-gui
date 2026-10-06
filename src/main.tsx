@@ -5,6 +5,7 @@ import "./styles.css";
 import type {
   Backend,
   CaseDetail,
+  ChangeImpact,
   Coverage,
   RequirementDescription,
   StrictDoc,
@@ -15,6 +16,8 @@ const backend: Backend = {
   getProjectRoot: () => invoke<string>("get_project_root"),
   getTraceability: () => invoke<Traceability>("get_traceability"),
   getCoverage: () => invoke<Coverage>("get_coverage"),
+  getTags: () => invoke<string[]>("get_tags"),
+  getImpact: (base) => invoke<ChangeImpact>("get_impact", { base }),
   getStrictDoc: (skipSaved) =>
     invoke<StrictDoc | null>("get_strictdoc", { skipSaved }),
   getRequirementDescriptions: (uids) =>

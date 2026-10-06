@@ -7,7 +7,13 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
+import type {
+  Backend,
+  ChangeImpact,
+  Coverage,
+  StrictDoc,
+  Traceability,
+} from "./backend";
 
 const project: { traceability: Traceability; coverage: Coverage } = {
   traceability: {
@@ -80,6 +86,8 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
     getProjectRoot: async () => "/work/project",
     getTraceability: async () => project.traceability,
     getCoverage: async () => project.coverage,
+    getTags: async () => [],
+    getImpact: async () => ({ requirements: [] }),
     getStrictDoc: async () => null,
     getRequirementDescriptions: async () => [],
     getCaseDetail: async () => ({
@@ -130,7 +138,7 @@ describe("App", () => {
     expect(
       within(row).getByRole("button", { name: "Log in with a password" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/コミット済みの内容/)).toHaveTextContent(
+    expect(screen.getByText(/コミット済みの内容:/)).toHaveTextContent(
       "読み込み中",
     );
     expect(screen.queryByText("45c7fc1")).not.toBeInTheDocument();
@@ -697,5 +705,191 @@ describe("App", () => {
     render(<App backend={backend} />);
 
     expect(screen.getByText("読み込み中…")).toBeInTheDocument();
+  });
+});
+
+describe("App comparison with a tag", () => {
+  const impact: ChangeImpact = {
+    requirements: [
+      {
+        requirement_uid: "R1",
+        cases: [
+          { case_uid: "C1", status: "unconfirmed" },
+          { case_uid: "C2", status: "followed_up" },
+          { case_uid: "C3", status: "confirmed" },
+        ],
+      },
+      {
+        requirement_uid: "R2",
+        cases: [{ case_uid: "C1", status: "unconfirmed" }],
+      },
+      { requirement_uid: "R3", cases: [] },
+    ],
+  };
+  const tags = ["v0.3.0", "v0.2.0", "v0.1.0"];
+
+  const baseSelect = () => screen.findByRole("combobox", { name: /^比較元/ });
+
+  it("offers the tags as the base, the newest first, and leaves it unselected", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+
+    const select = await baseSelect();
+
+    await waitFor(() =>
+      expect(
+        within(select)
+          .getAllByRole("option")
+          .map((o) => o.textContent),
+      ).toEqual(["未選択", "v0.3.0", "v0.2.0", "v0.1.0"]),
+    );
+    expect(select).toHaveValue("");
+  });
+
+  it("shows no count until a base is chosen, and does not read the impact", async () => {
+    let asked = false;
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => {
+        asked = true;
+        return impact;
+      },
+    });
+    render(<App backend={backend} />);
+    await baseSelect();
+
+    expect(screen.queryByText(/変更後に確認対象となるケース/)).toBeNull();
+    expect(asked).toBe(false);
+  });
+
+  it("says that the comparison reads the committed content", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+
+    expect(await screen.findByText("コミット済みの内容で比較")).toBeVisible();
+  });
+
+  it("passes the chosen tag as given and shows how many cases are to be confirmed", async () => {
+    const asked: string[] = [];
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async (base) => {
+        asked.push(base);
+        return impact;
+      },
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+
+    expect(
+      await screen.findByText(/変更後に確認対象となるケース/),
+    ).toHaveTextContent("変更後に確認対象となるケース: 2件");
+    expect(asked).toEqual(["v0.2.0"]);
+  });
+
+  it("shows 0 when no case is to be confirmed", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => ({ requirements: [] }),
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.1.0" });
+
+    fireEvent.change(select, { target: { value: "v0.1.0" } });
+
+    expect(
+      await screen.findByText(/変更後に確認対象となるケース/),
+    ).toHaveTextContent("変更後に確認対象となるケース: 0件");
+  });
+
+  it("shows the message of the core in place of the count when the comparison fails", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => {
+        throw "error: bad revision 'v0.1.0'";
+      },
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.1.0" });
+
+    fireEvent.change(select, { target: { value: "v0.1.0" } });
+
+    const line = await screen.findByText(/変更後に確認対象となるケース/);
+    expect(line).toHaveTextContent("error: bad revision 'v0.1.0'");
+    expect(line).not.toHaveTextContent("件");
+  });
+
+  it("says that it is reading while the core has not answered", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: () => new Promise<never>(() => {}),
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.1.0" });
+
+    fireEvent.change(select, { target: { value: "v0.1.0" } });
+
+    expect(
+      await screen.findByText(/変更後に確認対象となるケース/),
+    ).toHaveTextContent("読み込み中");
+  });
+
+  it("shows the count of the last chosen base even when an earlier one answers later", async () => {
+    let answerFirst: (i: ChangeImpact) => void = () => {};
+    const first = new Promise<ChangeImpact>((resolve) => {
+      answerFirst = resolve;
+    });
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: (base) =>
+        base === "v0.3.0" ? first : Promise.resolve({ requirements: [] }),
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.3.0" });
+
+    fireEvent.change(select, { target: { value: "v0.3.0" } });
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+    await screen.findByText(/変更後に確認対象となるケース: 0件/);
+    answerFirst(impact);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/変更後に確認対象となるケース/),
+      ).toHaveTextContent("0件"),
+    );
+  });
+
+  it("offers nothing to choose when there are no tags", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => [] })} />);
+
+    const select = await baseSelect();
+
+    expect(select).toBeDisabled();
+    expect(within(select).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("reads the comparison again when the project is reloaded", async () => {
+    let reads = 0;
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => {
+        reads += 1;
+        return impact;
+      },
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+    await screen.findByText(/変更後に確認対象となるケース: 2件/);
+
+    fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
+
+    await waitFor(() => expect(reads).toBe(2));
   });
 });

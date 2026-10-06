@@ -71,6 +71,20 @@ export interface Coverage {
   }[];
 }
 
+/** What the core reports about the requirements touched between a base and `HEAD`. */
+export interface ChangeImpact {
+  requirements: {
+    requirement_uid: string;
+    /** Empty when no case relates to the requirement. */
+    cases: ImpactCase[];
+  }[];
+}
+
+export interface ImpactCase {
+  case_uid: string;
+  status: "confirmed" | "followed_up" | "unconfirmed";
+}
+
 export interface CaseDetail {
   description: string | null;
   phases: { steps: string[]; results: string[] }[];
@@ -104,6 +118,10 @@ export interface Backend {
   getTraceability(): Promise<Traceability>;
   /** The committed content at `HEAD`; it cannot read the working tree. */
   getCoverage(): Promise<Coverage>;
+  /** The tags to offer as the base of a comparison, the newest first; empty when none can be listed. */
+  getTags(): Promise<string[]>;
+  /** The committed content between `base` and `HEAD`; rejects with the core's message. */
+  getImpact(base: string): Promise<ChangeImpact>;
   /** `null` when the project does not use StrictDoc. */
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;

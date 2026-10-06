@@ -1,6 +1,8 @@
 pub mod coverage;
 pub mod detail;
+pub mod impact;
 pub mod launch;
+pub mod refs;
 pub mod strictdoc;
 pub mod strictdoc_export;
 pub mod traceability;
@@ -34,6 +36,26 @@ async fn get_coverage(
         bin: config.markharness_bin.clone(),
     };
     coverage::read_coverage(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The tags to offer as the base of a comparison; empty when `git` cannot list them.
+#[tauri::command]
+async fn get_tags(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
+    Ok(refs::read_tags(&refs::CommandGitRunner, &config.project_root).await)
+}
+
+/// The committed content between `base` and `HEAD`; it cannot read the working tree.
+#[tauri::command]
+async fn get_impact(
+    config: tauri::State<'_, LaunchConfig>,
+    base: String,
+) -> Result<impact::ChangeImpact, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    impact::read_impact(&runner, &config.project_root, &base)
         .await
         .map_err(|e| e.to_string())
 }
@@ -92,6 +114,8 @@ pub fn run() {
             get_project_root,
             get_traceability,
             get_coverage,
+            get_tags,
+            get_impact,
             get_case_detail,
             get_strictdoc,
             get_requirement_descriptions
