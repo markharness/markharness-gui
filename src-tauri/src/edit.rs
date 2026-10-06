@@ -13,16 +13,19 @@ use crate::traceability::{CommandOutput, CommandRunner};
 pub enum Edit {
     Feature {
         uid: String,
+        label: Option<String>,
         axis: Option<Vec<String>>,
     },
     Behavior {
         feature_uid: String,
         uid: String,
+        label: Option<String>,
         description: Option<String>,
         axis: Option<Vec<String>>,
     },
     Requirement {
         uid: String,
+        label: Option<String>,
         description: Option<String>,
         axis: Option<Vec<String>>,
     },
@@ -30,6 +33,7 @@ pub enum Edit {
         feature_uid: String,
         behavior_uid: String,
         uid: String,
+        label: Option<String>,
         description: Option<String>,
         implementation_note: Option<String>,
     },
@@ -57,8 +61,11 @@ pub fn intent_yaml(edit: &Edit) -> String {
         root.to_string(),
     ];
     match edit {
-        Edit::Feature { uid, axis } => {
+        Edit::Feature { uid, label, axis } => {
             lines.push(format!("  - uid: {}", scalar(uid)));
+            if let Some(label) = label {
+                lines.push(format!("    label: {}", scalar(label)));
+            }
             if let Some(axis) = axis {
                 lines.push(format!("    axis: {}", list(axis)));
             }
@@ -66,12 +73,16 @@ pub fn intent_yaml(edit: &Edit) -> String {
         Edit::Behavior {
             feature_uid,
             uid,
+            label,
             description,
             axis,
         } => {
             lines.push(format!("  - uid: {}", scalar(feature_uid)));
             lines.push("    behaviors:".to_string());
             lines.push(format!("      - uid: {}", scalar(uid)));
+            if let Some(label) = label {
+                lines.push(format!("        label: {}", scalar(label)));
+            }
             if let Some(description) = description {
                 lines.push(format!("        description: {}", scalar(description)));
             }
@@ -81,10 +92,14 @@ pub fn intent_yaml(edit: &Edit) -> String {
         }
         Edit::Requirement {
             uid,
+            label,
             description,
             axis,
         } => {
             lines.push(format!("  - uid: {}", scalar(uid)));
+            if let Some(label) = label {
+                lines.push(format!("    label: {}", scalar(label)));
+            }
             if let Some(description) = description {
                 lines.push(format!("    description: {}", scalar(description)));
             }
@@ -96,6 +111,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
             feature_uid,
             behavior_uid,
             uid,
+            label,
             description,
             implementation_note,
         } => {
@@ -104,6 +120,9 @@ pub fn intent_yaml(edit: &Edit) -> String {
             lines.push(format!("      - uid: {}", scalar(behavior_uid)));
             lines.push("        scenarios:".to_string());
             lines.push(format!("          - uid: {}", scalar(uid)));
+            if let Some(label) = label {
+                lines.push(format!("            label: {}", scalar(label)));
+            }
             if let Some(description) = description {
                 lines.push(format!("            description: {}", scalar(description)));
             }
@@ -249,6 +268,7 @@ mod tests {
     fn feature_axis_is_sent_selected_by_uid() {
         let edit = Edit::Feature {
             uid: "01FEATURE".into(),
+            label: None,
             axis: Some(vec!["functional".into(), "ui".into()]),
         };
 
@@ -268,6 +288,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            label: None,
             description: Some("説明".into()),
             axis: Some(vec!["ui".into()]),
         };
@@ -292,6 +313,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            label: None,
             description: Some("説明".into()),
             implementation_note: Some("メモ".into()),
         };
@@ -316,6 +338,7 @@ mod tests {
     fn requirement_is_sent_under_requirements() {
         let edit = Edit::Requirement {
             uid: "01REQUIREMENT".into(),
+            label: None,
             description: Some("説明".into()),
             axis: Some(vec![]),
         };
@@ -337,6 +360,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            label: None,
             description: None,
             axis: Some(vec!["ui".into()]),
         };
@@ -353,6 +377,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            label: None,
             description: None,
             implementation_note: Some("a: \"b\"\nc # d".into()),
         };
@@ -406,6 +431,7 @@ mod tests {
     fn feature_axis_edit() -> Edit {
         Edit::Feature {
             uid: "01FEATURE".into(),
+            label: None,
             axis: Some(vec!["ui".into()]),
         }
     }
@@ -531,6 +557,7 @@ mod tests {
             Edit::Behavior {
                 feature_uid: "F".into(),
                 uid: "B".into(),
+                label: None,
                 description: Some("説明".into()),
                 axis: None,
             }
@@ -555,6 +582,98 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&generate_failed).unwrap(),
             serde_json::json!({"kind":"generate_failed","detail":{"exit_code":1,"stderr":"boom"}})
+        );
+    }
+
+    #[test]
+    fn feature_label_is_sent_before_the_axis() {
+        let edit = Edit::Feature {
+            uid: "01FEATURE".into(),
+            label: Some("a: b".into()),
+            axis: Some(vec!["ui".into()]),
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             features:\n\
+             \x20 - uid: \"01FEATURE\"\n\
+             \x20   label: \"a: b\"\n\
+             \x20   axis: [\"ui\"]\n"
+        );
+    }
+
+    #[test]
+    fn behavior_label_is_sent_before_the_description() {
+        let edit = Edit::Behavior {
+            feature_uid: "01FEATURE".into(),
+            uid: "01BEHAVIOR".into(),
+            label: Some("名前".into()),
+            description: Some("説明".into()),
+            axis: None,
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             features:\n\
+             \x20 - uid: \"01FEATURE\"\n\
+             \x20   behaviors:\n\
+             \x20     - uid: \"01BEHAVIOR\"\n\
+             \x20       label: \"名前\"\n\
+             \x20       description: \"説明\"\n"
+        );
+    }
+
+    #[test]
+    fn scenario_label_is_sent_before_the_description() {
+        let edit = Edit::Scenario {
+            feature_uid: "01FEATURE".into(),
+            behavior_uid: "01BEHAVIOR".into(),
+            uid: "01SCENARIO".into(),
+            label: Some("名前".into()),
+            description: Some("説明".into()),
+            implementation_note: None,
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             features:\n\
+             \x20 - uid: \"01FEATURE\"\n\
+             \x20   behaviors:\n\
+             \x20     - uid: \"01BEHAVIOR\"\n\
+             \x20       scenarios:\n\
+             \x20         - uid: \"01SCENARIO\"\n\
+             \x20           label: \"名前\"\n\
+             \x20           description: \"説明\"\n"
+        );
+    }
+
+    #[test]
+    fn requirement_label_is_sent_before_the_description() {
+        let edit = Edit::Requirement {
+            uid: "01REQUIREMENT".into(),
+            label: Some("名前".into()),
+            description: Some("説明".into()),
+            axis: None,
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             requirements:\n\
+             \x20 - uid: \"01REQUIREMENT\"\n\
+             \x20   label: \"名前\"\n\
+             \x20   description: \"説明\"\n"
         );
     }
 }

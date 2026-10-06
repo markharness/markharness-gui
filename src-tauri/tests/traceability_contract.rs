@@ -251,11 +251,14 @@ async fn an_edit_is_written_and_the_generated_cases_follow_it() {
         feature_uid: t.features[0].feature_uid.clone(),
         behavior_uid: t.behaviors[0].behavior_uid.clone(),
         uid: t.scenarios[0].scenario_uid.clone(),
+        // A label the core must quote to read it back (core issue #119).
+        label: Some("- 題: 編集".into()),
         description: Some("編集した説明".into()),
         implementation_note: None,
     };
 
     let applied = apply_edit(&runner, &project, &edit).await;
+    let reread = read_traceability(&runner, &project).await;
     let shown = Command::new(&bin)
         .args(["traceability", "show", "--uid"])
         .arg(&t.scenarios[0].scenario_uid)
@@ -273,6 +276,10 @@ async fn an_edit_is_written_and_the_generated_cases_follow_it() {
     let _ = std::fs::remove_dir_all(&project);
 
     assert_eq!(applied, Ok(()));
+    assert_eq!(
+        reread.unwrap().scenarios[0].label.as_deref(),
+        Some("- 題: 編集")
+    );
     let shown: serde_json::Value = serde_json::from_slice(&shown.stdout).unwrap();
     assert_eq!(shown["description"], "編集した説明\n");
     assert!(
