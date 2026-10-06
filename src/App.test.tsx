@@ -266,6 +266,23 @@ describe("App", () => {
     expect(within(pane).getAllByText("markharness").length).toBeGreaterThan(0);
   });
 
+  it("shows each linked case in the detail pane as one box with its title and where it belongs", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    fireEvent.click(await screen.findByText("Login requirement"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    const box = within(pane).getByRole("button", {
+      name: /Log in with a password/,
+    });
+    expect(box).toHaveTextContent("›");
+    expect(box).toHaveClass("case-box");
+    expect(within(box).getByText("Log in with a password")).toHaveAttribute(
+      "title",
+      "Log in with a password",
+    );
+  });
+
   it("shows why the core reports a requirement as not covered, only in the detail pane", async () => {
     render(<App backend={fakeBackend()} />);
     await screen.findByText("Logout requirement");
