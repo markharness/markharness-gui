@@ -58,7 +58,7 @@ export function ContextBar({
           {result.kind === "loading"
             ? "読み込み中"
             : result.kind === "counted"
-              ? `${result.casesToConfirm}件`
+              ? `${result.casesToConfirm.size}件`
               : result.message}
         </span>
       )}

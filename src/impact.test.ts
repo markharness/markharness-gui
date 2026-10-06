@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChangeImpact, ImpactCase } from "./backend";
-import { countCasesToConfirm } from "./impact";
+import { casesToConfirm } from "./impact";
 
 const touched = (
   ...cases: ImpactCase[]
@@ -13,8 +13,8 @@ const aCase = (case_uid: string, status: ImpactCase["status"]): ImpactCase => ({
   status,
 });
 
-describe("countCasesToConfirm", () => {
-  it("counts the cases that are not confirmed, a followed-up one included", () => {
+describe("casesToConfirm", () => {
+  it("collects the cases that are not confirmed, a followed-up one included", () => {
     const impact: ChangeImpact = {
       requirements: [
         touched(
@@ -25,10 +25,10 @@ describe("countCasesToConfirm", () => {
       ],
     };
 
-    expect(countCasesToConfirm(impact)).toBe(2);
+    expect(casesToConfirm(impact)).toEqual(new Set(["C1", "C2"]));
   });
 
-  it("counts a case once even when several touched requirements relate to it", () => {
+  it("collects a case once even when several touched requirements relate to it", () => {
     const impact: ChangeImpact = {
       requirements: [
         touched(aCase("C1", "unconfirmed")),
@@ -36,16 +36,16 @@ describe("countCasesToConfirm", () => {
       ],
     };
 
-    expect(countCasesToConfirm(impact)).toBe(2);
+    expect(casesToConfirm(impact)).toEqual(new Set(["C1", "C2"]));
   });
 
-  it("does not count a requirement that has no case", () => {
+  it("collects nothing for a requirement that has no case", () => {
     const impact: ChangeImpact = { requirements: [touched()] };
 
-    expect(countCasesToConfirm(impact)).toBe(0);
+    expect(casesToConfirm(impact).size).toBe(0);
   });
 
   it("is 0 when nothing was touched", () => {
-    expect(countCasesToConfirm({ requirements: [] })).toBe(0);
+    expect(casesToConfirm({ requirements: [] }).size).toBe(0);
   });
 });
