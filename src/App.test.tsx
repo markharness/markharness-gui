@@ -892,4 +892,72 @@ describe("App comparison with a tag", () => {
 
     await waitFor(() => expect(reads).toBe(2));
   });
+
+  it("colors the cases that are to be confirmed in the list, and no others", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => ({
+        requirements: [
+          {
+            requirement_uid: "R1",
+            cases: [{ case_uid: "C1", status: "unconfirmed" }],
+          },
+        ],
+      }),
+    });
+    render(<App backend={backend} />);
+    const caseButton = await screen.findByRole("button", {
+      name: "Log in with a password",
+    });
+    expect(caseButton).not.toHaveClass("to-confirm");
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+
+    await waitFor(() => expect(caseButton).toHaveClass("to-confirm"));
+  });
+
+  it("does not color a case that is confirmed", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => ({
+        requirements: [
+          {
+            requirement_uid: "R1",
+            cases: [{ case_uid: "C1", status: "confirmed" }],
+          },
+        ],
+      }),
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+
+    await screen.findByText(/変更後に確認対象となるケース: 0件/);
+    expect(
+      screen.getByRole("button", { name: "Log in with a password" }),
+    ).not.toHaveClass("to-confirm");
+  });
+
+  it("stops coloring the cases when the base is unselected again", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => impact,
+    });
+    render(<App backend={backend} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
+    const caseButton = await screen.findByRole("button", {
+      name: "Log in with a password",
+    });
+    await waitFor(() => expect(caseButton).toHaveClass("to-confirm"));
+
+    fireEvent.change(select, { target: { value: "" } });
+
+    await waitFor(() => expect(caseButton).not.toHaveClass("to-confirm"));
+  });
 });

@@ -65,6 +65,11 @@ export function App({ backend }: { backend: Backend }) {
         <section className="list">
           <RequirementTable
             rows={rows}
+            casesToConfirm={
+              comparison.result?.kind === "counted"
+                ? comparison.result.casesToConfirm
+                : undefined
+            }
             showParents={data.strictdoc !== null}
             pickedKey={pickedKey}
             pickedCaseUid={pickedCaseUid}

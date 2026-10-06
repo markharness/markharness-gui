@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Backend } from "./backend";
-import { countCasesToConfirm } from "./impact";
+import { casesToConfirm } from "./impact";
 
 export type ComparisonResult =
   | { kind: "loading" }
-  | { kind: "counted"; casesToConfirm: number }
+  | { kind: "counted"; casesToConfirm: ReadonlySet<string> }
   /** The core's own message; no count is shown then, so that it is not read as 0. */
   | { kind: "failed"; message: string };
 
@@ -50,7 +50,7 @@ export function useComparison(backend: Backend, loaded: unknown): Comparison {
         current &&
         setResult({
           kind: "counted",
-          casesToConfirm: countCasesToConfirm(impact),
+          casesToConfirm: casesToConfirm(impact),
         }),
       (e) => current && setResult({ kind: "failed", message: String(e) }),
     );

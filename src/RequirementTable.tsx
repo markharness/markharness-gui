@@ -17,6 +17,7 @@ const depthOf = (depth: number) => ({ "--depth": depth }) as CSSProperties;
 
 export function RequirementTable({
   rows,
+  casesToConfirm,
   showParents,
   pickedKey,
   pickedCaseUid,
@@ -24,6 +25,8 @@ export function RequirementTable({
   onPickCase,
 }: {
   rows: RequirementRow[];
+  /** The cases a comparison reports as to be confirmed; `undefined` when none is shown. */
+  casesToConfirm?: ReadonlySet<string>;
   /** Whether StrictDoc is read, so that the parent column has something to show. */
   showParents: boolean;
   pickedKey: string | undefined;
@@ -123,7 +126,11 @@ export function RequirementTable({
                     <button
                       type="button"
                       key={c.caseUid}
-                      className="case"
+                      className={
+                        casesToConfirm?.has(c.caseUid)
+                          ? "case to-confirm"
+                          : "case"
+                      }
                       aria-pressed={
                         row.key === pickedKey && c.caseUid === pickedCaseUid
                       }

@@ -8,6 +8,7 @@
   --text-muted: #5a6475;
   --border: #dfe3ea;
   --accent: #1f5fbf;
+  --to-confirm: #b45309;
   --focus: #1f5fbf;
 
   --font-ui:
@@ -206,6 +207,11 @@ td .case {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A case a comparison reports as to be confirmed: the color is all that marks it. */
+td .case.to-confirm {
+  color: var(--to-confirm);
 }
 
 td .case:hover {
