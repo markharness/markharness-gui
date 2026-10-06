@@ -1042,9 +1042,10 @@ describe("App comparison with a tag", () => {
       },
     });
     render(<App backend={backend} />);
-    fireEvent.change(await screen.findByLabelText(/比較元/), {
-      target: { value: "v1.0.0" },
-    });
+    const base = await screen.findByLabelText(/比較元/);
+    // The select is disabled until the tags are read.
+    await waitFor(() => expect(base).toBeEnabled());
+    fireEvent.change(base, { target: { value: "v1.0.0" } });
     expect(await screen.findByText(/0件/)).toBeInTheDocument();
     const row = (await screen.findByText("Login requirement")).closest("tr");
     if (!row) throw new Error("not inside a table row");

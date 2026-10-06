@@ -73,7 +73,7 @@ export function FeatureEditForm({
         aria-expanded={adding}
         onClick={() => (adding ? closeNewCategory() : setAdding(true))}
       >
-        ＋ 分類を追加
+        {adding ? "－ 分類を追加" : "＋ 分類を追加"}
       </button>
       {adding && (
         <fieldset className="new-category">
@@ -109,9 +109,6 @@ export function FeatureEditForm({
             }}
           >
             追加
-          </button>
-          <button type="button" onClick={closeNewCategory}>
-            閉じる
           </button>
           {axisError && <pre role="alert">{axisError}</pre>}
         </fieldset>

@@ -206,10 +206,15 @@ describe("FeatureEditForm", () => {
 
     fireEvent.click(plus());
 
-    expect(plus()).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "－ 分類を追加" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "＋ 分類を追加" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("closes the fields of a new category and forgets what was typed in them", async () => {
+  it("closes the fields of a new category with the toggle and forgets what was typed in them", async () => {
     renderForm(undefined, {
       addAxis: () => Promise.reject("error: not a valid slug"),
     });
@@ -220,7 +225,7 @@ describe("FeatureEditForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await screen.findByRole("alert");
 
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "－ 分類を追加" }));
 
     expect(
       screen.queryByRole("group", { name: "新しい分類" }),
@@ -238,12 +243,21 @@ describe("FeatureEditForm", () => {
     fireEvent.change(within(newCategory()).getByLabelText("id"), {
       target: { value: "perf" },
     });
-    fireEvent.click(plus());
+    fireEvent.click(screen.getByRole("button", { name: "－ 分類を追加" }));
 
     expect(
       screen.queryByRole("group", { name: "新しい分類" }),
     ).not.toBeInTheDocument();
     fireEvent.click(plus());
     expect(within(newCategory()).getByLabelText("id")).toHaveValue("");
+  });
+
+  it("has no separate close button, the toggle closes the fields", () => {
+    renderForm();
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+
+    expect(
+      screen.queryByRole("button", { name: "閉じる" }),
+    ).not.toBeInTheDocument();
   });
 });
