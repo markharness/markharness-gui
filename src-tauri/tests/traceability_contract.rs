@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use markharness_gui_lib::axes::{add_axis, read_axes};
+use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
 use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{read_axis, read_case_detail};
 use markharness_gui_lib::edit::{apply_edit, Edit};
@@ -332,4 +332,32 @@ async fn adds_an_axis_that_can_then_be_chosen_and_refuses_the_same_id_again() {
     if let Err(message) = dash {
         assert!(!message.contains("unexpected argument"), "{message}");
     }
+}
+
+#[tokio::test]
+async fn deletes_only_the_axes_no_element_uses() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    add_axis(&runner, &project, "stale", None).await.unwrap();
+
+    let unused = read_unused_axes(&runner, &project).await.unwrap();
+    let still_there = read_axes(&runner, &project).await.unwrap();
+    let deleted = delete_unused_axes(&runner, &project).await.unwrap();
+    let after: Vec<String> = read_axes(&runner, &project)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|a| a.id)
+        .collect();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert!(unused.contains(&"stale".to_string()));
+    // Reading the report deletes nothing.
+    assert!(still_there.iter().any(|a| a.id == "stale"));
+    assert!(deleted.contains(&"stale".to_string()));
+    assert!(!after.contains(&"stale".to_string()));
+    // The feature uses `ui` and `validation`, so they stay.
+    assert!(after.contains(&"ui".to_string()));
+    assert!(after.contains(&"validation".to_string()));
 }

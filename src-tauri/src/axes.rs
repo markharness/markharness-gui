@@ -12,6 +12,13 @@ pub trait AxesRunner {
         project_root: &Path,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 
+    /// Reports the axes no requirement, feature or behavior uses; with `delete`, deletes them all.
+    fn axes_prune(
+        &self,
+        project_root: &Path,
+        delete: bool,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
     /// Registers a new axis; `label` defaults to the id in the core when omitted.
     fn axes_add(
         &self,
@@ -27,6 +34,17 @@ impl AxesRunner for CommandRunner {
         command
             .args(["axes", "list", "--json", "--dir"])
             .arg(project_root);
+        self.run(command).await
+    }
+
+    async fn axes_prune(&self, project_root: &Path, delete: bool) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        command
+            .args(["axes", "prune", "--json", "--dir"])
+            .arg(project_root);
+        if delete {
+            command.arg("--delete");
+        }
         self.run(command).await
     }
 
@@ -75,6 +93,49 @@ pub async fn read_axes(
     serde_json::from_value(value).map_err(|e| ReadError::Malformed(e.to_string()))
 }
 
+/// The ids of the axes no requirement, feature or behavior uses.
+pub async fn read_unused_axes(
+    runner: &impl AxesRunner,
+    project_root: &Path,
+) -> Result<Vec<String>, ReadError> {
+    prune(runner, project_root, false).await
+}
+
+/// Deletes every axis nobody uses, and returns the ids it deleted.
+pub async fn delete_unused_axes(
+    runner: &impl AxesRunner,
+    project_root: &Path,
+) -> Result<Vec<String>, ReadError> {
+    prune(runner, project_root, true).await
+}
+
+async fn prune(
+    runner: &impl AxesRunner,
+    project_root: &Path,
+    delete: bool,
+) -> Result<Vec<String>, ReadError> {
+    let output = runner
+        .axes_prune(project_root, delete)
+        .await
+        .map_err(ReadError::CannotRun)?;
+    if output.exit_code != Some(0) {
+        return Err(ReadError::CommandFailed {
+            exit_code: output.exit_code,
+            stderr: output.stderr,
+        });
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(&output.stdout).map_err(|e| ReadError::NotJson(e.to_string()))?;
+    let pruned: Pruned =
+        serde_json::from_value(value).map_err(|e| ReadError::Malformed(e.to_string()))?;
+    Ok(pruned.axes)
+}
+
+#[derive(Deserialize)]
+struct Pruned {
+    axes: Vec<String>,
+}
+
 /// Registers a new axis. On failure, what the core said is returned as it is.
 pub async fn add_axis(
     runner: &impl AxesRunner,
@@ -110,6 +171,54 @@ mod tests {
         ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
+
+        async fn axes_prune(
+            &self,
+            _project_root: &Path,
+            _delete: bool,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+    }
+
+    struct PruneRunner {
+        reply: Result<CommandOutput, String>,
+        asked: Mutex<Vec<bool>>,
+    }
+
+    impl AxesRunner for PruneRunner {
+        async fn axes_list(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn axes_add(
+            &self,
+            _project_root: &Path,
+            _id: &str,
+            _label: Option<&str>,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn axes_prune(
+            &self,
+            _project_root: &Path,
+            delete: bool,
+        ) -> Result<CommandOutput, String> {
+            self.asked.lock().unwrap().push(delete);
+            self.reply.clone()
+        }
+    }
+
+    fn prune_replying(exit_code: i32, stdout: &str) -> PruneRunner {
+        PruneRunner {
+            reply: Ok(CommandOutput {
+                exit_code: Some(exit_code),
+                stdout: stdout.to_string(),
+                stderr: String::new(),
+            }),
+            asked: Mutex::new(Vec::new()),
+        }
     }
 
     struct AddRunner {
@@ -133,6 +242,14 @@ mod tests {
                 .unwrap()
                 .push((id.to_string(), label.map(str::to_string)));
             self.reply.clone()
+        }
+
+        async fn axes_prune(
+            &self,
+            _project_root: &Path,
+            _delete: bool,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
         }
     }
 
@@ -252,5 +369,60 @@ mod tests {
         let result = add_axis(&runner, Path::new("/project"), "perf", None).await;
 
         assert_eq!(result, Err("markharness: not found".to_string()));
+    }
+
+    #[tokio::test]
+    async fn reads_the_axes_nobody_uses_without_deleting_them() {
+        let runner = prune_replying(0, r#"{"axes":["unused1","unused2"],"deleted":false}"#);
+
+        let unused = read_unused_axes(&runner, Path::new("/project"))
+            .await
+            .unwrap();
+
+        assert_eq!(unused, ["unused1", "unused2"]);
+        assert_eq!(*runner.asked.lock().unwrap(), [false]);
+    }
+
+    #[tokio::test]
+    async fn a_failing_report_returns_the_stderr_of_the_core() {
+        let runner = PruneRunner {
+            reply: Ok(CommandOutput {
+                exit_code: Some(1),
+                stdout: String::new(),
+                stderr: "error: no markharness project found".to_string(),
+            }),
+            asked: Mutex::new(Vec::new()),
+        };
+
+        let result = read_unused_axes(&runner, Path::new("/project")).await;
+
+        assert_eq!(
+            result,
+            Err(ReadError::CommandFailed {
+                exit_code: Some(1),
+                stderr: "error: no markharness project found".into()
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_that_lists_no_axes_is_malformed_not_empty() {
+        let runner = prune_replying(0, r#"{"deleted":false}"#);
+
+        let result = read_unused_axes(&runner, Path::new("/project")).await;
+
+        assert!(matches!(result, Err(ReadError::Malformed(_))));
+    }
+
+    #[tokio::test]
+    async fn deletes_the_axes_nobody_uses_and_returns_what_it_deleted() {
+        let runner = prune_replying(0, r#"{"axes":["unused1"],"deleted":true}"#);
+
+        let deleted = delete_unused_axes(&runner, Path::new("/project"))
+            .await
+            .unwrap();
+
+        assert_eq!(deleted, ["unused1"]);
+        assert_eq!(*runner.asked.lock().unwrap(), [true]);
     }
 }

@@ -127,6 +127,28 @@ async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Ax
         .map_err(|e| e.to_string())
 }
 
+/// The ids of the axes no requirement, feature or behavior uses.
+#[tauri::command]
+async fn get_unused_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::read_unused_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Deletes every axis nobody uses.
+#[tauri::command]
+async fn delete_unused_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::delete_unused_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Registers a new axis; the label defaults to the id in the core when omitted.
 #[tauri::command]
 async fn add_axis(
@@ -174,6 +196,8 @@ pub fn run() {
             get_axis,
             get_axes,
             add_axis,
+            get_unused_axes,
+            delete_unused_axes,
             edit_knowledge
         ])
         .run(tauri::generate_context!())
