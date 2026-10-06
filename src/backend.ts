@@ -137,6 +137,8 @@ export interface Backend {
   getAxis(uid: string): Promise<string[]>;
   /** The axes the project defines. */
   getAxes(): Promise<Axis[]>;
+  /** Registers a new axis; the label is the id in the core when omitted. Rejects with what the core said. */
+  addAxis(id: string, label?: string): Promise<void>;
   /** Writes the edit through the core; rejects with what the core said when it did not apply it. */
   editKnowledge(edit: FeatureEdit): Promise<void>;
 }

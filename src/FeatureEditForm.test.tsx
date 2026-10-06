@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { Axis } from "./backend";
 import type { FeatureEdit } from "./edit";
 import { FeatureEditForm } from "./FeatureEditForm";
 
@@ -11,13 +12,18 @@ const candidates = [
 
 function renderForm(
   save: (edit: FeatureEdit) => Promise<void> = async () => {},
-  handlers: { onSaved?: () => void; onCancel?: () => void } = {},
+  handlers: {
+    onSaved?: () => void;
+    onCancel?: () => void;
+    addAxis?: (id: string, label: string) => Promise<Axis[]>;
+  } = {},
 ) {
   return render(
     <FeatureEditForm
       feature={feature}
       candidates={candidates}
       save={save}
+      addAxis={handlers.addAxis ?? (async () => candidates)}
       onSaved={handlers.onSaved ?? (() => {})}
       onCancel={handlers.onCancel ?? (() => {})}
     />,
@@ -108,5 +114,50 @@ describe("FeatureEditForm", () => {
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("adds an axis in place, offers it checked, and keeps what was typed", async () => {
+    const addAxis = vi.fn(async () => [
+      ...candidates,
+      { id: "perf", label: "性能" },
+    ]);
+    renderForm(undefined, { addAxis });
+    fireEvent.change(screen.getByLabelText("ラベル"), {
+      target: { value: "Log in" },
+    });
+
+    fireEvent.change(screen.getByLabelText("軸のID"), {
+      target: { value: "perf" },
+    });
+    fireEvent.change(screen.getByLabelText("軸のラベル(省略可)"), {
+      target: { value: "性能" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "軸を追加" }));
+
+    expect(await screen.findByLabelText("性能")).toBeChecked();
+    expect(addAxis).toHaveBeenCalledWith("perf", "性能");
+    expect(screen.getByLabelText("ラベル")).toHaveValue("Log in");
+    expect(screen.getByLabelText("画面")).toBeChecked();
+    expect(screen.getByLabelText("軸のID")).toHaveValue("");
+  });
+
+  it("shows what the core said when it refused the axis, and keeps what was typed", async () => {
+    renderForm(undefined, {
+      addAxis: () =>
+        Promise.reject(
+          "error: axis 'perf' already exists under .markharness/axes/",
+        ),
+    });
+    fireEvent.change(screen.getByLabelText("軸のID"), {
+      target: { value: "perf" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "軸を追加" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "axis 'perf' already exists",
+    );
+    expect(screen.getByLabelText("軸のID")).toHaveValue("perf");
+    expect(screen.queryByLabelText("性能")).not.toBeInTheDocument();
   });
 });

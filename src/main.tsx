@@ -28,6 +28,7 @@ const backend: Backend = {
     invoke<CaseDetail>("get_case_detail", { caseUid, scenarioUid }),
   getAxis: (uid) => invoke<string[]>("get_axis", { uid }),
   getAxes: () => invoke<Axis[]>("get_axes"),
+  addAxis: (id, label) => invoke<void>("add_axis", { id, label }),
   editKnowledge: (edit: FeatureEdit) =>
     invoke<void>("edit_knowledge", { edit }),
 };

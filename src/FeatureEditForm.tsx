@@ -1,22 +1,30 @@
 import { useState } from "react";
+import type { Axis } from "./backend";
 import type { FeatureEdit } from "./edit";
 
 export function FeatureEditForm({
   feature,
-  candidates,
+  candidates: initialCandidates,
   save,
+  addAxis,
   onSaved,
   onCancel,
 }: {
   feature: { uid: string; label: string | null; axis: string[] };
-  candidates: { id: string; label: string }[];
+  candidates: Axis[];
   save: (edit: FeatureEdit) => Promise<void>;
+  /** Registers a new axis and returns the axes to choose from, the new one included. */
+  addAxis: (id: string, label: string) => Promise<Axis[]>;
   onSaved: () => void;
   onCancel: () => void;
 }) {
   const [label, setLabel] = useState(feature.label ?? "");
   const [axis, setAxis] = useState(feature.axis);
   const [error, setError] = useState<string>();
+  const [candidates, setCandidates] = useState(initialCandidates);
+  const [newId, setNewId] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [axisError, setAxisError] = useState<string>();
   return (
     <form
       onSubmit={(e) => {
@@ -51,6 +59,35 @@ export function FeatureEditForm({
             {c.label}
           </label>
         ))}
+        <label>
+          軸のID
+          <input value={newId} onChange={(e) => setNewId(e.target.value)} />
+        </label>
+        <label>
+          軸のラベル(省略可)
+          <input
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setAxisError(undefined);
+            addAxis(newId, newLabel).then(
+              (axes) => {
+                setCandidates(axes);
+                setAxis((current) => [...current, newId]);
+                setNewId("");
+                setNewLabel("");
+              },
+              (reason) => setAxisError(String(reason)),
+            );
+          }}
+        >
+          軸を追加
+        </button>
+        {axisError && <pre role="alert">{axisError}</pre>}
       </fieldset>
       <button type="submit">保存</button>
       <button type="button" onClick={onCancel}>

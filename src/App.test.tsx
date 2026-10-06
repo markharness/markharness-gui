@@ -104,6 +104,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
       { id: "functional", label: "機能" },
       { id: "ui", label: "画面" },
     ],
+    addAxis: async () => {},
     editKnowledge: async () => {},
     ...overrides,
   };
@@ -1065,5 +1066,38 @@ describe("App comparison with a tag", () => {
       "0件",
     );
     expect(impactReads).toBe(1);
+  });
+
+  it("adds an axis from the form of the feature, and offers it from what the core now lists", async () => {
+    const added: unknown[][] = [];
+    let axes = [
+      { id: "functional", label: "機能" },
+      { id: "ui", label: "画面" },
+    ];
+    const backend = fakeBackend({
+      getAxes: async () => axes,
+      addAxis: async (id, label) => {
+        added.push([id, label]);
+        axes = [...axes, { id, label: label ?? id }];
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    );
+    fireEvent.change(await within(pane).findByLabelText("軸のID"), {
+      target: { value: "perf" },
+    });
+
+    fireEvent.click(within(pane).getByRole("button", { name: "軸を追加" }));
+
+    expect(await within(pane).findByLabelText("perf")).toBeChecked();
+    expect(added).toEqual([["perf", undefined]]);
   });
 });

@@ -43,6 +43,10 @@ export function FeatureCard({
           }}
           candidates={editing.candidates}
           save={(e) => backend.editKnowledge(e)}
+          addAxis={async (id, label) => {
+            await backend.addAxis(id, label === "" ? undefined : label);
+            return backend.getAxes();
+          }}
           onSaved={() => {
             setEditing(undefined);
             onEdited();
