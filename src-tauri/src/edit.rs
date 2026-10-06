@@ -1,11 +1,15 @@
 use std::future::Future;
 use std::path::Path;
+use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncWriteExt;
 
-use crate::traceability::CommandOutput;
+use crate::traceability::{CommandOutput, CommandRunner};
 
 /// One edit of an existing element; a field left `None` is not sent, so the core keeps its value.
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Edit {
     Feature {
         uid: String,
@@ -130,7 +134,51 @@ pub trait KnowledgeWriter {
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
-#[derive(Debug, PartialEq)]
+impl KnowledgeWriter for CommandRunner {
+    async fn reconcile(
+        &self,
+        project_root: &Path,
+        intent_yaml: &str,
+    ) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        // `-` reads the intent from stdin, so no temporary file is left behind.
+        command
+            .args(["knowledge", "reconcile", "-", "--json", "--dir"])
+            .arg(project_root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = command
+            .spawn()
+            .map_err(|e| format!("{}: {e}", self.bin.display()))?;
+        let mut stdin = child.stdin.take().expect("stdin was piped");
+        stdin
+            .write_all(intent_yaml.as_bytes())
+            .await
+            .map_err(|e| format!("{}: {e}", self.bin.display()))?;
+        drop(stdin);
+        let output = child
+            .wait_with_output()
+            .await
+            .map_err(|e| format!("{}: {e}", self.bin.display()))?;
+        Ok(CommandOutput {
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        })
+    }
+
+    async fn generate(&self, project_root: &Path) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        command
+            .args(["generate", "--json", "--dir"])
+            .arg(project_root);
+        self.run(command).await
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", content = "detail", rename_all = "snake_case")]
 pub enum EditError {
     CannotRun(String),
     /// The core refused the edit and said why; nothing was written.
@@ -468,6 +516,45 @@ mod tests {
                 exit_code: Some(1),
                 stderr: "error: cannot write generated/".into(),
             })
+        );
+    }
+
+    #[test]
+    fn an_edit_is_read_from_the_json_of_the_screen() {
+        let edit: Edit = serde_json::from_str(
+            r#"{"kind":"behavior","feature_uid":"F","uid":"B","description":"説明"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            edit,
+            Edit::Behavior {
+                feature_uid: "F".into(),
+                uid: "B".into(),
+                description: Some("説明".into()),
+                axis: None,
+            }
+        );
+    }
+
+    #[test]
+    fn an_error_tells_the_screen_which_step_failed() {
+        let rejected = EditError::Rejected(vec![Diagnostic {
+            location: "features[0].description".into(),
+            message: "must not be empty".into(),
+        }]);
+        let generate_failed = EditError::GenerateFailed {
+            exit_code: Some(1),
+            stderr: "boom".into(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(&rejected).unwrap(),
+            serde_json::json!({"kind":"rejected","detail":[{"location":"features[0].description","message":"must not be empty"}]})
+        );
+        assert_eq!(
+            serde_json::to_value(&generate_failed).unwrap(),
+            serde_json::json!({"kind":"generate_failed","detail":{"exit_code":1,"stderr":"boom"}})
         );
     }
 }

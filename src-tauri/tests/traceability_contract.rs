@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::read_case_detail;
+use markharness_gui_lib::edit::{apply_edit, Edit};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -238,4 +239,45 @@ async fn reads_the_cases_to_confirm_between_a_tag_and_head() {
     let cases: Vec<_> = impact.requirements.iter().flat_map(|r| &r.cases).collect();
     assert!(!cases.is_empty());
     assert!(cases.iter().all(|c| c.status == ImpactStatus::FollowedUp));
+}
+
+#[tokio::test]
+async fn an_edit_is_written_and_the_generated_cases_follow_it() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin: bin.clone() };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let edit = Edit::Scenario {
+        feature_uid: t.features[0].feature_uid.clone(),
+        behavior_uid: t.behaviors[0].behavior_uid.clone(),
+        uid: t.scenarios[0].scenario_uid.clone(),
+        description: Some("編集した説明".into()),
+        implementation_note: None,
+    };
+
+    let applied = apply_edit(&runner, &project, &edit).await;
+    let shown = Command::new(&bin)
+        .args(["traceability", "show", "--uid"])
+        .arg(&t.scenarios[0].scenario_uid)
+        .arg("--dir")
+        .arg(&project)
+        .output()
+        .unwrap();
+    // `verify` fails while `generated/` differs from `knowledge/`; the fixture never ran `generate`.
+    let verified = Command::new(&bin)
+        .arg("verify")
+        .arg("--dir")
+        .arg(&project)
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(applied, Ok(()));
+    let shown: serde_json::Value = serde_json::from_slice(&shown.stdout).unwrap();
+    assert_eq!(shown["description"], "編集した説明\n");
+    assert!(
+        verified.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verified.stderr)
+    );
 }

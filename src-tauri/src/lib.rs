@@ -101,6 +101,18 @@ async fn get_requirement_descriptions(
         .map_err(|e| e.to_string())
 }
 
+/// Writes one edit through the core, then regenerates the test cases from the knowledge.
+#[tauri::command]
+async fn edit_knowledge(
+    config: tauri::State<'_, LaunchConfig>,
+    edit: edit::Edit,
+) -> Result<(), edit::EditError> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    edit::apply_edit(&runner, &config.project_root, &edit).await
+}
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let config = launch::resolve(&args, std::env::var("MARKHARNESS_BIN").ok().as_deref())
@@ -119,7 +131,8 @@ pub fn run() {
             get_impact,
             get_case_detail,
             get_strictdoc,
-            get_requirement_descriptions
+            get_requirement_descriptions,
+            edit_knowledge
         ])
         .run(tauri::generate_context!())
         .expect("failed to run markharness-gui");
