@@ -1095,7 +1095,9 @@ describe("App comparison with a tag", () => {
       await within(pane).findByRole("button", { name: "＋ 分類を追加" }),
     );
     fireEvent.change(
-      within(pane).getByLabelText("識別子(半角の小文字英数字とハイフン)"),
+      within(
+        within(pane).getByRole("group", { name: "新しい分類" }),
+      ).getByLabelText("id"),
       {
         target: { value: "perf" },
       },

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Axis } from "./backend";
 import type { FeatureEdit } from "./edit";
@@ -9,6 +15,8 @@ const candidates = [
   { id: "functional", label: "機能" },
   { id: "ui", label: "画面" },
 ];
+
+const newCategory = () => screen.getByRole("group", { name: "新しい分類" });
 
 function renderForm(
   save: (edit: FeatureEdit) => Promise<void> = async () => {},
@@ -127,13 +135,10 @@ describe("FeatureEditForm", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
-    fireEvent.change(
-      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
-      {
-        target: { value: "perf" },
-      },
-    );
-    fireEvent.change(screen.getByLabelText("表示名(省略可)"), {
+    fireEvent.change(within(newCategory()).getByLabelText("id"), {
+      target: { value: "perf" },
+    });
+    fireEvent.change(within(newCategory()).getByLabelText("ラベル"), {
       target: { value: "性能" },
     });
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
@@ -143,7 +148,7 @@ describe("FeatureEditForm", () => {
     expect(screen.getByLabelText("ラベル")).toHaveValue("Log in");
     expect(screen.getByLabelText("画面")).toBeChecked();
     expect(
-      screen.queryByLabelText("識別子(半角の小文字英数字とハイフン)"),
+      screen.queryByRole("group", { name: "新しい分類" }),
     ).not.toBeInTheDocument();
   });
 
@@ -155,32 +160,29 @@ describe("FeatureEditForm", () => {
         ),
     });
     fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
-    fireEvent.change(
-      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
-      {
-        target: { value: "perf" },
-      },
-    );
+    fireEvent.change(within(newCategory()).getByLabelText("id"), {
+      target: { value: "perf" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "axis 'perf' already exists",
     );
-    expect(
-      screen.getByLabelText("識別子(半角の小文字英数字とハイフン)"),
-    ).toHaveValue("perf");
+    expect(within(newCategory()).getByLabelText("id")).toHaveValue("perf");
     expect(screen.queryByLabelText("性能")).not.toBeInTheDocument();
   });
 
   it("shows the fields for a new category only after the plus button is pressed", () => {
     renderForm();
 
-    expect(screen.queryByLabelText("表示名(省略可)")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "新しい分類" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "分類" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
 
-    expect(screen.getByLabelText("表示名(省略可)")).toBeInTheDocument();
+    expect(within(newCategory()).getByLabelText("ラベル")).toBeInTheDocument();
   });
 });

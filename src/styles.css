@@ -426,3 +426,27 @@ tbody th[scope="colgroup"] {
 tbody th[scope="row"] {
   padding-left: calc(var(--space-3) + var(--depth, 0) * 16px);
 }
+
+/* The form that edits an element in place: each field on its own row, its name before the input. */
+.edit-form fieldset {
+  margin: 0.75rem 0;
+}
+
+.edit-form .field {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.4rem 0;
+}
+
+.edit-form .field input {
+  min-width: 0;
+}
+
+.edit-form fieldset > label:not(.field) {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  margin-right: 1rem;
+}

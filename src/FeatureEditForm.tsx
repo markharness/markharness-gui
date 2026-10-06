@@ -28,6 +28,7 @@ export function FeatureEditForm({
   const [adding, setAdding] = useState(false);
   return (
     <form
+      className="edit-form"
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);
@@ -38,8 +39,8 @@ export function FeatureEditForm({
       }}
     >
       {error && <pre role="alert">{error}</pre>}
-      <label>
-        ラベル
+      <label className="field">
+        <span>ラベル</span>
         <input value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
       <fieldset>
@@ -61,17 +62,23 @@ export function FeatureEditForm({
           </label>
         ))}
         {adding ? (
-          <>
-            <label>
-              表示名(省略可)
+          <fieldset className="new-category">
+            <legend>新しい分類</legend>
+            <label className="field">
+              <span>id</span>
               <input
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
+                value={newId}
+                placeholder="例: performance(半角の小文字英数字とハイフン)"
+                onChange={(e) => setNewId(e.target.value)}
               />
             </label>
-            <label>
-              識別子(半角の小文字英数字とハイフン)
-              <input value={newId} onChange={(e) => setNewId(e.target.value)} />
+            <label className="field">
+              <span>ラベル</span>
+              <input
+                value={newLabel}
+                placeholder="省略可"
+                onChange={(e) => setNewLabel(e.target.value)}
+              />
             </label>
             <button
               type="button"
@@ -92,7 +99,7 @@ export function FeatureEditForm({
               追加
             </button>
             {axisError && <pre role="alert">{axisError}</pre>}
-          </>
+          </fieldset>
         ) : (
           <button type="button" onClick={() => setAdding(true)}>
             ＋ 分類を追加
