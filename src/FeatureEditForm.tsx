@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { changedFeatureEdit, type EditError, type FeatureEdit } from "./edit";
+import type { FeatureEdit } from "./edit";
 
 export function FeatureEditForm({
   feature,
@@ -16,38 +16,19 @@ export function FeatureEditForm({
 }) {
   const [label, setLabel] = useState(feature.label ?? "");
   const [axis, setAxis] = useState(feature.axis);
-  const [error, setError] = useState<EditError>();
+  const [error, setError] = useState<string>();
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);
-        save(changedFeatureEdit(feature, { label, axis })).then(
+        save({ kind: "feature", uid: feature.uid, label, axis }).then(
           onSaved,
-          setError,
+          (reason) => setError(String(reason)),
         );
       }}
     >
-      {error && (
-        <div role="alert">
-          {error.kind === "rejected" ? (
-            error.detail.map((d) => (
-              <p key={`${d.location}: ${d.message}`}>
-                {d.location}: {d.message}
-              </p>
-            ))
-          ) : error.kind === "cannot_run" ? (
-            <p>{error.detail}</p>
-          ) : (
-            <>
-              {error.kind === "generate_failed" && (
-                <p>保存はできましたが、テストの生成に失敗しました。</p>
-              )}
-              <pre>{error.detail.stderr}</pre>
-            </>
-          )}
-        </div>
-      )}
+      {error && <pre role="alert">{error}</pre>}
       <label>
         ラベル
         <input value={label} onChange={(e) => setLabel(e.target.value)} />

@@ -2,7 +2,7 @@ use std::future::Future;
 use std::path::Path;
 use std::process::Stdio;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
 use crate::traceability::{CommandOutput, CommandRunner};
@@ -132,10 +132,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
         }
     }
     lines.push(String::new());
-    lines.join(
-        "
-",
-    )
+    lines.join("\n")
 }
 
 /// The core command that writes knowledge; the intent is passed on stdin.
@@ -196,57 +193,34 @@ impl KnowledgeWriter for CommandRunner {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize)]
-#[serde(tag = "kind", content = "detail", rename_all = "snake_case")]
-pub enum EditError {
-    CannotRun(String),
-    /// The core refused the edit and said why; nothing was written.
-    Rejected(Vec<Diagnostic>),
-    /// The core failed without a diagnostic to read; its stderr is shown as is.
-    ReconcileFailed {
-        exit_code: Option<i32>,
-        stderr: String,
-    },
-    /// The edit is written, but the generated test cases did not follow it.
-    GenerateFailed {
-        exit_code: Option<i32>,
-        stderr: String,
-    },
+#[derive(Deserialize)]
+struct Diagnostic {
+    location: String,
+    message: String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Diagnostic {
-    pub location: String,
-    pub message: String,
-}
-
+/// Applies the edit through the core. On failure, what the core said is returned as it is:
+/// its diagnostics when it refused the edit, its stderr otherwise.
 pub async fn apply_edit(
     writer: &impl KnowledgeWriter,
     project_root: &Path,
     edit: &Edit,
-) -> Result<(), EditError> {
-    let output = writer
-        .reconcile(project_root, &intent_yaml(edit))
-        .await
-        .map_err(EditError::CannotRun)?;
+) -> Result<(), String> {
+    let output = writer.reconcile(project_root, &intent_yaml(edit)).await?;
     let Ok(reply) = serde_json::from_str::<ReconcileReply>(&output.stdout) else {
-        return Err(EditError::ReconcileFailed {
-            exit_code: output.exit_code,
-            stderr: output.stderr,
-        });
+        return Err(output.stderr);
     };
     if !reply.ok {
-        return Err(EditError::Rejected(reply.diagnostics));
+        let lines: Vec<String> = reply
+            .diagnostics
+            .iter()
+            .map(|d| format!("{}: {}", d.location, d.message))
+            .collect();
+        return Err(lines.join("\n"));
     }
-    let generated = writer
-        .generate(project_root)
-        .await
-        .map_err(EditError::CannotRun)?;
+    let generated = writer.generate(project_root).await?;
     if generated.exit_code != Some(0) {
-        return Err(EditError::GenerateFailed {
-            exit_code: generated.exit_code,
-            stderr: generated.stderr,
-        });
+        return Err(generated.stderr);
     }
     Ok(())
 }
@@ -459,10 +433,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(EditError::Rejected(vec![Diagnostic {
-                location: "features[0].description".into(),
-                message: "must not be empty".into(),
-            }]))
+            Err("features[0].description: must not be empty".to_string())
         );
     }
 
@@ -479,13 +450,7 @@ mod tests {
 
         let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
 
-        assert_eq!(
-            result,
-            Err(EditError::ReconcileFailed {
-                exit_code: Some(2),
-                stderr: "error: no such project".into(),
-            })
-        );
+        assert_eq!(result, Err("error: no such project".to_string()));
     }
 
     #[tokio::test]
@@ -497,10 +462,7 @@ mod tests {
 
         let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
 
-        assert_eq!(
-            result,
-            Err(EditError::CannotRun("markharness: not found".into()))
-        );
+        assert_eq!(result, Err("markharness: not found".to_string()));
     }
 
     #[tokio::test]
@@ -524,7 +486,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failing_generate_is_not_reported_as_a_failed_edit() {
+    async fn a_failing_generate_returns_the_stderr_of_the_core() {
         let writer = FakeWriter {
             generate_reply: Ok(CommandOutput {
                 exit_code: Some(1),
@@ -536,13 +498,7 @@ mod tests {
 
         let result = apply_edit(&writer, Path::new("/project"), &feature_axis_edit()).await;
 
-        assert_eq!(
-            result,
-            Err(EditError::GenerateFailed {
-                exit_code: Some(1),
-                stderr: "error: cannot write generated/".into(),
-            })
-        );
+        assert_eq!(result, Err("error: cannot write generated/".to_string()));
     }
 
     #[test]
@@ -561,27 +517,6 @@ mod tests {
                 description: Some("説明".into()),
                 axis: None,
             }
-        );
-    }
-
-    #[test]
-    fn an_error_tells_the_screen_which_step_failed() {
-        let rejected = EditError::Rejected(vec![Diagnostic {
-            location: "features[0].description".into(),
-            message: "must not be empty".into(),
-        }]);
-        let generate_failed = EditError::GenerateFailed {
-            exit_code: Some(1),
-            stderr: "boom".into(),
-        };
-
-        assert_eq!(
-            serde_json::to_value(&rejected).unwrap(),
-            serde_json::json!({"kind":"rejected","detail":[{"location":"features[0].description","message":"must not be empty"}]})
-        );
-        assert_eq!(
-            serde_json::to_value(&generate_failed).unwrap(),
-            serde_json::json!({"kind":"generate_failed","detail":{"exit_code":1,"stderr":"boom"}})
         );
     }
 

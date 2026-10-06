@@ -132,7 +132,7 @@ async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Ax
 async fn edit_knowledge(
     config: tauri::State<'_, LaunchConfig>,
     edit: edit::Edit,
-) -> Result<(), edit::EditError> {
+) -> Result<(), String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
