@@ -229,4 +229,21 @@ describe("FeatureEditForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
     expect(within(newCategory()).getByLabelText("id")).toHaveValue("");
   });
+
+  it("closes the fields when the plus button is pressed again", () => {
+    renderForm();
+    const plus = () => screen.getByRole("button", { name: "＋ 分類を追加" });
+
+    fireEvent.click(plus());
+    fireEvent.change(within(newCategory()).getByLabelText("id"), {
+      target: { value: "perf" },
+    });
+    fireEvent.click(plus());
+
+    expect(
+      screen.queryByRole("group", { name: "新しい分類" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(plus());
+    expect(within(newCategory()).getByLabelText("id")).toHaveValue("");
+  });
 });

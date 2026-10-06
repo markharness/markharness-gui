@@ -68,7 +68,11 @@ export function FeatureEditForm({
           </label>
         ))}
       </fieldset>
-      <button type="button" onClick={() => setAdding(true)}>
+      <button
+        type="button"
+        aria-expanded={adding}
+        onClick={() => (adding ? closeNewCategory() : setAdding(true))}
+      >
         ＋ 分類を追加
       </button>
       {adding && (
