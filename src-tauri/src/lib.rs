@@ -127,6 +127,19 @@ async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Ax
         .map_err(|e| e.to_string())
 }
 
+/// Registers a new axis; the label defaults to the id in the core when omitted.
+#[tauri::command]
+async fn add_axis(
+    config: tauri::State<'_, LaunchConfig>,
+    id: String,
+    label: Option<String>,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::add_axis(&runner, &config.project_root, &id, label.as_deref()).await
+}
+
 /// Writes one edit through the core, then regenerates the test cases from the knowledge.
 #[tauri::command]
 async fn edit_knowledge(
@@ -160,6 +173,7 @@ pub fn run() {
             get_requirement_descriptions,
             get_axis,
             get_axes,
+            add_axis,
             edit_knowledge
         ])
         .run(tauri::generate_context!())

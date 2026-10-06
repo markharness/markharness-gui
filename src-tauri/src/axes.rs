@@ -11,6 +11,14 @@ pub trait AxesRunner {
         &self,
         project_root: &Path,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
+    /// Registers a new axis; `label` defaults to the id in the core when omitted.
+    fn axes_add(
+        &self,
+        project_root: &Path,
+        id: &str,
+        label: Option<&str>,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
 impl AxesRunner for CommandRunner {
@@ -19,6 +27,25 @@ impl AxesRunner for CommandRunner {
         command
             .args(["axes", "list", "--json", "--dir"])
             .arg(project_root);
+        self.run(command).await
+    }
+
+    async fn axes_add(
+        &self,
+        project_root: &Path,
+        id: &str,
+        label: Option<&str>,
+    ) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        command
+            .args(["axes", "add", "--json", "--dir"])
+            .arg(project_root);
+        if let Some(label) = label {
+            // `--label=` keeps a label that starts with `-` from being read as an option.
+            command.arg(format!("--label={label}"));
+        }
+        // After `--`, an id that starts with `-` is still read as the id.
+        command.args(["--", id]);
         self.run(command).await
     }
 }
@@ -48,8 +75,24 @@ pub async fn read_axes(
     serde_json::from_value(value).map_err(|e| ReadError::Malformed(e.to_string()))
 }
 
+/// Registers a new axis. On failure, what the core said is returned as it is.
+pub async fn add_axis(
+    runner: &impl AxesRunner,
+    project_root: &Path,
+    id: &str,
+    label: Option<&str>,
+) -> Result<(), String> {
+    let output = runner.axes_add(project_root, id, label).await?;
+    if output.exit_code != Some(0) {
+        return Err(output.stderr);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use super::*;
 
     struct FakeRunner(Result<CommandOutput, String>);
@@ -57,6 +100,50 @@ mod tests {
     impl AxesRunner for FakeRunner {
         async fn axes_list(&self, _project_root: &Path) -> Result<CommandOutput, String> {
             self.0.clone()
+        }
+
+        async fn axes_add(
+            &self,
+            _project_root: &Path,
+            _id: &str,
+            _label: Option<&str>,
+        ) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+    }
+
+    struct AddRunner {
+        reply: Result<CommandOutput, String>,
+        added: Mutex<Vec<(String, Option<String>)>>,
+    }
+
+    impl AxesRunner for AddRunner {
+        async fn axes_list(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn axes_add(
+            &self,
+            _project_root: &Path,
+            id: &str,
+            label: Option<&str>,
+        ) -> Result<CommandOutput, String> {
+            self.added
+                .lock()
+                .unwrap()
+                .push((id.to_string(), label.map(str::to_string)));
+            self.reply.clone()
+        }
+    }
+
+    fn add_replying(exit_code: i32, stderr: &str) -> AddRunner {
+        AddRunner {
+            reply: Ok(CommandOutput {
+                exit_code: Some(exit_code),
+                stdout: r#"{"ok":true,"written":[]}"#.to_string(),
+                stderr: stderr.to_string(),
+            }),
+            added: Mutex::new(Vec::new()),
         }
     }
 
@@ -125,5 +212,45 @@ mod tests {
         let result = read_axes(&replying(0, "not json"), Path::new("/project")).await;
 
         assert!(matches!(result, Err(ReadError::NotJson(_))));
+    }
+
+    #[tokio::test]
+    async fn adding_an_axis_passes_its_id_and_label_to_the_core() {
+        let runner = add_replying(0, "");
+
+        let result = add_axis(&runner, Path::new("/project"), "perf", Some("性能")).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            *runner.added.lock().unwrap(),
+            [("perf".to_string(), Some("性能".to_string()))]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refused_axis_returns_the_stderr_of_the_core() {
+        let runner = add_replying(
+            2,
+            "error: axis 'perf' already exists under .markharness/axes/",
+        );
+
+        let result = add_axis(&runner, Path::new("/project"), "perf", None).await;
+
+        assert_eq!(
+            result,
+            Err("error: axis 'perf' already exists under .markharness/axes/".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn a_core_that_cannot_be_run_returns_why() {
+        let runner = AddRunner {
+            reply: Err("markharness: not found".to_string()),
+            added: Mutex::new(Vec::new()),
+        };
+
+        let result = add_axis(&runner, Path::new("/project"), "perf", None).await;
+
+        assert_eq!(result, Err("markharness: not found".to_string()));
     }
 }

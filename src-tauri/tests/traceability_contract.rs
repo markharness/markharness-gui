@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use markharness_gui_lib::axes::read_axes;
+use markharness_gui_lib::axes::{add_axis, read_axes};
 use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{read_axis, read_case_detail};
 use markharness_gui_lib::edit::{apply_edit, Edit};
@@ -305,5 +305,31 @@ async fn reads_the_axes_of_a_feature_and_the_axes_to_choose_from() {
     let ids: Vec<String> = candidates.unwrap().into_iter().map(|a| a.id).collect();
     for id in ["ui", "validation", "workflow"] {
         assert!(ids.iter().any(|i| i == id), "{id} not in {ids:?}");
+    }
+}
+
+#[tokio::test]
+async fn adds_an_axis_that_can_then_be_chosen_and_refuses_the_same_id_again() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+
+    let added = add_axis(&runner, &project, "perf", Some("性能")).await;
+    let candidates = read_axes(&runner, &project).await;
+    let again = add_axis(&runner, &project, "perf", None).await;
+    let dash = add_axis(&runner, &project, "-bad", None).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(added, Ok(()));
+    let perf = candidates
+        .unwrap()
+        .into_iter()
+        .find(|a| a.id == "perf")
+        .expect("the new axis is offered");
+    assert_eq!(perf.label, "性能");
+    assert!(again.unwrap_err().contains("already exists"));
+    // An id that starts with `-` reaches the core as an id, not as an option the core cannot parse.
+    if let Err(message) = dash {
+        assert!(!message.contains("unexpected argument"), "{message}");
     }
 }
