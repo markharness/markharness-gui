@@ -1,12 +1,12 @@
-import type { Project } from "./backend";
+import type { Coverage, Traceability } from "./backend";
 
 export interface CaseView {
   requirement: { title: string; id: string; source: "native" | "external" };
   feature: { title: string; id: string } | undefined;
   behavior: { title: string; id: string } | undefined;
   case: { caseUid: string; title: string; id: string; scenarioUid: string };
-  /** What the case declares; says nothing about whether anything ran. */
-  verification: {
+  /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
+  verification?: {
     method: string;
     reference: { target: string; status: string } | null;
   };
@@ -25,11 +25,11 @@ const REFERENCE_STATUS_NAMES = {
 
 /** The case picked from a requirement, with the elements above it, in the order the data links them. */
 export function describeCase(
-  project: Project,
+  traceability: Traceability,
+  coverage: Coverage | null,
   requirementUid: string,
   caseUid: string,
 ): CaseView | undefined {
-  const { traceability, coverage } = project;
   const testCase = traceability.test_cases.find((c) => c.case_uid === caseUid);
   const requirement = traceability.requirements.find(
     (r) => r.requirement_uid === requirementUid,
@@ -45,7 +45,7 @@ export function describeCase(
   const feature = traceability.features.find(
     (f) => f.feature_uid === behavior?.feature_uid,
   );
-  const declared = coverage.requirements
+  const declared = coverage?.requirements
     .find((r) => r.requirement_uid === requirementUid)
     ?.cases.find((c) => c.case_uid === caseUid);
 
@@ -69,17 +69,19 @@ export function describeCase(
       id: testCase.case_id,
       scenarioUid: testCase.scenario_uid,
     },
-    verification: {
-      method: declared?.binding_mode
-        ? (METHOD_NAMES[declared.binding_mode] ?? declared.binding_mode)
-        : "未宣言",
-      reference:
-        declared?.binding_reference && declared.reference_status
-          ? {
-              target: declared.binding_reference,
-              status: REFERENCE_STATUS_NAMES[declared.reference_status],
-            }
-          : null,
-    },
+    verification: coverage
+      ? {
+          method: declared?.binding_mode
+            ? (METHOD_NAMES[declared.binding_mode] ?? declared.binding_mode)
+            : "未宣言",
+          reference:
+            declared?.binding_reference && declared.reference_status
+              ? {
+                  target: declared.binding_reference,
+                  status: REFERENCE_STATUS_NAMES[declared.reference_status],
+                }
+              : null,
+        }
+      : undefined,
   };
 }

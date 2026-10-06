@@ -17,12 +17,22 @@ export function App({ backend }: { backend: Backend }) {
   if (data.error) return <pre role="alert">{data.error}</pre>;
   if (!data.loaded) return <p>読み込み中…</p>;
 
-  const { projectRoot, project } = data.loaded;
-  const rows = buildRequirementRows(project, data.strictdoc, data.descriptions);
+  const { projectRoot, traceability } = data.loaded;
+  const rows = buildRequirementRows(
+    traceability,
+    data.strictdoc,
+    data.descriptions,
+    data.coverage,
+  );
   const picked = rows.find((r) => r.key === pickedKey);
   const caseView =
     picked?.requirementUid && pickedCaseUid
-      ? describeCase(project, picked.requirementUid, pickedCaseUid)
+      ? describeCase(
+          traceability,
+          data.coverage,
+          picked.requirementUid,
+          pickedCaseUid,
+        )
       : undefined;
   const pick = (key: string) => {
     setPickedKey(key);
@@ -40,7 +50,8 @@ export function App({ backend }: { backend: Backend }) {
     <main className="app">
       <ContextBar
         projectRoot={projectRoot}
-        atCommit={project.at_commit}
+        coverageCommit={data.coverage?.at_commit ?? null}
+        coverageLoading={data.coverageLoading}
         strictdocLoading={data.strictdocLoading}
         onReload={data.reload}
       />
@@ -64,11 +75,12 @@ export function App({ backend }: { backend: Backend }) {
             <CaseDetail
               view={caseView}
               backend={backend}
-              atCommit={project.at_commit}
+              coverageLoading={data.coverageLoading}
             />
           ) : picked ? (
             <RequirementDetail
               row={picked}
+              coverageLoading={data.coverageLoading}
               onPickCase={setPickedCaseUid}
               onJump={pick}
             />

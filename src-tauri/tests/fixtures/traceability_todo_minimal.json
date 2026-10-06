@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "record_kind": "traceability",
-  "at": "working-tree",
   "requirements": [
     {
       "requirement_id": "todo-management",
@@ -9,7 +8,11 @@
       "source": "native",
       "label": "todo-management",
       "source_locator": null,
-      "source_key": null
+      "source_key": null,
+      "case_uids": [
+        "221867a0-2c83-59e3-bc11-3ec0b6c012f5",
+        "5384e545-0ead-5332-bc34-2b54d5ede65b"
+      ]
     }
   ],
   "features": [

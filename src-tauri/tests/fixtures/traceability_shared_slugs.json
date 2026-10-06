@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "record_kind": "traceability",
-  "at": "working-tree",
   "requirements": [
     {
       "requirement_id": "req",
@@ -9,7 +8,11 @@
       "source": "native",
       "label": "req",
       "source_locator": null,
-      "source_key": null
+      "source_key": null,
+      "case_uids": [
+        "857bb376-af81-5560-ae3b-36e69b1e85a0",
+        "b04b8cbd-81b6-50ba-8ed2-b0a03c79a4c2"
+      ]
     }
   ],
   "features": [

@@ -5,23 +5,22 @@ import "./styles.css";
 import type {
   Backend,
   CaseDetail,
-  Project,
+  Coverage,
   RequirementDescription,
   StrictDoc,
+  Traceability,
 } from "./backend";
 
 const backend: Backend = {
   getProjectRoot: () => invoke<string>("get_project_root"),
-  getProject: () => invoke<Project>("get_project"),
+  getTraceability: () => invoke<Traceability>("get_traceability"),
+  getCoverage: () => invoke<Coverage>("get_coverage"),
   getStrictDoc: (skipSaved) =>
     invoke<StrictDoc | null>("get_strictdoc", { skipSaved }),
-  getRequirementDescriptions: (uids, atCommit) =>
-    invoke<RequirementDescription[]>("get_requirement_descriptions", {
-      uids,
-      atCommit,
-    }),
-  getCaseDetail: (caseUid, scenarioUid, atCommit) =>
-    invoke<CaseDetail>("get_case_detail", { caseUid, scenarioUid, atCommit }),
+  getRequirementDescriptions: (uids) =>
+    invoke<RequirementDescription[]>("get_requirement_descriptions", { uids }),
+  getCaseDetail: (caseUid, scenarioUid) =>
+    invoke<CaseDetail>("get_case_detail", { caseUid, scenarioUid }),
 };
 
 const root = document.getElementById("root");

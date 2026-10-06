@@ -11,11 +11,11 @@ import { sourceName } from "./sources";
 export function CaseDetail({
   view,
   backend,
-  atCommit,
+  coverageLoading,
 }: {
   view: CaseView;
   backend: Backend;
-  atCommit: string;
+  coverageLoading: boolean;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -25,14 +25,14 @@ export function CaseDetail({
     let current = true;
     setDetail(undefined);
     setError(undefined);
-    backend.getCaseDetail(picked.caseUid, picked.scenarioUid, atCommit).then(
+    backend.getCaseDetail(picked.caseUid, picked.scenarioUid).then(
       (d) => current && setDetail(d),
       (e) => current && setError(String(e)),
     );
     return () => {
       current = false;
     };
-  }, [backend, picked.caseUid, picked.scenarioUid, atCommit]);
+  }, [backend, picked.caseUid, picked.scenarioUid]);
 
   return (
     <>
@@ -98,16 +98,23 @@ export function CaseDetail({
           </>
         )}
         <Section title="検証方法" badge="markharness">
-          <dl>
-            <dt>方法</dt>
-            <dd>{view.verification.method}</dd>
-            <dt>参照先</dt>
-            <dd>
-              {view.verification.reference
-                ? `${view.verification.reference.target}(${view.verification.reference.status})`
-                : "—"}
-            </dd>
-          </dl>
+          {view.verification ? (
+            <>
+              <dl>
+                <dt>方法</dt>
+                <dd>{view.verification.method}</dd>
+                <dt>参照先</dt>
+                <dd>
+                  {view.verification.reference
+                    ? `${view.verification.reference.target}(${view.verification.reference.status})`
+                    : "—"}
+                </dd>
+              </dl>
+              <small>コミット済みの内容から読んだ宣言です。</small>
+            </>
+          ) : (
+            <p>{coverageLoading ? "読み込み中…" : "読めませんでした"}</p>
+          )}
         </Section>
       </Card>
     </>

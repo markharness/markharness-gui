@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Project, StrictDoc } from "./backend";
+import type { Coverage, StrictDoc, Traceability } from "./backend";
 import { buildRequirementRows } from "./rows";
 
-function project(overrides: Partial<Project> = {}): Project {
+interface Fixture {
+  traceability: Traceability;
+  coverage: Coverage;
+}
+
+function project(overrides: Partial<Fixture> = {}): Fixture {
   return {
-    at_commit: "abc123",
     traceability: {
       requirements: [
         {
@@ -12,12 +16,14 @@ function project(overrides: Partial<Project> = {}): Project {
           requirement_uid: "RB",
           source: "native",
           label: "Second",
+          case_uids: [],
         },
         {
           requirement_id: "req-a",
           requirement_uid: "RA",
           source: "native",
           label: null,
+          case_uids: ["C1", "C2"],
         },
       ],
       features: [],
@@ -83,21 +89,34 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
+function build(
+  fixture: Fixture,
+  strictdoc: StrictDoc | null = null,
+  descriptions: Record<string, string> = {},
+) {
+  return buildRequirementRows(
+    fixture.traceability,
+    strictdoc,
+    descriptions,
+    fixture.coverage,
+  );
+}
+
 describe("buildRequirementRows", () => {
   it("makes one row per requirement, in the order the traceability reports them", () => {
-    const rows = buildRequirementRows(project());
+    const rows = build(project());
 
     expect(rows.map((r) => r.requirementUid)).toEqual(["RB", "RA"]);
   });
 
   it("titles a requirement by its label, or by its id when it has none", () => {
-    const rows = buildRequirementRows(project());
+    const rows = build(project());
 
     expect(rows.map((r) => r.title)).toEqual(["Second", "req-a"]);
   });
 
-  it("lists the cases the coverage links to the requirement, titled by their scenario", () => {
-    const [, ra] = buildRequirementRows(project());
+  it("lists the cases the traceability links to the requirement, titled by their scenario", () => {
+    const [, ra] = build(project());
 
     expect(ra.cases.map((c) => [c.caseUid, c.title])).toEqual([
       ["C1", "Add a task"],
@@ -105,30 +124,33 @@ describe("buildRequirementRows", () => {
     ]);
   });
 
-  it("gives a requirement the coverage reports no cases for an empty case list", () => {
-    const [rb] = buildRequirementRows(project());
+  it("gives a requirement with no cases an empty case list", () => {
+    const [rb] = build(project());
 
     expect(rb.cases).toEqual([]);
   });
 
-  it("gives a requirement the coverage does not mention an empty case list", () => {
-    const p = project();
-    p.coverage.requirements = [];
+  it("lists the cases without the coverage, which is read apart from the traceability", () => {
+    const [, ra] = buildRequirementRows(project().traceability, null, {}, null);
 
-    const rows = buildRequirementRows(p);
-
-    expect(rows.every((r) => r.cases.length === 0)).toBe(true);
+    expect(ra.cases.map((c) => c.caseUid)).toEqual(["C1", "C2"]);
   });
 
   it("carries the requirement id and where its content lives", () => {
-    const [rb] = buildRequirementRows(project());
+    const [rb] = build(project());
 
     expect(rb.requirementId).toBe("req-b");
     expect(rb.source).toBe("native");
   });
 
+  it("does not know why a requirement is not covered until the coverage is read", () => {
+    const rows = buildRequirementRows(project().traceability, null, {}, null);
+
+    expect(rows.every((r) => r.gaps === undefined)).toBe(true);
+  });
+
   it("says in words why the core reports a requirement as not covered", () => {
-    const [rb, ra] = buildRequirementRows(project());
+    const [rb, ra] = build(project());
 
     expect(rb.gaps).toEqual([{ label: "機能のない要求", value: "" }]);
     expect(ra.gaps).toEqual([{ label: "ケースがない機能", value: "f-1" }]);
@@ -176,7 +198,7 @@ describe("buildRequirementRows with StrictDoc", () => {
     ],
   };
 
-  function externalProject(): Project {
+  function externalProject(): Fixture {
     const p = project();
     p.traceability.requirements = [
       {
@@ -184,6 +206,7 @@ describe("buildRequirementRows with StrictDoc", () => {
         requirement_uid: "RN",
         source: "native",
         label: "Native",
+        case_uids: [],
       },
       {
         requirement_id: "llr-1",
@@ -191,8 +214,9 @@ describe("buildRequirementRows with StrictDoc", () => {
         source: "external",
         label: null,
         source_key: "m-l1",
+        case_uids: ["C1"],
       },
-    ] as Project["traceability"]["requirements"];
+    ];
     p.coverage.requirements = [
       { requirement_uid: "RN", cases: [] },
       {
@@ -212,7 +236,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   }
 
   it("lists every StrictDoc requirement in its document and section order, then the rest", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     expect(rows.map((r) => r.title)).toEqual([
       "Manage tasks",
@@ -223,7 +247,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("keeps the document and section titles each requirement sits under", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     expect(rows.map((r) => r.headings)).toEqual([
       ["High-Level"],
@@ -234,7 +258,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("joins a StrictDoc requirement to the markharness requirement that has its MID as source key", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     const llr1 = rows.find((r) => r.title === "Filter by state");
     expect(llr1?.requirementUid).toBe("RL1");
@@ -242,7 +266,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("shows a StrictDoc requirement markharness does not know with no cases", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     const hlr = rows.find((r) => r.title === "Manage tasks");
     expect(hlr?.requirementUid).toBeUndefined();
@@ -251,7 +275,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("carries the statement and the parents and children as the relations StrictDoc reports", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     const hlr = rows.find((r) => r.title === "Manage tasks");
     expect(hlr?.strictdoc?.statement).toBe("The system shall manage tasks.");
@@ -268,7 +292,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("links a parent to its row, and leaves one the export does not contain unlinked", () => {
-    const rows = buildRequirementRows(externalProject(), strictdoc);
+    const rows = build(externalProject(), strictdoc);
 
     const lost = rows.find((r) => r.title === "Filter lost");
     const hlr = rows.find((r) => r.title === "Manage tasks");
@@ -277,7 +301,7 @@ describe("buildRequirementRows with StrictDoc", () => {
   });
 
   it("keeps the markharness requirements as before when the project does not use StrictDoc", () => {
-    const rows = buildRequirementRows(externalProject(), null);
+    const rows = build(externalProject(), null);
 
     expect(rows.map((r) => r.title)).toEqual(["Native", "llr-1"]);
     expect(rows.every((r) => r.strictdoc === undefined)).toBe(true);
@@ -286,7 +310,7 @@ describe("buildRequirementRows with StrictDoc", () => {
 
 describe("buildRequirementRows with descriptions", () => {
   it("carries the description markharness holds for a requirement", () => {
-    const rows = buildRequirementRows(project(), null, {
+    const rows = build(project(), null, {
       RA: "Does the thing.",
     });
 
@@ -315,7 +339,7 @@ describe("buildRequirementRows cases", () => {
       },
     ];
 
-    const [, ra] = buildRequirementRows(p);
+    const [, ra] = build(p);
 
     expect(ra.cases[0].belongsTo).toBe("Sign in › b-1");
   });

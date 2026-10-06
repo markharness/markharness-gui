@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { Project } from "./backend";
+import type { Coverage, Traceability } from "./backend";
 import { describeCase } from "./caseView";
 
+interface Fixture {
+  traceability: Traceability;
+  coverage: Coverage;
+}
+
 function project(
-  binding: Partial<Project["coverage"]["requirements"][0]["cases"][0]> = {},
-): Project {
+  binding: Partial<Coverage["requirements"][0]["cases"][0]> = {},
+): Fixture {
   return {
-    at_commit: "abc123",
     traceability: {
       requirements: [
         {
@@ -14,6 +18,7 @@ function project(
           requirement_uid: "R1",
           source: "native",
           label: "Login",
+          case_uids: ["C1"],
         },
       ],
       features: [{ feature_id: "f-1", feature_uid: "F1", label: "Sign in" }],
@@ -59,9 +64,22 @@ function project(
   };
 }
 
+function describeFixture(
+  fixture: Fixture,
+  requirementUid: string,
+  caseUid: string,
+) {
+  return describeCase(
+    fixture.traceability,
+    fixture.coverage,
+    requirementUid,
+    caseUid,
+  );
+}
+
 describe("describeCase", () => {
   it("follows the case up to its scenario, behavior, feature and the requirement picked from", () => {
-    const view = describeCase(project(), "R1", "C1");
+    const view = describeFixture(project(), "R1", "C1");
 
     expect(view?.requirement).toEqual({
       title: "Login",
@@ -79,13 +97,13 @@ describe("describeCase", () => {
   });
 
   it("reports a case that declares no verification means as undeclared", () => {
-    const view = describeCase(project(), "R1", "C1");
+    const view = describeFixture(project(), "R1", "C1");
 
     expect(view?.verification).toEqual({ method: "未宣言", reference: null });
   });
 
   it("names the declared means and whether the reference resolves, never that anything ran", () => {
-    const view = describeCase(
+    const view = describeFixture(
       project({
         binding_mode: "automated",
         binding_reference: "tests/login.spec.ts",
@@ -102,16 +120,23 @@ describe("describeCase", () => {
   });
 
   it("shows a declared means it has no name for as it is written", () => {
-    const view = describeCase(
+    const view = describeFixture(
       project({ binding_mode: "exploratory" }),
       "R1",
       "C1",
     );
 
-    expect(view?.verification.method).toBe("exploratory");
+    expect(view?.verification?.method).toBe("exploratory");
+  });
+
+  it("leaves the verification out until the coverage is read, and still follows the case up", () => {
+    const view = describeCase(project().traceability, null, "R1", "C1");
+
+    expect(view?.verification).toBeUndefined();
+    expect(view?.case.title).toBe("Wrong password");
   });
 
   it("gives nothing for a case the traceability does not know", () => {
-    expect(describeCase(project(), "R1", "unknown")).toBeUndefined();
+    expect(describeFixture(project(), "R1", "unknown")).toBeUndefined();
   });
 });
