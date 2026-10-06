@@ -1,0 +1,12 @@
+{
+  "axis": [
+    "functional",
+    "ui"
+  ],
+  "description": "Moving the character.\n",
+  "feature_id": "movement",
+  "kind": "feature",
+  "record_kind": "traceability_detail",
+  "schema_version": 1,
+  "uid": "01ARZ3NDEKTSV4RRFFQ69G5FAW"
+}

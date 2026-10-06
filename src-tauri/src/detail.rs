@@ -35,6 +35,11 @@ struct RawTestCase {
 }
 
 #[derive(Deserialize)]
+struct RawAxis {
+    axis: Vec<String>,
+}
+
+#[derive(Deserialize)]
 struct RawScenario {
     description: Option<String>,
 }
@@ -59,6 +64,21 @@ pub async fn read_requirement_descriptions(
         });
     }
     Ok(out)
+}
+
+/// The axes the core records on a requirement, a feature or a behavior.
+pub async fn read_axis(
+    runner: &impl MarkharnessRunner,
+    project_root: &Path,
+    uid: &str,
+) -> Result<Vec<String>, ReadError> {
+    let output = runner
+        .traceability_show(project_root, uid)
+        .await
+        .map_err(ReadError::CannotRun)?;
+    let raw: RawAxis = serde_json::from_value(parse_record(output, "traceability_detail")?)
+        .map_err(|e| ReadError::Malformed(e.to_string()))?;
+    Ok(raw.axis)
 }
 
 pub async fn read_case_detail(
@@ -96,6 +116,7 @@ mod tests {
     const TEST_CASE: &str = include_str!("../tests/fixtures/detail_test_case.json");
     const SCENARIO: &str = include_str!("../tests/fixtures/detail_scenario.json");
     const REQUIREMENT: &str = include_str!("../tests/fixtures/detail_requirement.json");
+    const FEATURE: &str = include_str!("../tests/fixtures/detail_feature.json");
 
     #[derive(Default)]
     struct FakeRunner {
@@ -121,6 +142,8 @@ mod tests {
                 TEST_CASE
             } else if uid.starts_with("req-") {
                 REQUIREMENT
+            } else if uid.starts_with("feature-") {
+                FEATURE
             } else {
                 SCENARIO
             };
@@ -236,5 +259,56 @@ mod tests {
             serde_json::from_value(parse_record(output, "traceability_detail").unwrap()).unwrap();
 
         assert_eq!(scenario.description, None);
+    }
+
+    #[tokio::test]
+    async fn reads_the_axes_of_a_feature() {
+        let runner = FakeRunner::default();
+
+        let axis = read_axis(&runner, Path::new("/project"), "feature-1")
+            .await
+            .unwrap();
+
+        assert_eq!(axis, ["functional", "ui"]);
+        assert_eq!(*runner.asked.lock().unwrap(), ["feature-1"]);
+    }
+
+    #[tokio::test]
+    async fn a_record_without_axes_is_malformed_not_an_empty_list() {
+        let mut value: serde_json::Value = serde_json::from_str(FEATURE).unwrap();
+        value.as_object_mut().unwrap().remove("axis");
+        let runner = FixedRunner(value.to_string());
+
+        let result = read_axis(&runner, Path::new("/project"), "feature-1").await;
+
+        assert!(matches!(result, Err(ReadError::Malformed(_))));
+    }
+
+    struct FixedRunner(String);
+
+    impl MarkharnessRunner for FixedRunner {
+        async fn traceability(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn coverage(&self, _project_root: &Path) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
+
+        async fn traceability_show(
+            &self,
+            _project_root: &Path,
+            _uid: &str,
+        ) -> Result<CommandOutput, String> {
+            Ok(CommandOutput {
+                exit_code: Some(0),
+                stdout: self.0.clone(),
+                stderr: String::new(),
+            })
+        }
+
+        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
     }
 }

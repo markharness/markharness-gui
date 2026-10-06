@@ -1,3 +1,4 @@
+pub mod axes;
 pub mod coverage;
 pub mod detail;
 pub mod edit;
@@ -101,6 +102,31 @@ async fn get_requirement_descriptions(
         .map_err(|e| e.to_string())
 }
 
+/// What the core records as the axes of a requirement, a feature or a behavior.
+#[tauri::command]
+async fn get_axis(
+    config: tauri::State<'_, LaunchConfig>,
+    uid: String,
+) -> Result<Vec<String>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    detail::read_axis(&runner, &config.project_root, &uid)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The axes the project defines, to choose from when an element is edited.
+#[tauri::command]
+async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Axis>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::read_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Writes one edit through the core, then regenerates the test cases from the knowledge.
 #[tauri::command]
 async fn edit_knowledge(
@@ -132,6 +158,8 @@ pub fn run() {
             get_case_detail,
             get_strictdoc,
             get_requirement_descriptions,
+            get_axis,
+            get_axes,
             edit_knowledge
         ])
         .run(tauri::generate_context!())

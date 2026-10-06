@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use markharness_gui_lib::axes::read_axes;
 use markharness_gui_lib::coverage::read_coverage;
-use markharness_gui_lib::detail::read_case_detail;
+use markharness_gui_lib::detail::{read_axis, read_case_detail};
 use markharness_gui_lib::edit::{apply_edit, Edit};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
@@ -287,4 +288,22 @@ async fn an_edit_is_written_and_the_generated_cases_follow_it() {
         "{}",
         String::from_utf8_lossy(&verified.stderr)
     );
+}
+
+#[tokio::test]
+async fn reads_the_axes_of_a_feature_and_the_axes_to_choose_from() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+
+    let axis = read_axis(&runner, &project, &t.features[0].feature_uid).await;
+    let candidates = read_axes(&runner, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(axis.unwrap(), ["ui", "validation"]);
+    let ids: Vec<String> = candidates.unwrap().into_iter().map(|a| a.id).collect();
+    for id in ["ui", "validation", "workflow"] {
+        assert!(ids.iter().any(|i| i == id), "{id} not in {ids:?}");
+    }
 }
