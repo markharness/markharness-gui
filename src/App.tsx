@@ -12,7 +12,7 @@ import { useProjectData } from "./useProjectData";
 
 export function App({ backend }: { backend: Backend }) {
   const data = useProjectData(backend);
-  const comparison = useComparison(backend, data.loaded);
+  const comparison = useComparison(backend, data.readOf);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
 

@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
 
 export interface ProjectData {
   /** Set once the project root and the traceability (the working tree) are both read. */
   loaded?: { projectRoot: string; traceability: Traceability };
+  /** Changes when the project is read or reloaded, and not when an edit reads the traceability again. */
+  readOf?: object;
   /** The reason the traceability could not be read; nothing partial is shown then. */
   error?: string;
   /** The committed content, read apart from the traceability. */
@@ -117,9 +119,15 @@ export function useProjectData(backend: Backend): ProjectData {
     };
   }, [backend, loaded]);
 
-  return {
-    loaded:
+  const current = useMemo(
+    () =>
       loaded && refreshed ? { ...loaded, traceability: refreshed } : loaded,
+    [loaded, refreshed],
+  );
+
+  return {
+    loaded: current,
+    readOf: loaded,
     error,
     coverage,
     coverageLoading,

@@ -1030,4 +1030,40 @@ describe("App comparison with a tag", () => {
 
     expect(coverageReads).toBe(1);
   });
+
+  it("does not read the comparison again after an edit, and still shows its count", async () => {
+    let impactReads = 0;
+    const backend = fakeBackend({
+      getTags: async () => ["v1.0.0"],
+      getImpact: async () => {
+        impactReads += 1;
+        return { requirements: [] };
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.change(await screen.findByLabelText(/比較元/), {
+      target: { value: "v1.0.0" },
+    });
+    expect(await screen.findByText(/0件/)).toBeInTheDocument();
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    );
+    await within(pane).findByLabelText("ラベル");
+
+    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(within(pane).queryByLabelText("ラベル")).not.toBeInTheDocument(),
+    );
+
+    expect(screen.getByText(/変更後に確認対象となるケース/)).toHaveTextContent(
+      "0件",
+    );
+    expect(impactReads).toBe(1);
+  });
 });
