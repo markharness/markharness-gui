@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
 use markharness_gui_lib::coverage::read_coverage;
-use markharness_gui_lib::detail::{read_axis, read_case_detail};
+use markharness_gui_lib::detail::{read_case_detail, read_element_detail};
 use markharness_gui_lib::edit::{apply_edit, Edit};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
@@ -297,11 +297,11 @@ async fn reads_the_axes_of_a_feature_and_the_axes_to_choose_from() {
     let runner = CommandRunner { bin };
     let t = read_traceability(&runner, &project).await.unwrap();
 
-    let axis = read_axis(&runner, &project, &t.features[0].feature_uid).await;
+    let detail = read_element_detail(&runner, &project, &t.features[0].feature_uid).await;
     let candidates = read_axes(&runner, &project).await;
     let _ = std::fs::remove_dir_all(&project);
 
-    assert_eq!(axis.unwrap(), ["ui", "validation"]);
+    assert_eq!(detail.unwrap().axis, ["ui", "validation"]);
     let ids: Vec<String> = candidates.unwrap().into_iter().map(|a| a.id).collect();
     for id in ["ui", "validation", "workflow"] {
         assert!(ids.iter().any(|i| i == id), "{id} not in {ids:?}");
@@ -360,4 +360,46 @@ async fn deletes_only_the_axes_no_element_uses() {
     // The feature uses `ui` and `validation`, so they stay.
     assert!(after.contains(&"ui".to_string()));
     assert!(after.contains(&"validation".to_string()));
+}
+
+#[tokio::test]
+async fn a_behavior_is_edited_and_its_own_description_can_be_sent_back_as_read() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+    );
+    let edit = |description: String, axis: Vec<String>| Edit::Behavior {
+        feature_uid: feature_uid.clone(),
+        uid: uid.clone(),
+        label: Some("新しい名前".into()),
+        description: Some(description),
+        axis: Some(axis),
+    };
+
+    let first = apply_edit(
+        &runner,
+        &project,
+        &edit("新しい説明".into(), vec!["ui".into()]),
+    )
+    .await;
+    let read = read_element_detail(&runner, &project, &uid).await.unwrap();
+    // What the core returned, with its trailing newline, goes back in without growing.
+    let again = apply_edit(
+        &runner,
+        &project,
+        &edit(read.description.clone().unwrap(), read.axis.clone()),
+    )
+    .await;
+    let reread = read_element_detail(&runner, &project, &uid).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(first, Ok(()));
+    assert_eq!(read.description.as_deref(), Some("新しい説明\n"));
+    assert_eq!(read.axis, ["ui"]);
+    assert_eq!(again, Ok(()));
+    assert_eq!(reread, read);
 }

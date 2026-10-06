@@ -102,16 +102,16 @@ async fn get_requirement_descriptions(
         .map_err(|e| e.to_string())
 }
 
-/// What the core records as the axes of a requirement, a feature or a behavior.
+/// What the core records as the axes and the description of a requirement, a feature or a behavior.
 #[tauri::command]
-async fn get_axis(
+async fn get_element_detail(
     config: tauri::State<'_, LaunchConfig>,
     uid: String,
-) -> Result<Vec<String>, String> {
+) -> Result<detail::ElementDetail, String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
-    detail::read_axis(&runner, &config.project_root, &uid)
+    detail::read_element_detail(&runner, &config.project_root, &uid)
         .await
         .map_err(|e| e.to_string())
 }
@@ -193,7 +193,7 @@ pub fn run() {
             get_case_detail,
             get_strictdoc,
             get_requirement_descriptions,
-            get_axis,
+            get_element_detail,
             get_axes,
             add_axis,
             get_unused_axes,

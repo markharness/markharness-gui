@@ -34,9 +34,11 @@ struct RawTestCase {
     phases: Vec<Phase>,
 }
 
-#[derive(Deserialize)]
-struct RawAxis {
-    axis: Vec<String>,
+/// What the core records on a requirement, a feature or a behavior, to start an edit from.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ElementDetail {
+    pub axis: Vec<String>,
+    pub description: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -66,19 +68,17 @@ pub async fn read_requirement_descriptions(
     Ok(out)
 }
 
-/// The axes the core records on a requirement, a feature or a behavior.
-pub async fn read_axis(
+pub async fn read_element_detail(
     runner: &impl MarkharnessRunner,
     project_root: &Path,
     uid: &str,
-) -> Result<Vec<String>, ReadError> {
+) -> Result<ElementDetail, ReadError> {
     let output = runner
         .traceability_show(project_root, uid)
         .await
         .map_err(ReadError::CannotRun)?;
-    let raw: RawAxis = serde_json::from_value(parse_record(output, "traceability_detail")?)
-        .map_err(|e| ReadError::Malformed(e.to_string()))?;
-    Ok(raw.axis)
+    serde_json::from_value(parse_record(output, "traceability_detail")?)
+        .map_err(|e| ReadError::Malformed(e.to_string()))
 }
 
 pub async fn read_case_detail(
@@ -265,11 +265,11 @@ mod tests {
     async fn reads_the_axes_of_a_feature() {
         let runner = FakeRunner::default();
 
-        let axis = read_axis(&runner, Path::new("/project"), "feature-1")
+        let detail = read_element_detail(&runner, Path::new("/project"), "feature-1")
             .await
             .unwrap();
 
-        assert_eq!(axis, ["functional", "ui"]);
+        assert_eq!(detail.axis, ["functional", "ui"]);
         assert_eq!(*runner.asked.lock().unwrap(), ["feature-1"]);
     }
 
@@ -279,7 +279,7 @@ mod tests {
         value.as_object_mut().unwrap().remove("axis");
         let runner = FixedRunner(value.to_string());
 
-        let result = read_axis(&runner, Path::new("/project"), "feature-1").await;
+        let result = read_element_detail(&runner, Path::new("/project"), "feature-1").await;
 
         assert!(matches!(result, Err(ReadError::Malformed(_))));
     }
@@ -310,5 +310,35 @@ mod tests {
         async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
+    }
+
+    #[tokio::test]
+    async fn reads_the_description_of_an_element() {
+        let runner = FakeRunner::default();
+
+        let detail = read_element_detail(&runner, Path::new("/project"), "feature-1")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            detail.description.as_deref(),
+            Some(
+                "Moving the character.
+"
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn an_element_without_a_description_has_none() {
+        let mut value: serde_json::Value = serde_json::from_str(FEATURE).unwrap();
+        value.as_object_mut().unwrap().remove("description");
+        let runner = FixedRunner(value.to_string());
+
+        let detail = read_element_detail(&runner, Path::new("/project"), "feature-1")
+            .await
+            .unwrap();
+
+        assert_eq!(detail.description, None);
     }
 }
