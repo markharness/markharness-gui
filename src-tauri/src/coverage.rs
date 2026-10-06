@@ -93,6 +93,10 @@ mod tests {
         ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
+
+        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
+            Err("unused".to_string())
+        }
     }
 
     #[tokio::test]

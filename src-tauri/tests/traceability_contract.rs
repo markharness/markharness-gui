@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::read_case_detail;
+use markharness_gui_lib::impact::{read_impact, ImpactStatus};
+use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
 
 fn markharness_bin() -> PathBuf {
@@ -148,23 +150,24 @@ async fn resolves_parents_by_uid_when_features_share_a_behavior_slug() {
     assert_eq!(case_of("B-ok"), 1);
 }
 
+fn git(project: &Path, args: &[&str]) {
+    let output = Command::new("git")
+        .args(["-c", "user.name=test", "-c", "user.email=test@example.com"])
+        .args(args)
+        .current_dir(project)
+        .output()
+        .expect("run git");
+    assert!(
+        output.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn commit_all(project: &Path) {
-    let git = |args: &[&str]| {
-        let output = Command::new("git")
-            .args(["-c", "user.name=test", "-c", "user.email=test@example.com"])
-            .args(args)
-            .current_dir(project)
-            .output()
-            .expect("run git");
-        assert!(
-            output.status.success(),
-            "git {args:?} failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    };
-    git(&["init", "-q"]);
-    git(&["add", "-A"]);
-    git(&["commit", "-q", "-m", "sample"]);
+    git(project, &["init", "-q"]);
+    git(project, &["add", "-A"]);
+    git(project, &["commit", "-q", "-m", "sample"]);
 }
 
 #[tokio::test]
@@ -212,4 +215,27 @@ async fn reads_the_steps_and_the_description_of_a_case() {
     let d = result.expect("case detail should be readable");
     assert!(!d.phases.is_empty());
     assert!(d.phases.iter().all(|phase| !phase.steps.is_empty()));
+}
+
+#[tokio::test]
+async fn reads_the_cases_to_confirm_between_a_tag_and_head() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    git(&project, &["init", "-q"]);
+    std::fs::write(project.join("README.md"), "sample").unwrap();
+    git(&project, &["add", "README.md"]);
+    git(&project, &["commit", "-q", "-m", "before"]);
+    git(&project, &["tag", "v0"]);
+    git(&project, &["add", "-A"]);
+    git(&project, &["commit", "-q", "-m", "knowledge"]);
+
+    let tags = read_tags(&CommandGitRunner, &project).await;
+    let impact = read_impact(&CommandRunner { bin }, &project, "v0").await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(tags, ["v0"]);
+    let impact = impact.expect("impact should be readable");
+    let cases: Vec<_> = impact.requirements.iter().flat_map(|r| &r.cases).collect();
+    assert!(!cases.is_empty());
+    assert!(cases.iter().all(|c| c.status == ImpactStatus::FollowedUp));
 }

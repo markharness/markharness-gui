@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "record_kind": "change_impact",
+  "rule_version": 1,
+  "base_commit": "4beecee0000000000000000000000000000000aa",
+  "head_commit": "ebfacfe0000000000000000000000000000000bb",
+  "requirements": [
+    {
+      "requirement_id": "login",
+      "requirement_uid": "01M48PPCYYYSQ0BZ7H4NZ6Z5XH",
+      "source": "native",
+      "spec_changed": true,
+      "feature_ids": ["feat-login"],
+      "cases": [
+        {
+          "case_id": "tc-feat-login-beh-login-sc-ok",
+          "case_uid": "6b5ecd98-3627-5c38-99dc-6c047102fbe0",
+          "case_changed": false,
+          "status": "unconfirmed"
+        },
+        {
+          "case_id": "tc-feat-login-beh-login-sc-ng",
+          "case_uid": "d96fffca-521f-5367-9611-83229888bf30",
+          "case_changed": true,
+          "status": "followed_up"
+        },
+        {
+          "case_id": "tc-feat-login-beh-login-sc-lock",
+          "case_uid": "7ecd56ba-c81d-57cf-a871-d5dd1d951c74",
+          "case_changed": false,
+          "status": "confirmed"
+        }
+      ]
+    },
+    {
+      "requirement_id": "session",
+      "requirement_uid": "01M48PPCYYYSQ0BZ7H4NZ6Z5XJ",
+      "source": "native",
+      "spec_changed": true,
+      "feature_ids": ["feat-login"],
+      "cases": [
+        {
+          "case_id": "tc-feat-login-beh-login-sc-ok",
+          "case_uid": "6b5ecd98-3627-5c38-99dc-6c047102fbe0",
+          "case_changed": false,
+          "status": "unconfirmed"
+        }
+      ]
+    },
+    {
+      "requirement_id": "logout",
+      "requirement_uid": "01M48PPCYYYSQ0BZ7H4NZ6Z5XK",
+      "source": "native",
+      "spec_changed": true,
+      "feature_ids": [],
+      "cases": []
+    }
+  ],
+  "stale_pins": [],
+  "rejected_trailers": []
+}

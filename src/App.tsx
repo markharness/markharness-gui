@@ -7,10 +7,12 @@ import { RequirementDetail } from "./RequirementDetail";
 import { RequirementTable } from "./RequirementTable";
 import { buildRequirementRows } from "./rows";
 import { Toast } from "./Toast";
+import { useComparison } from "./useComparison";
 import { useProjectData } from "./useProjectData";
 
 export function App({ backend }: { backend: Backend }) {
   const data = useProjectData(backend);
+  const comparison = useComparison(backend, data.loaded);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
 
@@ -53,6 +55,7 @@ export function App({ backend }: { backend: Backend }) {
         coverageCommit={data.coverage?.at_commit ?? null}
         coverageLoading={data.coverageLoading}
         strictdocLoading={data.strictdocLoading}
+        comparison={comparison}
         onReload={data.reload}
       />
       {data.notice && (

@@ -172,7 +172,7 @@ markharness impact --base <git ref> --head <git ref> --dir <root>
 - GUIの実行形態(ネイティブウィンドウ、小型サーバーとブラウザ、など)と、使う技術。非開発者が追加のインストールなしで使える、OSごとに自己完結した成果物であること。
 - 画面の設計、画面遷移、表現。
 - 5章のキャッシュの詳細(保存場所、更新時刻の比較、更新中の表示)。
-- Change Impactの `--base`・`--head` と、Release Coverageの `--at` に渡すrefの候補を、読み取り専用の `git`(`for-each-ref`、`log`)で出すこと。画面の内容は、markharnessのJSON出力だけから作る。`git` が使えないときは、候補を出さず、refの自由入力だけで使える形にする。書き込みを伴う `git` は呼ばない。
+- Change Impactの `--base`・`--head` と、Release Coverageの `--at` に渡すrefの候補を、読み取り専用の `git`(`for-each-ref`、`log`)で出すこと。画面の内容は、markharnessのJSON出力だけから作る。`git` が使えないときは、候補を出さない(自由入力には切り替えない)。いま実装している候補は、タグだけである([ADR 0005](adr/0005-readonly-git-for-ref-candidates.md)、[ADR 0012](adr/0012-compare-with-a-tag.md))。書き込みを伴う `git` は呼ばない。
 - 更新: 利用者の更新操作でJSONを再取得する。ファイル監視はしない。GUI自身が編集をした後は、自動で再取得する。
 
 ### 現時点で扱わないもの

@@ -1,8 +1,11 @@
+import type { Comparison } from "./useComparison";
+
 export function ContextBar({
   projectRoot,
   coverageCommit,
   coverageLoading,
   strictdocLoading,
+  comparison,
   onReload,
 }: {
   projectRoot: string;
@@ -10,8 +13,10 @@ export function ContextBar({
   coverageCommit: string | null;
   coverageLoading: boolean;
   strictdocLoading: boolean;
+  comparison: Comparison;
   onReload: () => void;
 }) {
+  const { tags, base, chooseBase, result } = comparison;
   return (
     <header className="context">
       <span className="root">{projectRoot}</span>
@@ -29,6 +34,34 @@ export function ContextBar({
         )}
       </span>
       <span>検証結果は表示していません</span>
+      <span>
+        <label>
+          比較元:{" "}
+          <select
+            value={base}
+            disabled={tags.length === 0}
+            onChange={(e) => chooseBase(e.target.value)}
+          >
+            <option value="">未選択</option>
+            {tags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </label>{" "}
+        <small>コミット済みの内容で比較</small>
+      </span>
+      {result && (
+        <span>
+          変更後に確認対象となるケース:{" "}
+          {result.kind === "loading"
+            ? "読み込み中"
+            : result.kind === "counted"
+              ? `${result.casesToConfirm}件`
+              : result.message}
+        </span>
+      )}
       {strictdocLoading && <span>StrictDoc: 更新中</span>}
       <button type="button" className="reload" onClick={onReload}>
         再読み込み
