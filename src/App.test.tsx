@@ -1455,4 +1455,69 @@ describe("App comparison with a tag", () => {
 
     expect(screen.queryByText(/要求に紐づかない/)).not.toBeInTheDocument();
   });
+
+  it("edits the steps and results of the scenario of a case, apart from its label and description", async () => {
+    const phases = [
+      { steps: [{ use: "seed" }, { action: "Click." }], results: ["Shown."] },
+    ];
+    const edits: unknown[] = [];
+    const backend = fakeBackend({
+      getCaseDetail: async () => ({
+        description: "Rejects.",
+        phases: [{ steps: ["Add a task.", "Click."], results: ["Shown."] }],
+      }),
+      getScenarioDetail: async () => ({
+        description: "Rejects.",
+        implementation_note: null,
+        phases,
+      }),
+      getElementDetail: async () => ({
+        axis: [],
+        description: "Checks.",
+        procedures: { seed: { steps: ["Add a task."] } },
+      }),
+      editKnowledge: async (edit) => {
+        edits.push(edit);
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "手順を編集" }),
+    );
+    const step = await within(pane).findByLabelText("手順2");
+    expect(step).toHaveValue("Click.");
+    expect(within(pane).getByLabelText("手順1")).toHaveValue("seed");
+    fireEvent.change(step, { target: { value: "Press it." } });
+    fireEvent.click(
+      within(
+        within(pane).getByRole("group", {
+          name: "手順と期待結果の保存とキャンセル",
+        }),
+      ).getByRole("button", { name: "保存" }),
+    );
+
+    await waitFor(() => expect(edits).toHaveLength(1));
+    expect(edits[0]).toEqual({
+      kind: "scenario",
+      feature_uid: "F1",
+      behavior_uid: "B",
+      uid: "S1",
+      phases: [
+        {
+          steps: [{ use: "seed" }, { action: "Press it." }],
+          results: ["Shown."],
+        },
+      ],
+    });
+    await waitFor(() =>
+      expect(within(pane).queryByLabelText("手順2")).not.toBeInTheDocument(),
+    );
+  });
 });
