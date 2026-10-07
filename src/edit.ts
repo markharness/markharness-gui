@@ -27,7 +27,16 @@ export interface ScenarioEdit {
   implementation_note?: string;
 }
 
-export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit;
+/** One edit of a requirement markharness holds the content of, with the label, the description and the axes as the form holds them. */
+export interface RequirementEdit {
+  kind: "requirement";
+  uid: string;
+  label: string;
+  description?: string;
+  axis: string[];
+}
+
+export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 
 /**
  * The core refuses an empty note, so a note the scenario never had is left out while it is blank.

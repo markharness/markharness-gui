@@ -1,4 +1,5 @@
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -1284,5 +1285,122 @@ describe("App comparison with a tag", () => {
         description: "Shows an error.",
       },
     ]);
+  });
+
+  it("edits a native requirement from its detail and shows what the core now has", async () => {
+    let label = "Login requirement";
+    let description = "Users can log in.";
+    const edits: unknown[] = [];
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        requirements: project.traceability.requirements.map((r) =>
+          r.requirement_uid === "R1" ? { ...r, label } : r,
+        ),
+      }),
+      getRequirementDescriptions: async (uids) =>
+        uids.includes("R1") ? [{ uid: "R1", description }] : [],
+      getElementDetail: async () => ({ axis: ["ui"], description }),
+      editKnowledge: async (edit) => {
+        edits.push(edit);
+        label = "Sign-in requirement";
+        description = "Users can sign in.";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "要求を編集" }),
+    );
+    expect(await within(pane).findByLabelText("説明")).toHaveValue(
+      "Users can log in.",
+    );
+    fireEvent.change(within(pane).getByLabelText("ラベル"), {
+      target: { value: "Sign-in requirement" },
+    });
+    fireEvent.change(within(pane).getByLabelText("説明"), {
+      target: { value: "Users can sign in." },
+    });
+    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(within(pane).getByText("Users can sign in.")).toBeInTheDocument(),
+    );
+    expect(
+      within(pane).getAllByText("Sign-in requirement").length,
+    ).toBeGreaterThan(0);
+    expect(edits).toEqual([
+      {
+        kind: "requirement",
+        uid: "R1",
+        label: "Sign-in requirement",
+        description: "Users can sign in.",
+        axis: ["ui"],
+      },
+    ]);
+  });
+
+  it("offers no edit for a requirement whose content lives outside markharness", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        requirements: project.traceability.requirements.map((r) =>
+          r.requirement_uid === "R1"
+            ? { ...r, source: "external" as const }
+            : r,
+        ),
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    await within(pane).findByText("req-1");
+
+    expect(
+      within(pane).queryByRole("button", { name: "要求を編集" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("edits the requirement from the detail of a case too, but not an external one", async () => {
+    const edits: unknown[] = [];
+    const open = async (source: "native" | "external") => {
+      const backend = fakeBackend({
+        getTraceability: async () => ({
+          ...project.traceability,
+          requirements: project.traceability.requirements.map((r) =>
+            r.requirement_uid === "R1" ? { ...r, source } : r,
+          ),
+        }),
+        getElementDetail: async () => ({ axis: ["ui"], description: "Users." }),
+        editKnowledge: async (edit) => {
+          edits.push(edit);
+        },
+      });
+      render(<App backend={backend} />);
+      const row = (await screen.findByText("Login requirement")).closest("tr");
+      if (!row) throw new Error("not inside a table row");
+      fireEvent.click(
+        within(row).getByRole("button", { name: "Log in with a password" }),
+      );
+      const pane = screen.getByRole("complementary", { name: "詳細" });
+      await within(pane).findByRole("button", { name: "Featureを編集" });
+      return pane;
+    };
+
+    const external = await open("external");
+    expect(
+      within(external).queryByRole("button", { name: "要求を編集" }),
+    ).not.toBeInTheDocument();
+    cleanup();
+
+    const native = await open("native");
+    fireEvent.click(within(native).getByRole("button", { name: "要求を編集" }));
+    await within(native).findByLabelText("説明");
+    fireEvent.click(within(native).getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(edits).toHaveLength(1));
+    expect(edits[0]).toMatchObject({ kind: "requirement", uid: "R1" });
   });
 });

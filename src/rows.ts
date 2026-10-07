@@ -13,6 +13,8 @@ export interface RequirementRow {
   /** Where the requirement's content lives: markharness, or an external spec (StrictDoc). */
   source: "native" | "external";
   title: string;
+  /** The label markharness holds, which `title` falls back from; none for an external requirement. */
+  label: string | null;
   /** What markharness holds as the requirement's description; an external requirement has none. */
   description?: string;
   /** The StrictDoc document and sections the requirement sits under. */
@@ -76,6 +78,7 @@ export function buildRequirementRows(
     description: r ? descriptions[r.requirement_uid] : undefined,
     source: r?.source ?? ("external" as const),
     title,
+    label: r?.label ?? null,
     headings,
     gaps: coverage
       ? r

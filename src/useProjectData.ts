@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
 
 export interface ProjectData {
@@ -95,29 +95,36 @@ export function useProjectData(backend: Backend): ProjectData {
   }, [backend, loaded]);
 
   // Read apart from the traceability too: the rows show first and the descriptions fill in.
+  const readDescriptions = useCallback(
+    (traceability: Traceability, isCurrent: () => boolean = () => true) => {
+      const uids = traceability.requirements
+        .filter((r) => r.source === "native")
+        .map((r) => r.requirement_uid);
+      backend.getRequirementDescriptions(uids).then(
+        (found) => {
+          if (!isCurrent()) return;
+          setDescriptions(
+            Object.fromEntries(
+              found.flatMap((d) =>
+                d.description === null ? [] : [[d.uid, d.description]],
+              ),
+            ),
+          );
+        },
+        (e) => isCurrent() && setNotice(String(e)),
+      );
+    },
+    [backend],
+  );
+
   useEffect(() => {
     if (!loaded) return;
-    const uids = loaded.traceability.requirements
-      .filter((r) => r.source === "native")
-      .map((r) => r.requirement_uid);
     let current = true;
-    backend.getRequirementDescriptions(uids).then(
-      (found) => {
-        if (!current) return;
-        setDescriptions(
-          Object.fromEntries(
-            found.flatMap((d) =>
-              d.description === null ? [] : [[d.uid, d.description]],
-            ),
-          ),
-        );
-      },
-      (e) => current && setNotice(String(e)),
-    );
+    readDescriptions(loaded.traceability, () => current);
     return () => {
       current = false;
     };
-  }, [backend, loaded]);
+  }, [loaded, readDescriptions]);
 
   const current = useMemo(
     () =>
@@ -138,7 +145,13 @@ export function useProjectData(backend: Backend): ProjectData {
     dismissNotice: () => setNotice(undefined),
     reload: () => setReloads((n) => n + 1),
     refreshTraceability: () => {
-      backend.getTraceability().then(setRefreshed, (e) => setNotice(String(e)));
+      backend.getTraceability().then(
+        (traceability) => {
+          setRefreshed(traceability);
+          readDescriptions(traceability);
+        },
+        (e) => setNotice(String(e)),
+      );
     },
   };
 }

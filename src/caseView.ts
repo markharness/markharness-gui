@@ -1,7 +1,13 @@
 import type { Coverage, Traceability } from "./backend";
 
 export interface CaseView {
-  requirement: { title: string; id: string; source: "native" | "external" };
+  requirement: {
+    uid: string;
+    title: string;
+    id: string;
+    label: string | null;
+    source: "native" | "external";
+  };
   feature:
     | { uid: string; title: string; id: string; label: string | null }
     | undefined;
@@ -67,8 +73,10 @@ export function describeCase(
 
   return {
     requirement: {
+      uid: requirement.requirement_uid,
       title: requirement.label ?? requirement.requirement_id,
       id: requirement.requirement_id,
+      label: requirement.label,
       source: requirement.source,
     },
     feature: feature && {

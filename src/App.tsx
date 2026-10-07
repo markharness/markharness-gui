@@ -89,9 +89,11 @@ export function App({ backend }: { backend: Backend }) {
           ) : picked ? (
             <RequirementDetail
               row={picked}
+              backend={backend}
               coverageLoading={data.coverageLoading}
               onPickCase={setPickedCaseUid}
               onJump={pick}
+              onEdited={data.refreshTraceability}
             />
           ) : (
             <p className="placeholder">

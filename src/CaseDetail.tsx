@@ -53,6 +53,27 @@ export function CaseDetail({
           title={view.requirement.title}
           id={view.requirement.id}
         />
+        {view.requirement.source === "native" && (
+          <ElementEditor
+            noun="要求"
+            label={view.requirement.label}
+            load={async () => {
+              const detail = await backend.getElementDetail(
+                view.requirement.uid,
+              );
+              return { axis: detail.axis, description: detail.description };
+            }}
+            toEdit={(values) => ({
+              kind: "requirement",
+              uid: view.requirement.uid,
+              label: values.label,
+              description: values.description,
+              axis: values.axis ?? [],
+            })}
+            backend={backend}
+            onEdited={onEdited}
+          />
+        )}
       </Card>
       {view.feature && (
         <ElementCard

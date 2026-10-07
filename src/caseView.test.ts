@@ -82,8 +82,10 @@ describe("describeCase", () => {
     const view = describeFixture(project(), "R1", "C1");
 
     expect(view?.requirement).toEqual({
+      uid: "R1",
       title: "Login",
       id: "req-1",
+      label: "Login",
       source: "native",
     });
     expect(view?.feature).toEqual({
