@@ -1,3 +1,5 @@
+import type { ScenarioPhase } from "./backend";
+
 /** One edit of a feature, with the label and the axes as the form holds them. */
 export interface FeatureEdit {
   kind: "feature";
@@ -22,9 +24,10 @@ export interface ScenarioEdit {
   feature_uid: string;
   behavior_uid: string;
   uid: string;
-  label: string;
+  label?: string;
   description?: string;
   implementation_note?: string;
+  phases?: ScenarioPhase[];
 }
 
 /** One edit of a requirement markharness holds the content of, with the label, the description and the axes as the form holds them. */

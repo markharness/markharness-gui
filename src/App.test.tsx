@@ -100,7 +100,11 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
         },
       ],
     }),
-    getElementDetail: async () => ({ axis: ["ui"], description: null }),
+    getElementDetail: async () => ({
+      axis: ["ui"],
+      description: null,
+      procedures: {},
+    }),
     getAxes: async () => [
       { id: "functional", label: "機能" },
       { id: "ui", label: "画面" },
@@ -108,6 +112,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
     getScenarioDetail: async () => ({
       description: null,
       implementation_note: null,
+      phases: [],
     }),
     getUnusedAxes: async () => [],
     deleteUnusedAxes: async () => {},
@@ -1172,8 +1177,12 @@ describe("App comparison with a tag", () => {
       }),
       getElementDetail: async (uid) =>
         uid === "B"
-          ? { axis: ["ui"], description: "Checks the password." }
-          : { axis: [], description: null },
+          ? {
+              axis: ["ui"],
+              description: "Checks the password.",
+              procedures: {},
+            }
+          : { axis: [], description: null, procedures: {} },
       editKnowledge: async (edit) => {
         edits.push(edit);
         label = "Credentials check";
@@ -1237,6 +1246,7 @@ describe("App comparison with a tag", () => {
       getScenarioDetail: async () => ({
         description,
         implementation_note: null,
+        phases: [],
       }),
       editKnowledge: async (edit) => {
         edits.push(edit);
@@ -1300,7 +1310,11 @@ describe("App comparison with a tag", () => {
       }),
       getRequirementDescriptions: async (uids) =>
         uids.includes("R1") ? [{ uid: "R1", description }] : [],
-      getElementDetail: async () => ({ axis: ["ui"], description }),
+      getElementDetail: async () => ({
+        axis: ["ui"],
+        description,
+        procedures: {},
+      }),
       editKnowledge: async (edit) => {
         edits.push(edit);
         label = "Sign-in requirement";
@@ -1373,7 +1387,11 @@ describe("App comparison with a tag", () => {
             r.requirement_uid === "R1" ? { ...r, source } : r,
           ),
         }),
-        getElementDetail: async () => ({ axis: ["ui"], description: "Users." }),
+        getElementDetail: async () => ({
+          axis: ["ui"],
+          description: "Users.",
+          procedures: {},
+        }),
         editKnowledge: async (edit) => {
           edits.push(edit);
         },

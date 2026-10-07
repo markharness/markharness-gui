@@ -117,11 +117,23 @@ export interface RequirementDescription {
 export interface ElementDetail {
   axis: string[];
   description: string | null;
+  /** The common procedures a behavior declares, by name. */
+  procedures: Record<string, { steps: string[] }>;
+}
+
+/** A step is free text, or the name of a procedure the behavior declares. */
+export type ScenarioStep = { action: string } | { use: string };
+
+/** One phase of a scenario as the knowledge writes it: steps to take, then results to check. */
+export interface ScenarioPhase {
+  steps: ScenarioStep[];
+  results: string[];
 }
 
 export interface ScenarioDetail {
   description: string | null;
   implementation_note: string | null;
+  phases: ScenarioPhase[];
 }
 
 export interface Axis {
