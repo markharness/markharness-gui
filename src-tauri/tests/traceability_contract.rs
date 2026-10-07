@@ -8,7 +8,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
 use markharness_gui_lib::coverage::read_coverage;
-use markharness_gui_lib::detail::{read_case_detail, read_element_detail, read_scenario_detail};
+use markharness_gui_lib::detail::{
+    read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
+};
 use markharness_gui_lib::edit::{apply_edit, Edit};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
@@ -256,6 +258,7 @@ async fn an_edit_is_written_and_the_generated_cases_follow_it() {
         label: Some("- 題: 編集".into()),
         description: Some("編集した説明".into()),
         implementation_note: None,
+        phases: None,
     };
 
     let applied = apply_edit(&runner, &project, &edit).await;
@@ -422,6 +425,7 @@ async fn a_scenario_is_edited_and_its_note_can_be_set_but_not_emptied() {
         label: Some("新しい名前".into()),
         description: Some("新しい説明".into()),
         implementation_note: Some(note.into()),
+        phases: None,
     };
 
     let set = apply_edit(&runner, &project, &edit("実装メモ")).await;
@@ -469,4 +473,96 @@ async fn a_native_requirement_is_edited_and_read_back() {
         reread.requirements[0].label.as_deref(),
         Some("- 新しい要求: 名前")
     );
+}
+
+#[tokio::test]
+async fn the_phases_of_a_scenario_are_read_as_written_and_sent_back_whole() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+        t.scenarios[0].scenario_uid.clone(),
+    );
+    let edit = |phases: Vec<ScenarioPhase>| Edit::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        uid: uid.clone(),
+        label: None,
+        description: None,
+        implementation_note: None,
+        phases: Some(phases),
+    };
+    let revision = |t: &markharness_gui_lib::traceability::Traceability| {
+        (
+            t.test_cases[0].case_uid.clone(),
+            t.test_cases[0].case_revision.clone(),
+        )
+    };
+
+    let before = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let procedures = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let same = apply_edit(&runner, &project, &edit(before.phases)).await;
+    let unchanged = read_traceability(&runner, &project).await.unwrap();
+    let procedure = procedures
+        .keys()
+        .next()
+        .expect("the fixture declares one")
+        .clone();
+    let changed = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![
+            ScenarioPhase {
+                steps: vec![
+                    ScenarioStep::Use(procedure.clone()),
+                    ScenarioStep::Action("新しい手順".into()),
+                ],
+                results: vec!["新しい結果".into()],
+            },
+            ScenarioPhase {
+                steps: vec![ScenarioStep::Action("もう一つ".into())],
+                results: vec!["もう一つの結果".into()],
+            },
+        ]),
+    )
+    .await;
+    let after = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let edited = read_traceability(&runner, &project).await.unwrap();
+    let empty = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![ScenarioPhase {
+            steps: vec![],
+            results: vec!["結果".into()],
+        }]),
+    )
+    .await;
+    let unknown = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![ScenarioPhase {
+            steps: vec![ScenarioStep::Use("no-such-procedure".into())],
+            results: vec!["結果".into()],
+        }]),
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(same, Ok(()));
+    assert_eq!(changed, Ok(()));
+    assert_eq!(after.phases.len(), 2);
+    assert_eq!(after.phases[0].steps[0], ScenarioStep::Use(procedure));
+    // The case keeps its identity, so what is bound to it stays; only its revision moves.
+    assert_eq!(revision(&unchanged).0, revision(&edited).0);
+    assert_ne!(revision(&unchanged).1, revision(&edited).1);
+    assert!(empty
+        .unwrap_err()
+        .contains("at least one entry is required"));
+    assert!(unknown.unwrap_err().contains("no-such-procedure"));
 }

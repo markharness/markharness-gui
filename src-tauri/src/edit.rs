@@ -5,6 +5,7 @@ use std::process::Stdio;
 use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
+use crate::detail::{ScenarioPhase, ScenarioStep};
 use crate::traceability::{CommandOutput, CommandRunner};
 
 /// One edit of an existing element; a field left `None` is not sent, so the core keeps its value.
@@ -36,6 +37,7 @@ pub enum Edit {
         label: Option<String>,
         description: Option<String>,
         implementation_note: Option<String>,
+        phases: Option<Vec<ScenarioPhase>>,
     },
 }
 
@@ -114,6 +116,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
             label,
             description,
             implementation_note,
+            phases,
         } => {
             lines.push(format!("  - uid: {}", scalar(feature_uid)));
             lines.push("    behaviors:".to_string());
@@ -128,6 +131,26 @@ pub fn intent_yaml(edit: &Edit) -> String {
             }
             if let Some(note) = implementation_note {
                 lines.push(format!("            implementation_note: {}", scalar(note)));
+            }
+            if let Some(phases) = phases {
+                lines.push("            phases:".to_string());
+                for phase in phases {
+                    lines.push("              - steps:".to_string());
+                    for step in &phase.steps {
+                        lines.push(match step {
+                            ScenarioStep::Action(text) => {
+                                format!("                  - action: {}", scalar(text))
+                            }
+                            ScenarioStep::Use(name) => {
+                                format!("                  - use: {}", scalar(name))
+                            }
+                        });
+                    }
+                    lines.push("                results:".to_string());
+                    for result in &phase.results {
+                        lines.push(format!("                  - {}", scalar(result)));
+                    }
+                }
             }
         }
     }
@@ -290,6 +313,7 @@ mod tests {
             label: None,
             description: Some("説明".into()),
             implementation_note: Some("メモ".into()),
+            phases: None,
         };
 
         assert_eq!(
@@ -354,6 +378,7 @@ mod tests {
             label: None,
             description: None,
             implementation_note: Some("a: \"b\"\nc # d".into()),
+            phases: None,
         };
 
         assert!(intent_yaml(&edit)
@@ -573,6 +598,7 @@ mod tests {
             label: Some("名前".into()),
             description: Some("説明".into()),
             implementation_note: None,
+            phases: None,
         };
 
         assert_eq!(
@@ -609,6 +635,83 @@ mod tests {
              \x20 - uid: \"01REQUIREMENT\"\n\
              \x20   label: \"名前\"\n\
              \x20   description: \"説明\"\n"
+        );
+    }
+
+    #[test]
+    fn scenario_phases_are_sent_whole_with_actions_and_procedure_calls() {
+        let edit = Edit::Scenario {
+            feature_uid: "01FEATURE".into(),
+            behavior_uid: "01BEHAVIOR".into(),
+            uid: "01SCENARIO".into(),
+            label: None,
+            description: None,
+            implementation_note: None,
+            phases: Some(vec![
+                ScenarioPhase {
+                    steps: vec![
+                        ScenarioStep::Use("seed".into()),
+                        ScenarioStep::Action("クリックする".into()),
+                    ],
+                    results: vec!["表示される".into()],
+                },
+                ScenarioPhase {
+                    steps: vec![ScenarioStep::Action("確認する".into())],
+                    results: vec!["a".into(), "b".into()],
+                },
+            ]),
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             features:\n\
+             \x20 - uid: \"01FEATURE\"\n\
+             \x20   behaviors:\n\
+             \x20     - uid: \"01BEHAVIOR\"\n\
+             \x20       scenarios:\n\
+             \x20         - uid: \"01SCENARIO\"\n\
+             \x20           phases:\n\
+             \x20             - steps:\n\
+             \x20                 - use: \"seed\"\n\
+             \x20                 - action: \"クリックする\"\n\
+             \x20               results:\n\
+             \x20                 - \"表示される\"\n\
+             \x20             - steps:\n\
+             \x20                 - action: \"確認する\"\n\
+             \x20               results:\n\
+             \x20                 - \"a\"\n\
+             \x20                 - \"b\"\n"
+        );
+    }
+
+    #[test]
+    fn scenario_phases_are_read_from_the_json_of_the_screen() {
+        let edit: Edit = serde_json::from_str(
+            r#"{"kind":"scenario","feature_uid":"F","behavior_uid":"B","uid":"S",
+                "phases":[{"steps":[{"use":"seed"},{"action":"押す"}],"results":["出る"]}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            edit,
+            Edit::Scenario {
+                feature_uid: "F".into(),
+                behavior_uid: "B".into(),
+                uid: "S".into(),
+                label: None,
+                description: None,
+                implementation_note: None,
+                phases: Some(vec![ScenarioPhase {
+                    steps: vec![
+                        ScenarioStep::Use("seed".into()),
+                        ScenarioStep::Action("押す".into()),
+                    ],
+                    results: vec!["出る".into()],
+                }]),
+            }
         );
     }
 }

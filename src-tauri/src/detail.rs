@@ -39,6 +39,14 @@ struct RawTestCase {
 pub struct ElementDetail {
     pub axis: Vec<String>,
     pub description: Option<String>,
+    /// The common procedures a behavior declares, by name; none for the other elements.
+    #[serde(default)]
+    pub procedures: std::collections::BTreeMap<String, Procedure>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Procedure {
+    pub steps: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -81,11 +89,27 @@ pub async fn read_element_detail(
         .map_err(|e| ReadError::Malformed(e.to_string()))
 }
 
+/// One phase of a scenario as the knowledge writes it: steps to take, then results to check.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ScenarioPhase {
+    pub steps: Vec<ScenarioStep>,
+    pub results: Vec<String>,
+}
+
+/// A step is free text, or the name of a procedure its behavior declares.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScenarioStep {
+    Action(String),
+    Use(String),
+}
+
 /// What the core records on a scenario, to start an edit from.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ScenarioDetail {
     pub description: Option<String>,
     pub implementation_note: Option<String>,
+    pub phases: Vec<ScenarioPhase>,
 }
 
 pub async fn read_scenario_detail(
@@ -365,9 +389,7 @@ mod tests {
     #[tokio::test]
     async fn reads_the_description_and_the_implementation_note_of_a_scenario() {
         let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
-        value["implementation_note"] = "Uses the jump key.
-"
-        .into();
+        value["implementation_note"] = "Uses the jump key.\n".into();
         let runner = FixedRunner(value.to_string());
 
         let detail = read_scenario_detail(&runner, Path::new("/project"), "scenario-uid")
@@ -377,16 +399,15 @@ mod tests {
         assert_eq!(
             detail,
             ScenarioDetail {
-                description: Some(
-                    "From the ground.
-"
-                    .to_string()
-                ),
-                implementation_note: Some(
-                    "Uses the jump key.
-"
-                    .to_string()
-                ),
+                description: Some("From the ground.\n".to_string()),
+                implementation_note: Some("Uses the jump key.\n".to_string()),
+                phases: vec![ScenarioPhase {
+                    steps: vec![
+                        ScenarioStep::Use("start-game".to_string()),
+                        ScenarioStep::Action("Presses jump.".to_string()),
+                    ],
+                    results: vec!["Rises.".to_string()],
+                }],
             }
         );
     }
@@ -402,5 +423,60 @@ mod tests {
             .unwrap();
 
         assert_eq!(detail.implementation_note, None);
+    }
+
+    #[tokio::test]
+    async fn reads_the_phases_of_a_scenario_as_the_knowledge_writes_them() {
+        let runner = FakeRunner::default();
+
+        let detail = read_scenario_detail(&runner, Path::new("/project"), "scenario-uid")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            detail.phases,
+            [ScenarioPhase {
+                steps: vec![
+                    ScenarioStep::Use("start-game".to_string()),
+                    ScenarioStep::Action("Presses jump.".to_string()),
+                ],
+                results: vec!["Rises.".to_string()],
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn reads_the_procedures_a_behavior_declares() {
+        let mut value: serde_json::Value = serde_json::from_str(FEATURE).unwrap();
+        value["kind"] = "behavior".into();
+        value["procedures"] = serde_json::json!({
+            "seed": {"steps": ["Adds a task.", "Completes it."]},
+            "login": {"steps": ["Signs in."]},
+        });
+        let runner = FixedRunner(value.to_string());
+
+        let detail = read_element_detail(&runner, Path::new("/project"), "behavior-uid")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            detail.procedures.keys().collect::<Vec<_>>(),
+            ["login", "seed"]
+        );
+        assert_eq!(
+            detail.procedures["seed"].steps,
+            ["Adds a task.", "Completes it."]
+        );
+    }
+
+    #[tokio::test]
+    async fn an_element_without_procedures_has_none() {
+        let runner = FakeRunner::default();
+
+        let detail = read_element_detail(&runner, Path::new("/project"), "feature-1")
+            .await
+            .unwrap();
+
+        assert!(detail.procedures.is_empty());
     }
 }
