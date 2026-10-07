@@ -436,3 +436,37 @@ async fn a_scenario_is_edited_and_its_note_can_be_set_but_not_emptied() {
     assert!(emptied.unwrap_err().contains("must not be empty"));
     assert_eq!(reread, read);
 }
+
+#[tokio::test]
+async fn a_native_requirement_is_edited_and_read_back() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let uid = t.requirements[0].requirement_uid.clone();
+    let edit = Edit::Requirement {
+        uid: uid.clone(),
+        label: Some("- 新しい要求: 名前".into()),
+        description: Some("新しい説明".into()),
+        axis: Some(vec!["workflow".into()]),
+    };
+
+    let applied = apply_edit(&runner, &project, &edit).await;
+    let detail = read_element_detail(&runner, &project, &uid).await.unwrap();
+    let reread = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(applied, Ok(()));
+    assert_eq!(detail.axis, ["workflow"]);
+    assert_eq!(
+        detail.description.as_deref(),
+        Some(
+            "新しい説明
+"
+        )
+    );
+    assert_eq!(
+        reread.requirements[0].label.as_deref(),
+        Some("- 新しい要求: 名前")
+    );
+}
