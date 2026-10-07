@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { ScenarioPhase } from "./backend";
+import { ignoreEnterInOneLineFields } from "./ignoreEnter";
 
 /**
  * A step is one row. Whether it calls a common procedure is an attribute of the row, and the row
@@ -87,12 +88,7 @@ export function PhasesEditor({
   return (
     <form
       className="edit-form phases-form"
-      // Enter in a field would save through the form's own submission; the buttons do that.
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
-          e.preventDefault();
-        }
-      }}
+      onKeyDown={ignoreEnterInOneLineFields}
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);

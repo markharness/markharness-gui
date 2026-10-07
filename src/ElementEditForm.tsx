@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Axis } from "./backend";
+import { ignoreEnterInOneLineFields } from "./ignoreEnter";
 
 export function ElementEditForm({
   noun,
@@ -64,6 +65,7 @@ export function ElementEditForm({
   return (
     <form
       className="edit-form"
+      onKeyDown={ignoreEnterInOneLineFields}
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);

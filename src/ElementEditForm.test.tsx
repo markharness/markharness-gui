@@ -492,4 +492,41 @@ describe("ElementEditForm", () => {
       );
     });
   });
+
+  it("does nothing on Enter in a one-line field, with or without Ctrl: it does not save", () => {
+    const save = vi.fn(async () => {});
+    renderForm(save);
+    const field = screen.getByLabelText("ラベル");
+
+    const plain = fireEvent.keyDown(field, { key: "Enter" });
+    const withCtrl = fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+
+    expect(plain).toBe(false);
+    expect(withCtrl).toBe(false);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on Enter in the fields of a new category either", () => {
+    renderForm();
+    fireEvent.click(screen.getByRole("button", { name: "＋ 分類を追加" }));
+
+    expect(
+      fireEvent.keyDown(within(newCategory()).getByLabelText("id"), {
+        key: "Enter",
+      }),
+    ).toBe(false);
+  });
+
+  it("still breaks the line on Enter in a field of several lines, and presses a focused button", () => {
+    renderForm(undefined, { description: "Checks.\n" });
+
+    expect(
+      fireEvent.keyDown(screen.getByLabelText("説明"), { key: "Enter" }),
+    ).toBe(true);
+    expect(
+      fireEvent.keyDown(screen.getByRole("button", { name: "保存" }), {
+        key: "Enter",
+      }),
+    ).toBe(true);
+  });
 });
