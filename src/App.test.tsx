@@ -1403,4 +1403,38 @@ describe("App comparison with a tag", () => {
     await waitFor(() => expect(edits).toHaveLength(1));
     expect(edits[0]).toMatchObject({ kind: "requirement", uid: "R1" });
   });
+
+  it("tells which features are linked to no requirement, since the list does not show them", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-orphan", feature_uid: "F9", label: "Orphan" },
+        ],
+        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+
+    const note = await screen.findByText(/要求に紐づかない/);
+
+    expect(note).toHaveTextContent("1件");
+    expect(note).toHaveTextContent("Orphan");
+    expect(note).toHaveTextContent("一覧には表示されません");
+    expect(note).not.toHaveTextContent("Sign in");
+  });
+
+  it("says nothing when every feature is linked to a requirement", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    await screen.findByText("Login requirement");
+
+    expect(screen.queryByText(/要求に紐づかない/)).not.toBeInTheDocument();
+  });
 });

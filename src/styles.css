@@ -484,3 +484,11 @@ tbody th[scope="row"] {
   color: #ffffff;
   padding: var(--space-1) var(--space-3);
 }
+
+/* A note that something exists but is not in the list. */
+.unlinked {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-band);
+  color: var(--text-muted);
+}

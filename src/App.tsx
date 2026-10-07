@@ -7,6 +7,7 @@ import { RequirementDetail } from "./RequirementDetail";
 import { RequirementTable } from "./RequirementTable";
 import { buildRequirementRows } from "./rows";
 import { Toast } from "./Toast";
+import { unlinkedFeatures } from "./unlinked";
 import { useComparison } from "./useComparison";
 import { useProjectData } from "./useProjectData";
 
@@ -26,6 +27,7 @@ export function App({ backend }: { backend: Backend }) {
     data.descriptions,
     data.coverage,
   );
+  const unlinked = unlinkedFeatures(traceability);
   const picked = rows.find((r) => r.key === pickedKey);
   const caseView =
     picked?.requirementUid && pickedCaseUid
@@ -58,6 +60,12 @@ export function App({ backend }: { backend: Backend }) {
         comparison={comparison}
         onReload={data.reload}
       />
+      {unlinked.length > 0 && (
+        <p className="unlinked">
+          要求に紐づかないFeatureが{unlinked.length}
+          件あります(一覧には表示されません): {unlinked.join("、")}
+        </p>
+      )}
       {data.notice && (
         <Toast message={data.notice} onDismiss={data.dismissNotice} />
       )}
