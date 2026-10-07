@@ -45,44 +45,65 @@ function renderEditor(
 }
 
 const phase = (n: number) =>
-  screen.getByRole("group", { name: `フェーズ${n}` });
+  screen.getByRole("region", { name: `フェーズ${n}` });
+const steps = (n: number) =>
+  within(within(phase(n)).getByRole("list", { name: "手順" }));
+const results = (n: number) =>
+  within(within(phase(n)).getByRole("list", { name: "期待結果" }));
+const save = () => screen.getByRole("button", { name: "保存" });
 
 describe("PhasesEditor", () => {
-  it("starts from the phases, each with its steps and results as rows", () => {
+  it("lays out each phase with its steps and its results as numbered rows", () => {
     renderEditor();
 
-    const first = phase(1);
-    expect(within(first).getByLabelText("手順1")).toHaveValue("seed");
-    expect(within(first).getByLabelText("手順2")).toHaveValue(
+    const rows = steps(1).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("1");
+    expect(rows[1]).toHaveTextContent("2");
+    expect(results(2).getAllByRole("listitem")).toHaveLength(2);
+    expect(results(2).getAllByRole("listitem")[1]).toHaveTextContent("2");
+    expect(
+      within(phase(1)).getByRole("heading", { name: "手順" }),
+    ).toBeInTheDocument();
+    expect(
+      within(phase(1)).getByRole("heading", { name: "期待結果" }),
+    ).toBeInTheDocument();
+  });
+
+  it("starts from the phases, a call of a common procedure being a step marked as common", () => {
+    renderEditor();
+
+    const [call, free] = steps(1).getAllByRole("listitem");
+    expect(within(call).getByLabelText("手順1")).toHaveValue("seed");
+    expect(within(call).getByRole("checkbox", { name: "共通" })).toBeChecked();
+    expect(within(free).getByLabelText("手順2")).toHaveValue(
       "Click the filter.",
     );
-    expect(within(first).getByLabelText("期待結果1")).toHaveValue(
+    expect(
+      within(free).getByRole("checkbox", { name: "共通" }),
+    ).not.toBeChecked();
+    expect(results(1).getByLabelText("期待結果1")).toHaveValue(
       "Only the active tasks show.",
-    );
-    const second = phase(2);
-    expect(within(second).getByLabelText("手順1")).toHaveValue("Reload.");
-    expect(within(second).getByLabelText("期待結果2")).toHaveValue(
-      "The count is kept.",
     );
   });
 
   it("saves all the phases whole, with what was rewritten", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
-    fireEvent.change(within(phase(1)).getByLabelText("手順1"), {
+    fireEvent.change(steps(1).getByLabelText("手順1"), {
       target: { value: "login" },
     });
-    fireEvent.change(within(phase(1)).getByLabelText("手順2"), {
+    fireEvent.change(steps(1).getByLabelText("手順2"), {
       target: { value: "Click the other filter." },
     });
-    fireEvent.change(within(phase(2)).getByLabelText("期待結果1"), {
+    fireEvent.change(results(2).getByLabelText("期待結果1"), {
       target: { value: "The filter stays." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith([
+      expect(onSave).toHaveBeenCalledWith([
         {
           steps: [{ use: "login" }, { action: "Click the other filter." }],
           results: ["Only the active tasks show."],
@@ -96,19 +117,19 @@ describe("PhasesEditor", () => {
   });
 
   it("saves the phases as they are when nothing was changed", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
-    await waitFor(() => expect(save).toHaveBeenCalledWith(phases));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(phases));
   });
 
   it("tells that it was saved once the core applied the edit", async () => {
     const onSaved = vi.fn();
     renderEditor({ onSaved });
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
   });
@@ -122,36 +143,67 @@ describe("PhasesEditor", () => {
         ),
       onSaved,
     });
-    fireEvent.change(within(phase(1)).getByLabelText("手順2"), {
+    fireEvent.change(steps(1).getByLabelText("手順2"), {
       target: { value: "" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "phases[0].steps[1].action: must not be empty",
     );
-    expect(within(phase(1)).getByLabelText("手順2")).toHaveValue("");
+    expect(steps(1).getByLabelText("手順2")).toHaveValue("");
     expect(onSaved).not.toHaveBeenCalled();
   });
 
   it("closes on cancel without saving", () => {
-    const save = vi.fn(async () => {});
+    const onSave = vi.fn(async () => {});
     const onCancel = vi.fn();
-    renderEditor({ save, onCancel });
-    fireEvent.change(within(phase(1)).getByLabelText("手順2"), {
+    renderEditor({ save: onSave, onCancel });
+    fireEvent.change(steps(1).getByLabelText("手順2"), {
       target: { value: "changed" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
-    expect(save).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("adds a step with one button only, directly below the steps, and a result directly below the results", () => {
+    renderEditor();
+
+    expect(
+      screen.queryByRole("button", { name: "＋ 共通手順を追加" }),
+    ).not.toBeInTheDocument();
+    const addStep = within(phase(2)).getByRole("button", {
+      name: "＋ 手順を追加",
+    });
+    const stepList = within(phase(2)).getByRole("list", { name: "手順" });
+    const resultsHeading = within(phase(2)).getByRole("heading", {
+      name: "期待結果",
+    });
+    expect(
+      stepList.compareDocumentPosition(addStep) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      addStep.compareDocumentPosition(resultsHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const addResult = within(phase(2)).getByRole("button", {
+      name: "＋ 期待結果を追加",
+    });
+    expect(
+      within(phase(2))
+        .getByRole("list", { name: "期待結果" })
+        .compareDocumentPosition(addResult) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("adds a blank step and a blank result to a phase, and sends them for the core to judge", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
     fireEvent.click(
       within(phase(2)).getByRole("button", { name: "＋ 手順を追加" }),
@@ -159,13 +211,13 @@ describe("PhasesEditor", () => {
     fireEvent.click(
       within(phase(2)).getByRole("button", { name: "＋ 期待結果を追加" }),
     );
-    fireEvent.change(within(phase(2)).getByLabelText("手順2"), {
+    fireEvent.change(steps(2).getByLabelText("手順2"), {
       target: { value: "Check it." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith([
+      expect(onSave).toHaveBeenCalledWith([
         phases[0],
         {
           steps: [{ action: "Reload." }, { action: "Check it." }],
@@ -175,49 +227,53 @@ describe("PhasesEditor", () => {
     );
   });
 
-  it("adds a call of a common procedure, starting from the first one the behavior declares", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+  it("makes a step a common one with its checkbox, starting from the first procedure the behavior declares", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
-    fireEvent.click(
-      within(phase(2)).getByRole("button", { name: "＋ 共通手順を追加" }),
-    );
+    fireEvent.click(steps(2).getByRole("checkbox", { name: "共通" }));
 
-    expect(within(phase(2)).getByLabelText("手順2")).toHaveValue("seed");
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(steps(2).getByLabelText("手順1")).toHaveValue("seed");
+    fireEvent.click(save());
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith([
+      expect(onSave).toHaveBeenCalledWith([
         phases[0],
-        {
-          steps: [{ action: "Reload." }, { use: "seed" }],
-          results: phases[1].results,
-        },
+        { steps: [{ use: "seed" }], results: phases[1].results },
       ]),
     );
   });
 
-  it("cannot add a call of a common procedure when the behavior declares none", () => {
-    renderEditor({ procedures: {} });
+  it("keeps the text of a step when it is made common and made plain again", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
+    const toggle = () => steps(2).getByRole("checkbox", { name: "共通" });
 
-    expect(
-      within(phase(1)).getByRole("button", { name: "＋ 共通手順を追加" }),
-    ).toBeDisabled();
+    fireEvent.click(toggle());
+    fireEvent.click(toggle());
+
+    expect(steps(2).getByLabelText("手順1")).toHaveValue("Reload.");
+    fireEvent.click(save());
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(phases));
   });
 
-  it("deletes a step and a result", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+  it("cannot make a step common when the behavior declares no procedure", () => {
+    renderEditor({ procedures: {} });
 
+    expect(steps(2).getByRole("checkbox", { name: "共通" })).toBeDisabled();
+  });
+
+  it("deletes a step and a result with the small button at the end of the row", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
+
+    fireEvent.click(steps(1).getByRole("button", { name: "手順1を削除" }));
     fireEvent.click(
-      within(phase(1)).getByRole("button", { name: "手順1を削除" }),
+      results(2).getByRole("button", { name: "期待結果1を削除" }),
     );
-    fireEvent.click(
-      within(phase(2)).getByRole("button", { name: "期待結果1を削除" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith([
+      expect(onSave).toHaveBeenCalledWith([
         {
           steps: [{ action: "Click the filter." }],
           results: phases[0].results,
@@ -228,53 +284,72 @@ describe("PhasesEditor", () => {
   });
 
   it("adds a phase that starts with a blank step and a blank result, so the core can judge it", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
     fireEvent.click(screen.getByRole("button", { name: "＋ フェーズを追加" }));
-    fireEvent.change(within(phase(3)).getByLabelText("手順1"), {
+    fireEvent.change(steps(3).getByLabelText("手順1"), {
       target: { value: "Do it." },
     });
-    fireEvent.change(within(phase(3)).getByLabelText("期待結果1"), {
+    fireEvent.change(results(3).getByLabelText("期待結果1"), {
       target: { value: "It is done." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(save());
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith([
+      expect(onSave).toHaveBeenCalledWith([
         ...phases,
         { steps: [{ action: "Do it." }], results: ["It is done."] },
       ]),
     );
   });
 
-  it("deletes a phase", async () => {
-    const save = vi.fn(async () => {});
-    renderEditor({ save });
+  it("deletes a phase with the button in its header", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
 
-    fireEvent.click(
-      within(phase(1)).getByRole("button", { name: "このフェーズを削除" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "フェーズ1を削除" }));
 
     expect(
-      screen.queryByRole("group", { name: "フェーズ2" }),
+      screen.queryByRole("region", { name: "フェーズ2" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith([phases[1]]));
+    fireEvent.click(save());
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith([phases[1]]));
   });
 
   it("shows the steps of the common procedure a step calls", () => {
     renderEditor();
+    const call = steps(1).getAllByRole("listitem")[0];
 
-    const call = within(phase(1)).getByLabelText("手順1").closest(".row");
     expect(call).toHaveTextContent("Add a task.");
     expect(call).toHaveTextContent("Complete it.");
 
-    fireEvent.change(within(phase(1)).getByLabelText("手順1"), {
+    fireEvent.change(within(call).getByLabelText("手順1"), {
       target: { value: "login" },
     });
 
     expect(call).toHaveTextContent("Sign in.");
     expect(call).not.toHaveTextContent("Add a task.");
+  });
+
+  it("does nothing on Enter, with or without Ctrl: it neither saves nor adds a row", () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
+    const input = steps(1).getByLabelText("手順2");
+
+    const plain = fireEvent.keyDown(input, { key: "Enter" });
+    const withCtrl = fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+
+    expect(plain).toBe(false);
+    expect(withCtrl).toBe(false);
+    expect(steps(1).getAllByRole("listitem")).toHaveLength(2);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("still lets Enter press a focused button", () => {
+    renderEditor();
+    const add = within(phase(1)).getByRole("button", { name: "＋ 手順を追加" });
+
+    expect(fireEvent.keyDown(add, { key: "Enter" })).toBe(true);
   });
 });

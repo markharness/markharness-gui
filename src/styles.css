@@ -492,3 +492,89 @@ tbody th[scope="row"] {
   background: var(--bg-band);
   color: var(--text-muted);
 }
+
+/*
+ * The phases of a scenario: only the phase is a box. A step and a result are one line each, the
+ * sentence takes all the width left by a small number, the "common" switch and a small delete.
+ */
+.phases-form .phase {
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.phases-form .phase > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.phases-form h4 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.phases-form .rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.phases-form .row {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: start;
+  margin: var(--space-1) 0;
+}
+
+.phases-form .number {
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 2;
+}
+
+.phases-form .content input,
+.phases-form .content select {
+  width: 100%;
+  min-width: 0;
+}
+
+.phases-form .procedure-steps {
+  display: block;
+  color: var(--text-muted);
+}
+
+.phases-form .common {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  line-height: 2;
+  white-space: nowrap;
+}
+
+/* Small buttons that do not compete with the sentences: delete, and add under a list. */
+.phases-form .icon,
+.phases-form .add {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.phases-form .add {
+  margin: var(--space-1) 0 var(--space-1) 1.5rem;
+}
+
+.phases-form > .add {
+  margin-left: 0;
+}
+
+/* A result has no "common" switch: its delete stays under the delete of the steps. */
+.phases-form .row.result > .icon {
+  grid-column: 4;
+}

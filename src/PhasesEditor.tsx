@@ -1,10 +1,15 @@
 import { useRef, useState } from "react";
 import type { ScenarioPhase } from "./backend";
 
+/**
+ * A step is one row. Whether it calls a common procedure is an attribute of the row, and the row
+ * keeps both its text and the procedure it would call, so switching the attribute loses neither.
+ */
 interface StepRow {
   id: number;
-  kind: "action" | "use";
-  value: string;
+  common: boolean;
+  text: string;
+  procedure: string;
 }
 
 interface ResultRow {
@@ -39,27 +44,39 @@ export function PhasesEditor({
     nextId.current += 1;
     return nextId.current;
   };
+  const procedureNames = Object.keys(procedures);
+  const firstProcedure = procedureNames[0] ?? "";
   const [rows, setRows] = useState<PhaseRow[]>(() =>
     phases.map((phase) => ({
       id: newId(),
       steps: phase.steps.map((step) =>
         "use" in step
-          ? { id: newId(), kind: "use" as const, value: step.use }
-          : { id: newId(), kind: "action" as const, value: step.action },
+          ? { id: newId(), common: true, text: "", procedure: step.use }
+          : {
+              id: newId(),
+              common: false,
+              text: step.action,
+              procedure: firstProcedure,
+            },
       ),
       results: phase.results.map((value) => ({ id: newId(), value })),
     })),
   );
-  const procedureNames = Object.keys(procedures);
 
   const changePhase = (phaseId: number, change: (p: PhaseRow) => PhaseRow) =>
     setRows((current) =>
       current.map((p) => (p.id === phaseId ? change(p) : p)),
     );
-  const setStep = (phaseId: number, stepId: number, value: string) =>
+  const changeStep = (
+    phaseId: number,
+    stepId: number,
+    change: Partial<StepRow>,
+  ) =>
     changePhase(phaseId, (p) => ({
       ...p,
-      steps: p.steps.map((st) => (st.id === stepId ? { ...st, value } : st)),
+      steps: p.steps.map((st) =>
+        st.id === stepId ? { ...st, ...change } : st,
+      ),
     }));
   const setResult = (phaseId: number, resultId: number, value: string) =>
     changePhase(phaseId, (p) => ({
@@ -70,13 +87,19 @@ export function PhasesEditor({
   return (
     <form
       className="edit-form phases-form"
+      // Enter in a field would save through the form's own submission; the buttons do that.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+        }
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         setError(undefined);
         save(
           rows.map((p) => ({
             steps: p.steps.map((st) =>
-              st.kind === "use" ? { use: st.value } : { action: st.value },
+              st.common ? { use: st.procedure } : { action: st.text },
             ),
             results: p.results.map((r) => r.value),
           })),
@@ -85,130 +108,175 @@ export function PhasesEditor({
     >
       {error && <pre role="alert">{error}</pre>}
       {rows.map((phase, i) => (
-        <fieldset key={phase.id} aria-label={`フェーズ${i + 1}`}>
-          {phase.steps.map((step, j) => (
-            <div key={step.id} className="row">
-              {step.kind === "use" ? (
-                <select
-                  aria-label={`手順${j + 1}`}
-                  value={step.value}
-                  onChange={(e) => setStep(phase.id, step.id, e.target.value)}
+        <section
+          key={phase.id}
+          className="phase"
+          aria-label={`フェーズ${i + 1}`}
+        >
+          <header>
+            <span>フェーズ {i + 1}</span>
+            <button
+              type="button"
+              className="icon"
+              aria-label={`フェーズ${i + 1}を削除`}
+              onClick={() =>
+                setRows((current) => current.filter((p) => p.id !== phase.id))
+              }
+            >
+              削除
+            </button>
+          </header>
+          <h4>手順</h4>
+          <ol aria-label="手順" className="rows">
+            {phase.steps.map((step, j) => (
+              <li key={step.id} className="row step">
+                <span className="number">{j + 1}</span>
+                <div className="content">
+                  {step.common ? (
+                    <>
+                      <select
+                        aria-label={`手順${j + 1}`}
+                        value={step.procedure}
+                        onChange={(e) =>
+                          changeStep(phase.id, step.id, {
+                            procedure: e.target.value,
+                          })
+                        }
+                      >
+                        {[...new Set([...procedureNames, step.procedure])].map(
+                          (name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                      <small className="procedure-steps">
+                        {(procedures[step.procedure]?.steps ?? []).join(" / ")}
+                      </small>
+                    </>
+                  ) : (
+                    <input
+                      aria-label={`手順${j + 1}`}
+                      value={step.text}
+                      onChange={(e) =>
+                        changeStep(phase.id, step.id, { text: e.target.value })
+                      }
+                    />
+                  )}
+                </div>
+                <label className="common">
+                  <input
+                    type="checkbox"
+                    checked={step.common}
+                    disabled={!step.common && procedureNames.length === 0}
+                    onChange={(e) =>
+                      changeStep(phase.id, step.id, {
+                        common: e.target.checked,
+                        procedure: step.procedure || firstProcedure,
+                      })
+                    }
+                  />
+                  共通
+                </label>
+                <button
+                  type="button"
+                  className="icon"
+                  aria-label={`手順${j + 1}を削除`}
+                  title="削除"
+                  onClick={() =>
+                    changePhase(phase.id, (p) => ({
+                      ...p,
+                      steps: p.steps.filter((st) => st.id !== step.id),
+                    }))
+                  }
                 >
-                  {[...new Set([...procedureNames, step.value])].map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  aria-label={`手順${j + 1}`}
-                  value={step.value}
-                  onChange={(e) => setStep(phase.id, step.id, e.target.value)}
-                />
-              )}
-              {step.kind === "use" && (
-                <small className="procedure-steps">
-                  {(procedures[step.value]?.steps ?? []).join(" / ")}
-                </small>
-              )}
-              <button
-                type="button"
-                aria-label={`手順${j + 1}を削除`}
-                onClick={() =>
-                  changePhase(phase.id, (p) => ({
-                    ...p,
-                    steps: p.steps.filter((st) => st.id !== step.id),
-                  }))
-                }
-              >
-                削除
-              </button>
-            </div>
-          ))}
-          <div className="row-actions">
-            <button
-              type="button"
-              onClick={() =>
-                changePhase(phase.id, (p) => ({
-                  ...p,
-                  steps: [
-                    ...p.steps,
-                    { id: newId(), kind: "action", value: "" },
-                  ],
-                }))
-              }
-            >
-              ＋ 手順を追加
-            </button>
-            <button
-              type="button"
-              disabled={procedureNames.length === 0}
-              onClick={() =>
-                changePhase(phase.id, (p) => ({
-                  ...p,
-                  steps: [
-                    ...p.steps,
-                    { id: newId(), kind: "use", value: procedureNames[0] },
-                  ],
-                }))
-              }
-            >
-              ＋ 共通手順を追加
-            </button>
-          </div>
-          {phase.results.map((result, k) => (
-            <div key={result.id} className="row">
-              <input
-                aria-label={`期待結果${k + 1}`}
-                value={result.value}
-                onChange={(e) => setResult(phase.id, result.id, e.target.value)}
-              />
-              <button
-                type="button"
-                aria-label={`期待結果${k + 1}を削除`}
-                onClick={() =>
-                  changePhase(phase.id, (p) => ({
-                    ...p,
-                    results: p.results.filter((r) => r.id !== result.id),
-                  }))
-                }
-              >
-                削除
-              </button>
-            </div>
-          ))}
-          <div className="row-actions">
-            <button
-              type="button"
-              onClick={() =>
-                changePhase(phase.id, (p) => ({
-                  ...p,
-                  results: [...p.results, { id: newId(), value: "" }],
-                }))
-              }
-            >
-              ＋ 期待結果を追加
-            </button>
-          </div>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ol>
           <button
             type="button"
+            className="add"
             onClick={() =>
-              setRows((current) => current.filter((p) => p.id !== phase.id))
+              changePhase(phase.id, (p) => ({
+                ...p,
+                steps: [
+                  ...p.steps,
+                  {
+                    id: newId(),
+                    common: false,
+                    text: "",
+                    procedure: firstProcedure,
+                  },
+                ],
+              }))
             }
           >
-            このフェーズを削除
+            ＋ 手順を追加
           </button>
-        </fieldset>
+          <h4>期待結果</h4>
+          <ol aria-label="期待結果" className="rows">
+            {phase.results.map((result, k) => (
+              <li key={result.id} className="row result">
+                <span className="number">{k + 1}</span>
+                <div className="content">
+                  <input
+                    aria-label={`期待結果${k + 1}`}
+                    value={result.value}
+                    onChange={(e) =>
+                      setResult(phase.id, result.id, e.target.value)
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="icon"
+                  aria-label={`期待結果${k + 1}を削除`}
+                  title="削除"
+                  onClick={() =>
+                    changePhase(phase.id, (p) => ({
+                      ...p,
+                      results: p.results.filter((r) => r.id !== result.id),
+                    }))
+                  }
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            className="add"
+            onClick={() =>
+              changePhase(phase.id, (p) => ({
+                ...p,
+                results: [...p.results, { id: newId(), value: "" }],
+              }))
+            }
+          >
+            ＋ 期待結果を追加
+          </button>
+        </section>
       ))}
       <button
         type="button"
+        className="add"
         onClick={() =>
           setRows((current) => [
             ...current,
             {
               id: newId(),
-              steps: [{ id: newId(), kind: "action", value: "" }],
+              steps: [
+                {
+                  id: newId(),
+                  common: false,
+                  text: "",
+                  procedure: firstProcedure,
+                },
+              ],
               results: [{ id: newId(), value: "" }],
             },
           ])
