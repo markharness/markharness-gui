@@ -352,4 +352,20 @@ describe("PhasesEditor", () => {
 
     expect(fireEvent.keyDown(add, { key: "Enter" })).toBe(true);
   });
+
+  it("says why a step cannot be made common, once, when the behavior declares no procedure", () => {
+    renderEditor({ procedures: {} });
+
+    const notes = screen.getAllByText(/共通手順がありません/);
+
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toHaveTextContent("このBehaviorには");
+    expect(notes[0]).toHaveTextContent("「共通」は選べません");
+  });
+
+  it("says nothing of the kind when the behavior declares procedures", () => {
+    renderEditor();
+
+    expect(screen.queryByText(/共通手順がありません/)).not.toBeInTheDocument();
+  });
 });

@@ -103,6 +103,11 @@ export function PhasesEditor({
       }}
     >
       {error && <pre role="alert">{error}</pre>}
+      {procedureNames.length === 0 && (
+        <p className="hint">
+          このBehaviorには共通手順がありません。「共通」は選べません。
+        </p>
+      )}
       {rows.map((phase, i) => (
         <section
           key={phase.id}
