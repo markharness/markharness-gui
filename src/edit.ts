@@ -78,7 +78,22 @@ export interface BehaviorCreate {
   axis: string[];
 }
 
-export type Create = RequirementCreate | FeatureCreate | BehaviorCreate;
+/** A new scenario of the behavior whose uid is given; the core needs a description and at least one phase. */
+export interface ScenarioCreate {
+  kind: "scenario";
+  feature_uid: string;
+  behavior_uid: string;
+  id: string;
+  label: string;
+  description: string;
+  phases: ScenarioPhase[];
+}
+
+export type Create =
+  | RequirementCreate
+  | FeatureCreate
+  | BehaviorCreate
+  | ScenarioCreate;
 
 export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 
