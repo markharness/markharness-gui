@@ -1,5 +1,6 @@
-import type { Backend } from "./backend";
+import type { Backend, RemoveKind } from "./backend";
 import { ElementEditor } from "./ElementEditor";
+import { ElementRemover } from "./ElementRemover";
 import { FeatureCreator } from "./FeatureCreator";
 import { Card, ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
@@ -40,6 +41,7 @@ export function RequirementDetail({
   onPickFeature,
   onFeatureCreated,
   onEdited,
+  onRemoved,
 }: {
   row: RequirementRow;
   backend: Backend;
@@ -49,6 +51,7 @@ export function RequirementDetail({
   onPickFeature: (featureUid: string) => void;
   onFeatureCreated: (featureUid: string) => void;
   onEdited: () => void;
+  onRemoved: (kind: RemoveKind) => void;
 }) {
   const { strictdoc } = row;
   return (
@@ -87,6 +90,15 @@ export function RequirementDetail({
             })}
             backend={backend}
             onEdited={onEdited}
+          />
+        )}
+        {row.source === "native" && row.requirementUid && (
+          <ElementRemover
+            kind="requirement"
+            noun="要求"
+            uid={row.requirementUid}
+            backend={backend}
+            onRemoved={() => onRemoved("requirement")}
           />
         )}
         {strictdoc?.statement && (

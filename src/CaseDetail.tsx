@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Backend, Binding, CaseDetail as Detail } from "./backend";
+import type {
+  Backend,
+  Binding,
+  CaseDetail as Detail,
+  RemoveKind,
+} from "./backend";
 import type { CaseView } from "./caseView";
 import { BehaviorCard } from "./BehaviorCard";
 import { BehaviorCreator } from "./BehaviorCreator";
 import { ElementEditor } from "./ElementEditor";
+import { ElementRemover } from "./ElementRemover";
 import { FeatureCard } from "./FeatureCard";
 import { FeatureCreator } from "./FeatureCreator";
 import { Card, ElementHeading, Section } from "./Section";
@@ -26,6 +32,7 @@ export function CaseDetail({
   onFeatureCreated,
   onBehaviorCreated,
   onScenarioCreated,
+  onRemoved,
 }: {
   view: CaseView;
   backend: Backend;
@@ -37,6 +44,7 @@ export function CaseDetail({
   onFeatureCreated: (featureUid: string) => void;
   onBehaviorCreated: (behaviorUid: string) => void;
   onScenarioCreated: (scenarioUid: string) => void;
+  onRemoved: (kind: RemoveKind) => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -93,6 +101,15 @@ export function CaseDetail({
             onEdited={onEdited}
           />
         )}
+        {view.requirement.source === "native" && (
+          <ElementRemover
+            kind="requirement"
+            noun="要求"
+            uid={view.requirement.uid}
+            backend={backend}
+            onRemoved={() => onRemoved("requirement")}
+          />
+        )}
       </Card>
       <FeatureCreator
         requirementUid={view.requirement.uid}
@@ -105,6 +122,7 @@ export function CaseDetail({
             feature={view.feature}
             backend={backend}
             onEdited={onEdited}
+            onRemoved={() => onRemoved("feature")}
           />
           <BehaviorCreator
             featureUid={view.feature.uid}
@@ -122,6 +140,7 @@ export function CaseDetail({
               read();
               onEdited();
             }}
+            onRemoved={() => onRemoved("behavior")}
           />
           <ScenarioCreator
             featureUid={view.behavior.featureUid}
@@ -165,18 +184,27 @@ export function CaseDetail({
           </>
         )}
         {view.feature && view.behavior && (
-          <ScenarioEditor
-            featureUid={view.feature.uid}
-            behaviorUid={view.behavior.uid}
-            uid={picked.scenarioUid}
-            id={picked.scenarioId}
-            label={picked.label}
-            backend={backend}
-            onEdited={() => {
-              read();
-              onEdited();
-            }}
-          />
+          <>
+            <ScenarioEditor
+              featureUid={view.feature.uid}
+              behaviorUid={view.behavior.uid}
+              uid={picked.scenarioUid}
+              id={picked.scenarioId}
+              label={picked.label}
+              backend={backend}
+              onEdited={() => {
+                read();
+                onEdited();
+              }}
+            />
+            <ElementRemover
+              kind="scenario"
+              noun="Scenario"
+              uid={picked.scenarioUid}
+              backend={backend}
+              onRemoved={() => onRemoved("scenario")}
+            />
+          </>
         )}
         <Section title="検証方法" badge="markharness">
           {view.verification ? (

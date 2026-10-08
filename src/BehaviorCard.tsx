@@ -1,5 +1,6 @@
 import type { Backend } from "./backend";
 import { ElementCard } from "./ElementCard";
+import { ElementRemover } from "./ElementRemover";
 
 /**
  * The procedures are sent whole, as the core replaces them whole. A behavior that had none and
@@ -20,6 +21,7 @@ export function BehaviorCard({
   behavior,
   backend,
   onEdited,
+  onRemoved,
 }: {
   behavior: {
     uid: string;
@@ -30,6 +32,7 @@ export function BehaviorCard({
   };
   backend: Backend;
   onEdited: () => void;
+  onRemoved: () => void;
 }) {
   return (
     <ElementCard
@@ -57,6 +60,14 @@ export function BehaviorCard({
       })}
       backend={backend}
       onEdited={onEdited}
-    />
+    >
+      <ElementRemover
+        kind="behavior"
+        noun="Behavior"
+        uid={behavior.uid}
+        backend={backend}
+        onRemoved={onRemoved}
+      />
+    </ElementCard>
   );
 }

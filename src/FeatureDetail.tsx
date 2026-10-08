@@ -1,4 +1,4 @@
-import type { Backend } from "./backend";
+import type { Backend, RemoveKind } from "./backend";
 import { BehaviorCreator } from "./BehaviorCreator";
 import { FeatureCard } from "./FeatureCard";
 import { FeatureCreator } from "./FeatureCreator";
@@ -16,6 +16,7 @@ export function FeatureDetail({
   onBehaviorCreated,
   onPickBehavior,
   onEdited,
+  onRemoved,
 }: {
   row: RequirementRow;
   feature: { uid: string; title: string; id: string; label: string | null };
@@ -26,6 +27,7 @@ export function FeatureDetail({
   onBehaviorCreated: (behaviorUid: string) => void;
   onPickBehavior: (behaviorUid: string) => void;
   onEdited: () => void;
+  onRemoved: (kind: RemoveKind) => void;
 }) {
   return (
     <>
@@ -44,7 +46,12 @@ export function FeatureDetail({
           onCreated={onFeatureCreated}
         />
       )}
-      <FeatureCard feature={feature} backend={backend} onEdited={onEdited} />
+      <FeatureCard
+        feature={feature}
+        backend={backend}
+        onEdited={onEdited}
+        onRemoved={() => onRemoved("feature")}
+      />
       <BehaviorCreator
         featureUid={feature.uid}
         backend={backend}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Backend } from "./backend";
+import type { Backend, RemoveKind } from "./backend";
 import { CaseDetail } from "./CaseDetail";
 import { describeCase } from "./caseView";
 import { ElementCreator } from "./ElementCreator";
@@ -84,6 +84,15 @@ export function App({ backend }: { backend: Backend }) {
     setPickedFeatureUid(featureUid);
     setPickedBehaviorUid(undefined);
     setPickedScenarioUid(undefined);
+  };
+  /** After a deletion, back to the requirement, or to nothing when the requirement itself is gone. */
+  const afterRemoved = (kind: RemoveKind) => {
+    data.refreshTraceability();
+    setPickedCaseUid(undefined);
+    setPickedFeatureUid(undefined);
+    setPickedBehaviorUid(undefined);
+    setPickedScenarioUid(undefined);
+    if (kind === "requirement") setPickedKey(undefined);
   };
   const pickBehavior = (behaviorUid: string) => {
     data.refreshTraceability();
@@ -171,6 +180,7 @@ export function App({ backend }: { backend: Backend }) {
               onFeatureCreated={pickFeature}
               onBehaviorCreated={pickBehavior}
               onScenarioCreated={pickScenario}
+              onRemoved={afterRemoved}
             />
           ) : picked && pickedFeature && pickedBehavior ? (
             <BehaviorDetail
@@ -191,6 +201,7 @@ export function App({ backend }: { backend: Backend }) {
               backend={backend}
               onScenarioCreated={pickScenario}
               onEdited={data.refreshTraceability}
+              onRemoved={afterRemoved}
             />
           ) : picked && pickedFeature ? (
             <FeatureDetail
@@ -212,6 +223,7 @@ export function App({ backend }: { backend: Backend }) {
               onBehaviorCreated={pickBehavior}
               onPickBehavior={pickBehavior}
               onEdited={data.refreshTraceability}
+              onRemoved={afterRemoved}
             />
           ) : picked ? (
             <RequirementDetail
@@ -223,6 +235,7 @@ export function App({ backend }: { backend: Backend }) {
               onPickFeature={pickFeature}
               onFeatureCreated={pickFeature}
               onEdited={data.refreshTraceability}
+              onRemoved={afterRemoved}
             />
           ) : (
             <p className="placeholder">

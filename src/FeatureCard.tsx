@@ -1,15 +1,18 @@
 import type { Backend } from "./backend";
 import { ElementCard } from "./ElementCard";
+import { ElementRemover } from "./ElementRemover";
 
 /** The feature of a picked case, or a picked feature, which turns into a form to edit it in place. */
 export function FeatureCard({
   feature,
   backend,
   onEdited,
+  onRemoved,
 }: {
   feature: { uid: string; title: string; id: string; label: string | null };
   backend: Backend;
   onEdited: () => void;
+  onRemoved: () => void;
 }) {
   return (
     <ElementCard
@@ -28,6 +31,14 @@ export function FeatureCard({
       })}
       backend={backend}
       onEdited={onEdited}
-    />
+    >
+      <ElementRemover
+        kind="feature"
+        noun="Feature"
+        uid={feature.uid}
+        backend={backend}
+        onRemoved={onRemoved}
+      />
+    </ElementCard>
   );
 }

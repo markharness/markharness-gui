@@ -104,6 +104,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
       ),
     setBinding: async () => {},
     createElement: async () => "",
+    removeElement: async () => {},
     getTags: async () => [],
     getImpact: async () => ({ requirements: [] }),
     getStrictDoc: async () => null,
@@ -882,6 +883,69 @@ describe("App", () => {
     expect(
       steps.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("deletes the scenario of a picked case after a confirmation, and goes back to the requirement", async () => {
+    const removed: unknown[] = [];
+    const backend = fakeBackend({
+      removeElement: async (kind, uid) => {
+        removed.push([kind, uid]);
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      within(pane).getByRole("button", { name: /Log in with a password/ }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Scenarioを削除" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Scenarioを削除",
+    });
+    expect(removed).toEqual([]);
+    fireEvent.click(within(dialog).getByRole("button", { name: "削除" }));
+
+    await waitFor(() => expect(removed).toEqual([["scenario", "S1"]]));
+    expect(
+      await within(pane).findByText("この要求のFeature"),
+    ).toBeInTheDocument();
+    expect(
+      within(pane).queryByRole("button", { name: "Scenarioを削除" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("deletes a requirement and shows nothing picked once the core no longer has it", async () => {
+    let traceability = project.traceability;
+    const backend = fakeBackend({
+      getTraceability: async () => traceability,
+      removeElement: async () => {
+        traceability = {
+          ...traceability,
+          requirements: traceability.requirements.filter(
+            (r) => r.requirement_uid !== "R2",
+          ),
+        };
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "要求を削除" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "要求を削除" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "削除" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Logout requirement")).not.toBeInTheDocument(),
+    );
+    expect(
+      within(pane).getByText("行を選ぶと、事実と出所が、ここに出ます。"),
+    ).toBeInTheDocument();
   });
 
   it("offers to add a scenario under the behavior of a picked case too", async () => {
