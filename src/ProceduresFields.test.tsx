@@ -59,6 +59,17 @@ describe("ElementEditForm, for the common procedures of a behavior", () => {
     ).toHaveValue("Sign in.");
   });
 
+  it("lays out each procedure like a phase of a scenario: a header, a heading for its steps, numbered rows", () => {
+    renderEditor();
+
+    const seed = procedure("seed");
+    expect(seed.closest(".phases-form")).not.toBeNull();
+    expect(
+      within(seed).getByRole("heading", { name: "手順" }),
+    ).toBeInTheDocument();
+    expect(within(seed).getAllByRole("listitem")).toHaveLength(2);
+  });
+
   it("warns that every case calling a procedure changes with it", () => {
     renderEditor();
 

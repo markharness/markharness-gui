@@ -247,13 +247,13 @@ export function ElementEditForm({
         </>
       )}
       {element.procedures !== undefined && (
-        <>
+        <div className="phases-form">
           <h4>共通手順</h4>
           <ProceduresFields
             procedures={element.procedures}
             onChange={setProcedures}
           />
-        </>
+        </div>
       )}
       <fieldset
         aria-label={`${noun}の保存とキャンセル`}

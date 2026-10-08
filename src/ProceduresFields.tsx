@@ -91,6 +91,7 @@ export function ProceduresFields({
                 削除
               </button>
             </header>
+            <h4>手順</h4>
             <ol aria-label="手順" className="rows">
               {procedure.steps.map((step, j) => (
                 <li key={step.id} className="row step">
