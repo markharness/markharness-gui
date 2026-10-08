@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { Coverage, Traceability } from "./backend";
+import type { Binding, Coverage, Traceability } from "./backend";
 import { describeCase } from "./caseView";
 
 interface Fixture {
   traceability: Traceability;
   coverage: Coverage;
+  /** What `binding list` says, in the working tree. */
+  bindings: Binding[];
 }
 
 function project(
   binding: Partial<Coverage["requirements"][0]["cases"][0]> = {},
+  bindings: Binding[] = [],
 ): Fixture {
   return {
+    bindings,
     traceability: {
       requirements: [
         {
@@ -72,6 +76,7 @@ function describeFixture(
   return describeCase(
     fixture.traceability,
     fixture.coverage,
+    fixture.bindings,
     requirementUid,
     caseUid,
   );
@@ -119,11 +124,20 @@ describe("describeCase", () => {
 
   it("names the declared means and whether the reference resolves, never that anything ran", () => {
     const view = describeFixture(
-      project({
-        binding_mode: "automated",
-        binding_reference: "tests/login.spec.ts",
-        reference_status: "missing",
-      }),
+      project(
+        {
+          binding_mode: "automated",
+          binding_reference: "tests/login.spec.ts",
+          reference_status: "missing",
+        },
+        [
+          {
+            case_uid: "C1",
+            mode: "automated",
+            reference: "tests/login.spec.ts",
+          },
+        ],
+      ),
       "R1",
       "C1",
     );
@@ -136,7 +150,7 @@ describe("describeCase", () => {
 
   it("shows a declared means it has no name for as it is written", () => {
     const view = describeFixture(
-      project({ binding_mode: "exploratory" }),
+      project({}, [{ case_uid: "C1", mode: "exploratory", reference: null }]),
       "R1",
       "C1",
     );
@@ -144,11 +158,37 @@ describe("describeCase", () => {
     expect(view?.verification?.method).toBe("exploratory");
   });
 
-  it("leaves the verification out until the coverage is read, and still follows the case up", () => {
-    const view = describeCase(project().traceability, null, "R1", "C1");
+  it("leaves the verification out until the bindings are read, and still follows the case up", () => {
+    const view = describeCase(
+      project().traceability,
+      project().coverage,
+      null,
+      "R1",
+      "C1",
+    );
 
     expect(view?.verification).toBeUndefined();
     expect(view?.case.title).toBe("Wrong password");
+  });
+
+  it("shows the means declared in the working tree, and says nothing of the reference until the committed content has the same one", () => {
+    const view = describeFixture(
+      project(
+        {
+          binding_mode: "automated",
+          binding_reference: "tests/old.spec.ts",
+          reference_status: "exists",
+        },
+        [{ case_uid: "C1", mode: "manual", reference: "tests/new.spec.ts" }],
+      ),
+      "R1",
+      "C1",
+    );
+
+    expect(view?.verification).toEqual({
+      method: "手動(参照)",
+      reference: { target: "tests/new.spec.ts", status: null },
+    });
   });
 
   it("gives nothing for a case the traceability does not know", () => {

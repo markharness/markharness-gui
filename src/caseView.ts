@@ -1,4 +1,4 @@
-import type { Coverage, Traceability } from "./backend";
+import type { Binding, Coverage, Traceability } from "./backend";
 
 export interface CaseView {
   requirement: {
@@ -31,7 +31,8 @@ export interface CaseView {
   /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
   verification?: {
     method: string;
-    reference: { target: string; status: string } | null;
+    /** `status` is known only while the committed content declares the same reference. */
+    reference: { target: string; status: string | null } | null;
   };
 }
 
@@ -50,6 +51,7 @@ const REFERENCE_STATUS_NAMES = {
 export function describeCase(
   traceability: Traceability,
   coverage: Coverage | null,
+  bindings: Binding[] | null,
   requirementUid: string,
   caseUid: string,
 ): CaseView | undefined {
@@ -68,6 +70,7 @@ export function describeCase(
   const feature = traceability.features.find(
     (f) => f.feature_uid === behavior?.feature_uid,
   );
+  const binding = bindings?.find((b) => b.case_uid === caseUid);
   const declared = coverage?.requirements
     .find((r) => r.requirement_uid === requirementUid)
     ?.cases.find((c) => c.case_uid === caseUid);
@@ -101,18 +104,21 @@ export function describeCase(
       scenarioId: scenario?.scenario_id ?? "",
       label: scenario?.label ?? null,
     },
-    verification: coverage
+    verification: bindings
       ? {
-          method: declared?.binding_mode
-            ? (METHOD_NAMES[declared.binding_mode] ?? declared.binding_mode)
+          method: binding?.mode
+            ? (METHOD_NAMES[binding.mode] ?? binding.mode)
             : "未宣言",
-          reference:
-            declared?.binding_reference && declared.reference_status
-              ? {
-                  target: declared.binding_reference,
-                  status: REFERENCE_STATUS_NAMES[declared.reference_status],
-                }
-              : null,
+          reference: binding?.reference
+            ? {
+                target: binding.reference,
+                status:
+                  declared?.reference_status &&
+                  declared.binding_reference === binding.reference
+                    ? REFERENCE_STATUS_NAMES[declared.reference_status]
+                    : null,
+              }
+            : null,
         }
       : undefined,
   };

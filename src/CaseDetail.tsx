@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Backend, CaseDetail as Detail, ScenarioPhase } from "./backend";
+import type {
+  Backend,
+  Binding,
+  CaseDetail as Detail,
+  ScenarioPhase,
+} from "./backend";
 import type { CaseView } from "./caseView";
 import { BehaviorProcedures } from "./BehaviorProcedures";
 import { ElementCard } from "./ElementCard";
@@ -8,6 +13,7 @@ import { PhasesEditor } from "./PhasesEditor";
 import { scenarioEdit } from "./edit";
 import { Card, ElementHeading, Section } from "./Section";
 import { sourceName } from "./sources";
+import { VerificationEditor } from "./VerificationEditor";
 
 /**
  * A picked case, under the elements above it. Its description and steps are read when it is
@@ -16,13 +22,18 @@ import { sourceName } from "./sources";
 export function CaseDetail({
   view,
   backend,
-  coverageLoading,
+  binding,
+  bindingsLoading,
   onEdited,
+  onBindingEdited,
 }: {
   view: CaseView;
   backend: Backend;
-  coverageLoading: boolean;
+  /** What the case declares in the working tree; none when it declares nothing. */
+  binding?: Binding;
+  bindingsLoading: boolean;
   onEdited: () => void;
+  onBindingEdited: () => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -33,6 +44,7 @@ export function CaseDetail({
     procedures: Record<string, { steps: string[] }>;
   }>();
   const [phasesError, setPhasesError] = useState<string>();
+  const [editingVerification, setEditingVerification] = useState(false);
 
   const editPhases = async () => {
     try {
@@ -257,14 +269,37 @@ export function CaseDetail({
                 <dt>参照先</dt>
                 <dd>
                   {view.verification.reference
-                    ? `${view.verification.reference.target}(${view.verification.reference.status})`
+                    ? view.verification.reference.status
+                      ? `${view.verification.reference.target}(${view.verification.reference.status})`
+                      : view.verification.reference.target
                     : "—"}
                 </dd>
               </dl>
-              <small>コミット済みの内容から読んだ宣言です。</small>
+              <small>作業ツリーの宣言です。</small>
+              {editingVerification ? (
+                <VerificationEditor
+                  mode={binding?.mode ?? null}
+                  reference={binding?.reference ?? null}
+                  save={(mode, reference) =>
+                    backend.setBinding(picked.caseUid, mode, reference)
+                  }
+                  onSaved={() => {
+                    setEditingVerification(false);
+                    onBindingEdited();
+                  }}
+                  onCancel={() => setEditingVerification(false)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingVerification(true)}
+                >
+                  検証方法を編集
+                </button>
+              )}
             </>
           ) : (
-            <p>{coverageLoading ? "読み込み中…" : "読めませんでした"}</p>
+            <p>{bindingsLoading ? "読み込み中…" : "読めませんでした"}</p>
           )}
         </Section>
       </Card>

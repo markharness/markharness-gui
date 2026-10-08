@@ -73,6 +73,13 @@ export interface Coverage {
   }[];
 }
 
+/** What a case declares as its verification means in the working tree; declaring one does not mean anything ran. */
+export interface Binding {
+  case_uid: string;
+  mode: string;
+  reference: string | null;
+}
+
 /** What the core reports about the requirements touched between a base and `HEAD`. */
 export interface ChangeImpact {
   requirements: {
@@ -147,6 +154,14 @@ export interface Backend {
   getTraceability(): Promise<Traceability>;
   /** The committed content at `HEAD`; it cannot read the working tree. */
   getCoverage(): Promise<Coverage>;
+  /** What each case declares as its verification means, in the working tree. */
+  getBindings(): Promise<Binding[]>;
+  /** Declares the means of a case, replacing the one it had; no reference leaves it without one. */
+  setBinding(
+    caseUid: string,
+    mode: string,
+    reference: string | null,
+  ): Promise<void>;
   /** The tags to offer as the base of a comparison, the newest first; empty when none can be listed. */
   getTags(): Promise<string[]>;
   /** The committed content between `base` and `HEAD`; rejects with the core's message. */

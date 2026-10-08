@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import type {
   Backend,
+  Binding,
   ChangeImpact,
   Coverage,
   StrictDoc,
@@ -87,6 +88,21 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
     getProjectRoot: async () => "/work/project",
     getTraceability: async () => project.traceability,
     getCoverage: async () => project.coverage,
+    getBindings: async () =>
+      project.coverage.requirements.flatMap((r) =>
+        r.cases.flatMap((c) =>
+          c.binding_mode
+            ? [
+                {
+                  case_uid: c.case_uid,
+                  mode: c.binding_mode,
+                  reference: c.binding_reference,
+                },
+              ]
+            : [],
+        ),
+      ),
+    setBinding: async () => {},
     getTags: async () => [],
     getImpact: async () => ({ requirements: [] }),
     getStrictDoc: async () => null,
@@ -406,6 +422,51 @@ describe("App", () => {
       within(pane).getByText(/tests\/login\.spec\.ts/),
     ).toBeInTheDocument();
     expect(within(pane).getByText(/あり/)).toBeInTheDocument();
+  });
+
+  it("declares the verification means of a case apart from the rest, and shows the means the working tree now has", async () => {
+    const declared: unknown[] = [];
+    let bindings: Binding[] = [
+      { case_uid: "C1", mode: "automated", reference: "tests/login.spec.ts" },
+    ];
+    const backend = fakeBackend({
+      getBindings: async () => bindings,
+      setBinding: async (caseUid, mode, reference) => {
+        declared.push([caseUid, mode, reference]);
+        bindings = [{ case_uid: caseUid, mode, reference }];
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "検証方法を編集" }),
+    );
+    fireEvent.change(within(pane).getByLabelText("方法"), {
+      target: { value: "manual" },
+    });
+    fireEvent.change(within(pane).getByLabelText("参照先"), {
+      target: { value: "docs/check.md" },
+    });
+    fireEvent.click(
+      within(
+        within(pane).getByRole("group", { name: "検証方法の保存とキャンセル" }),
+      ).getByRole("button", { name: "保存" }),
+    );
+
+    await waitFor(() =>
+      expect(declared).toEqual([["C1", "manual", "docs/check.md"]]),
+    );
+    expect(await within(pane).findByText("手動(参照)")).toBeInTheDocument();
+    expect(within(pane).getByText(/docs\/check\.md/)).toBeInTheDocument();
+    expect(within(pane).queryByLabelText("方法")).not.toBeInTheDocument();
   });
 
   it("keeps the table and says why the detail of a case could not be read", async () => {

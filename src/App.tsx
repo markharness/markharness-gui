@@ -34,6 +34,7 @@ export function App({ backend }: { backend: Backend }) {
       ? describeCase(
           traceability,
           data.coverage,
+          data.bindings,
           picked.requirementUid,
           pickedCaseUid,
         )
@@ -91,8 +92,12 @@ export function App({ backend }: { backend: Backend }) {
             <CaseDetail
               view={caseView}
               backend={backend}
-              coverageLoading={data.coverageLoading}
+              binding={data.bindings?.find(
+                (b) => b.case_uid === caseView.case.caseUid,
+              )}
+              bindingsLoading={data.bindingsLoading}
               onEdited={data.refreshTraceability}
+              onBindingEdited={data.refreshBindings}
             />
           ) : picked ? (
             <RequirementDetail

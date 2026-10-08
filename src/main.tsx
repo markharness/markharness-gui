@@ -6,6 +6,7 @@ import type { Edit } from "./edit";
 import type {
   Axis,
   Backend,
+  Binding,
   CaseDetail,
   ChangeImpact,
   Coverage,
@@ -20,6 +21,9 @@ const backend: Backend = {
   getProjectRoot: () => invoke<string>("get_project_root"),
   getTraceability: () => invoke<Traceability>("get_traceability"),
   getCoverage: () => invoke<Coverage>("get_coverage"),
+  getBindings: () => invoke<Binding[]>("get_bindings"),
+  setBinding: (caseUid, mode, reference) =>
+    invoke<void>("set_binding", { caseUid, mode, reference }),
   getTags: () => invoke<string[]>("get_tags"),
   getImpact: (base) => invoke<ChangeImpact>("get_impact", { base }),
   getStrictDoc: (skipSaved) =>

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Backend, Coverage, StrictDoc, Traceability } from "./backend";
+import type {
+  Backend,
+  Binding,
+  Coverage,
+  StrictDoc,
+  Traceability,
+} from "./backend";
 
 export interface ProjectData {
   /** Set once the project root and the traceability (the working tree) are both read. */
@@ -11,6 +17,9 @@ export interface ProjectData {
   /** The committed content, read apart from the traceability. */
   coverage: Coverage | null;
   coverageLoading: boolean;
+  /** What each case declares as its verification means, in the working tree; null until read. */
+  bindings: Binding[] | null;
+  bindingsLoading: boolean;
   strictdoc: StrictDoc | null;
   strictdocLoading: boolean;
   /** What markharness holds as each requirement's description, by requirement uid. */
@@ -21,6 +30,8 @@ export interface ProjectData {
   reload: () => void;
   /** Reads the traceability again, after an edit; the coverage, StrictDoc and descriptions stay as they are. */
   refreshTraceability: () => void;
+  /** Reads the verification means again, after one is declared. */
+  refreshBindings: () => void;
 }
 
 /**
@@ -34,6 +45,8 @@ export function useProjectData(backend: Backend): ProjectData {
   const [error, setError] = useState<string>();
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [coverageLoading, setCoverageLoading] = useState(true);
+  const [bindings, setBindings] = useState<Binding[] | null>(null);
+  const [bindingsLoading, setBindingsLoading] = useState(true);
   const [strictdoc, setStrictDoc] = useState<StrictDoc | null>(null);
   const [strictdocLoading, setStrictDocLoading] = useState(true);
   const [notice, setNotice] = useState<string>();
@@ -94,6 +107,35 @@ export function useProjectData(backend: Backend): ProjectData {
     };
   }, [backend, loaded]);
 
+  const readBindings = useCallback(
+    (isCurrent: () => boolean = () => true) => {
+      backend.getBindings().then(
+        (b) => {
+          if (!isCurrent()) return;
+          setBindings(b);
+          setBindingsLoading(false);
+        },
+        (e) => {
+          if (!isCurrent()) return;
+          setBindingsLoading(false);
+          setNotice(String(e));
+        },
+      );
+    },
+    [backend],
+  );
+
+  useEffect(() => {
+    if (!loaded) return;
+    let current = true;
+    setBindings(null);
+    setBindingsLoading(true);
+    readBindings(() => current);
+    return () => {
+      current = false;
+    };
+  }, [loaded, readBindings]);
+
   // Read apart from the traceability too: the rows show first and the descriptions fill in.
   const readDescriptions = useCallback(
     (traceability: Traceability, isCurrent: () => boolean = () => true) => {
@@ -138,12 +180,15 @@ export function useProjectData(backend: Backend): ProjectData {
     error,
     coverage,
     coverageLoading,
+    bindings,
+    bindingsLoading,
     strictdoc,
     strictdocLoading,
     descriptions,
     notice,
     dismissNotice: () => setNotice(undefined),
     reload: () => setReloads((n) => n + 1),
+    refreshBindings: () => readBindings(),
     refreshTraceability: () => {
       backend.getTraceability().then(
         (traceability) => {
