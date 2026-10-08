@@ -118,8 +118,7 @@ export function CaseDetail({
           <BehaviorCard
             behavior={view.behavior}
             backend={backend}
-            onEdited={onEdited}
-            onProceduresEdited={() => {
+            onEdited={() => {
               read();
               onEdited();
             }}

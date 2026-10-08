@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Axis, Backend } from "./backend";
-import type { Edit } from "./edit";
+import type { Edit, NamedProcedure } from "./edit";
 import { ElementEditForm } from "./ElementEditForm";
 import { Modal } from "./Modal";
 
@@ -9,6 +9,7 @@ export interface EditableDetail {
   axis?: string[];
   description?: string | null;
   implementationNote?: string | null;
+  procedures?: Record<string, { steps: string[] }>;
 }
 
 export interface EditedValues {
@@ -17,6 +18,7 @@ export interface EditedValues {
   axis?: string[];
   description?: string;
   implementationNote?: string;
+  procedures?: NamedProcedure[];
 }
 
 /** The button that turns an element of a picked case into a form to edit it in place. */
@@ -72,6 +74,9 @@ export function ElementEditor({
             }),
             ...(detail.implementationNote !== undefined && {
               implementationNote: detail.implementationNote,
+            }),
+            ...(detail.procedures !== undefined && {
+              procedures: detail.procedures,
             }),
           }}
           candidates={candidates}

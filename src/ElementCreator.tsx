@@ -10,6 +10,7 @@ export function ElementCreator({
   noun,
   buttonLabel,
   withDescription = false,
+  withProcedures = false,
   toCreate,
   backend,
   onCreated,
@@ -19,6 +20,8 @@ export function ElementCreator({
   buttonLabel: string;
   /** Whether the form asks for a description, for an element that has one. */
   withDescription?: boolean;
+  /** Whether the form asks for common procedures, for an element that declares them. */
+  withProcedures?: boolean;
   toCreate: (values: EditedValues) => Create;
   backend: Backend;
   /** Called with the uid the core gave the new element. */
@@ -45,6 +48,7 @@ export function ElementCreator({
             label: "",
             axis: [],
             ...(withDescription && { description: "" }),
+            ...(withProcedures && { procedures: {} }),
           }}
           candidates={candidates}
           save={async (values) => {

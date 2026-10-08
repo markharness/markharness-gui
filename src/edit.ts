@@ -76,6 +76,7 @@ export interface BehaviorCreate {
   label: string;
   description: string;
   axis: string[];
+  procedures?: NamedProcedure[];
 }
 
 /** A new scenario of the behavior whose uid is given; the core needs a description and at least one phase. */

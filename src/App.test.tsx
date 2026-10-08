@@ -681,9 +681,6 @@ describe("App", () => {
     expect(
       await within(pane).findByRole("button", { name: "Behaviorを編集" }),
     ).toBeInTheDocument();
-    expect(
-      within(pane).getByRole("button", { name: "共通手順を編集" }),
-    ).toBeInTheDocument();
   });
 
   it("reaches a behavior that has no case from its feature", async () => {
@@ -1976,7 +1973,7 @@ describe("App comparison with a tag", () => {
     expect(screen.queryByText(/要求に紐づかない/)).not.toBeInTheDocument();
   });
 
-  it("edits the common procedures of the behavior of a case, apart from its label and description", async () => {
+  it("edits the common procedures of the behavior of a case in the same form as its fields", async () => {
     const edits: unknown[] = [];
     const backend = fakeBackend({
       getElementDetail: async () => ({
@@ -1997,26 +1994,31 @@ describe("App comparison with a tag", () => {
     const pane = screen.getByRole("complementary", { name: "詳細" });
 
     fireEvent.click(
-      await within(pane).findByRole("button", { name: "共通手順を編集" }),
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
     );
-    fireEvent.change(await within(pane).findByLabelText("手順1"), {
+    const dialog = await screen.findByRole("dialog", {
+      name: "Behaviorを編集",
+    });
+    fireEvent.change(within(dialog).getByLabelText("手順1"), {
       target: { value: "Add two tasks." },
     });
-    fireEvent.click(
-      within(
-        within(pane).getByRole("group", { name: "共通手順の保存とキャンセル" }),
-      ).getByRole("button", { name: "保存" }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(edits).toHaveLength(1));
     expect(edits[0]).toEqual({
       kind: "behavior",
       feature_uid: "F1",
       uid: "B",
+      id: "b-1",
+      label: "Password check",
+      description: "Checks.",
+      axis: [],
       procedures: [{ name: "seed", steps: ["Add two tasks."] }],
     });
     await waitFor(() =>
-      expect(within(pane).queryByLabelText("手順1")).not.toBeInTheDocument(),
+      expect(
+        screen.queryByRole("dialog", { name: "Behaviorを編集" }),
+      ).not.toBeInTheDocument(),
     );
   });
 });

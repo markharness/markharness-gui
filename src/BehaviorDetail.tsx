@@ -39,12 +39,7 @@ export function BehaviorDetail({
         />
       </Card>
       <FeatureCard feature={feature} backend={backend} onEdited={onEdited} />
-      <BehaviorCard
-        behavior={behavior}
-        backend={backend}
-        onEdited={onEdited}
-        onProceduresEdited={onEdited}
-      />
+      <BehaviorCard behavior={behavior} backend={backend} onEdited={onEdited} />
       <ScenarioCreator
         featureUid={behavior.featureUid}
         behaviorUid={behavior.uid}
