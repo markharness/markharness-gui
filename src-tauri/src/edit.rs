@@ -8,6 +8,13 @@ use tokio::io::AsyncWriteExt;
 use crate::detail::{ScenarioPhase, ScenarioStep};
 use crate::traceability::{CommandOutput, CommandRunner};
 
+/// A common procedure of a behavior: the steps scenarios call by its name.
+#[derive(Debug, PartialEq, Deserialize)]
+pub struct NamedProcedure {
+    pub name: String,
+    pub steps: Vec<String>,
+}
+
 /// One edit of an existing element; a field left `None` is not sent, so the core keeps its value.
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -23,6 +30,7 @@ pub enum Edit {
         label: Option<String>,
         description: Option<String>,
         axis: Option<Vec<String>>,
+        procedures: Option<Vec<NamedProcedure>>,
     },
     Requirement {
         uid: String,
@@ -78,6 +86,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
             label,
             description,
             axis,
+            procedures,
         } => {
             lines.push(format!("  - uid: {}", scalar(feature_uid)));
             lines.push("    behaviors:".to_string());
@@ -90,6 +99,16 @@ pub fn intent_yaml(edit: &Edit) -> String {
             }
             if let Some(axis) = axis {
                 lines.push(format!("        axis: {}", list(axis)));
+            }
+            if let Some(procedures) = procedures {
+                lines.push("        procedures:".to_string());
+                for procedure in procedures {
+                    lines.push(format!("          - name: {}", scalar(&procedure.name)));
+                    lines.push("            steps:".to_string());
+                    for step in &procedure.steps {
+                        lines.push(format!("              - {}", scalar(step)));
+                    }
+                }
             }
         }
         Edit::Requirement {
@@ -288,6 +307,7 @@ mod tests {
             label: None,
             description: Some("説明".into()),
             axis: Some(vec!["ui".into()]),
+            procedures: None,
         };
 
         assert_eq!(
@@ -361,6 +381,7 @@ mod tests {
             label: None,
             description: None,
             axis: Some(vec!["ui".into()]),
+            procedures: None,
         };
 
         let yaml = intent_yaml(&edit);
@@ -541,6 +562,7 @@ mod tests {
                 label: None,
                 description: Some("説明".into()),
                 axis: None,
+                procedures: None,
             }
         );
     }
@@ -573,6 +595,7 @@ mod tests {
             label: Some("名前".into()),
             description: Some("説明".into()),
             axis: None,
+            procedures: None,
         };
 
         assert_eq!(
@@ -710,6 +733,70 @@ mod tests {
                         ScenarioStep::Action("押す".into()),
                     ],
                     results: vec!["出る".into()],
+                }]),
+            }
+        );
+    }
+
+    #[test]
+    fn behavior_procedures_are_sent_whole_by_name_and_steps() {
+        let edit = Edit::Behavior {
+            feature_uid: "01FEATURE".into(),
+            uid: "01BEHAVIOR".into(),
+            label: None,
+            description: None,
+            axis: None,
+            procedures: Some(vec![
+                NamedProcedure {
+                    name: "seed".into(),
+                    steps: vec!["開く".into(), "入力する".into()],
+                },
+                NamedProcedure {
+                    name: "login".into(),
+                    steps: vec!["ログインする".into()],
+                },
+            ]),
+        };
+
+        assert_eq!(
+            intent_yaml(&edit),
+            "format: markharness/knowledge-intent/v1\n\
+             mode: merge\n\
+             \n\
+             features:\n\
+             \x20 - uid: \"01FEATURE\"\n\
+             \x20   behaviors:\n\
+             \x20     - uid: \"01BEHAVIOR\"\n\
+             \x20       procedures:\n\
+             \x20         - name: \"seed\"\n\
+             \x20           steps:\n\
+             \x20             - \"開く\"\n\
+             \x20             - \"入力する\"\n\
+             \x20         - name: \"login\"\n\
+             \x20           steps:\n\
+             \x20             - \"ログインする\"\n"
+        );
+    }
+
+    #[test]
+    fn behavior_procedures_are_read_from_the_json_of_the_screen() {
+        let edit: Edit = serde_json::from_str(
+            r#"{"kind":"behavior","feature_uid":"F","uid":"B",
+                "procedures":[{"name":"seed","steps":["開く"]}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            edit,
+            Edit::Behavior {
+                feature_uid: "F".into(),
+                uid: "B".into(),
+                label: None,
+                description: None,
+                axis: None,
+                procedures: Some(vec![NamedProcedure {
+                    name: "seed".into(),
+                    steps: vec!["開く".into()],
                 }]),
             }
         );

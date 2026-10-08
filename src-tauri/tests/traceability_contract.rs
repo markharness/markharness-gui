@@ -11,7 +11,7 @@ use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{
     read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
 };
-use markharness_gui_lib::edit::{apply_edit, Edit};
+use markharness_gui_lib::edit::{apply_edit, Edit, NamedProcedure};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -381,6 +381,7 @@ async fn a_behavior_is_edited_and_its_own_description_can_be_sent_back_as_read()
         label: Some("新しい名前".into()),
         description: Some(description),
         axis: Some(axis),
+        procedures: None,
     };
 
     let first = apply_edit(
@@ -565,4 +566,69 @@ async fn the_phases_of_a_scenario_are_read_as_written_and_sent_back_whole() {
         .unwrap_err()
         .contains("at least one entry is required"));
     assert!(unknown.unwrap_err().contains("no-such-procedure"));
+}
+
+#[tokio::test]
+async fn the_procedures_of_a_behavior_are_sent_back_whole_and_a_used_one_cannot_be_dropped() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+    );
+    let edit = |procedures: Vec<NamedProcedure>| Edit::Behavior {
+        feature_uid: feature_uid.clone(),
+        uid: behavior_uid.clone(),
+        label: None,
+        description: None,
+        axis: None,
+        procedures: Some(procedures),
+    };
+    let named = |read: &std::collections::BTreeMap<String, markharness_gui_lib::detail::Procedure>| {
+        read.iter()
+            .map(|(name, p)| NamedProcedure {
+                name: name.clone(),
+                steps: p.steps.clone(),
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let before = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let same = apply_edit(&runner, &project, &edit(named(&before))).await;
+    let mut with_new = named(&before);
+    with_new[0].steps = vec!["書き換えた手順".into()];
+    with_new.push(NamedProcedure {
+        name: "added".into(),
+        steps: vec!["足した手順".into()],
+    });
+    let changed = apply_edit(&runner, &project, &edit(with_new)).await;
+    let after = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let used = before.keys().next().unwrap().clone();
+    let dropped = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![NamedProcedure {
+            name: "added".into(),
+            steps: vec!["足した手順".into()],
+        }]),
+    )
+    .await;
+    let still_readable = read_traceability(&runner, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(same, Ok(()));
+    assert_eq!(changed, Ok(()));
+    assert_eq!(after.len(), 2);
+    assert_eq!(after[&used].steps, vec!["書き換えた手順".to_string()]);
+    assert_eq!(after["added"].steps, vec!["足した手順".to_string()]);
+    assert!(dropped.unwrap_err().contains(&used));
+    assert!(still_readable.is_ok());
 }
