@@ -140,20 +140,6 @@ export function CaseDetail({
           id={picked.id}
           level={2}
         />
-        {view.feature && view.behavior && (
-          <ScenarioEditor
-            featureUid={view.feature.uid}
-            behaviorUid={view.behavior.uid}
-            uid={picked.scenarioUid}
-            id={picked.scenarioId}
-            label={picked.label}
-            backend={backend}
-            onEdited={() => {
-              read();
-              onEdited();
-            }}
-          />
-        )}
         {error ? (
           <pre role="alert">{error}</pre>
         ) : !detail ? (
@@ -178,6 +164,20 @@ export function CaseDetail({
               ))}
             </Section>
           </>
+        )}
+        {view.feature && view.behavior && (
+          <ScenarioEditor
+            featureUid={view.feature.uid}
+            behaviorUid={view.behavior.uid}
+            uid={picked.scenarioUid}
+            id={picked.scenarioId}
+            label={picked.label}
+            backend={backend}
+            onEdited={() => {
+              read();
+              onEdited();
+            }}
+          />
         )}
         <Section title="検証方法" badge="markharness">
           {view.verification ? (

@@ -869,6 +869,24 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts the button that edits the scenario below its steps and results", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    const steps = await screen.findByText("手順と期待結果");
+    const edit = screen.getByRole("button", { name: "Scenarioを編集" });
+
+    expect(
+      steps.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("offers to add a scenario under the behavior of a picked case too", async () => {
     render(<App backend={fakeBackend()} />);
     fireEvent.click(await screen.findByText("Login requirement"));
