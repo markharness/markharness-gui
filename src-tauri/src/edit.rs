@@ -84,6 +84,7 @@ pub enum Create {
         id: String,
         label: String,
         description: String,
+        implementation_note: Option<String>,
         phases: Vec<ScenarioPhase>,
     },
 }
@@ -175,6 +176,7 @@ pub fn create_intent_yaml(create: &Create) -> String {
             id,
             label,
             description,
+            implementation_note,
             phases,
         } => {
             lines.push("features:".to_string());
@@ -185,6 +187,9 @@ pub fn create_intent_yaml(create: &Create) -> String {
             lines.push(format!("          - id: {}", scalar(id)));
             lines.push(format!("            label: {}", scalar(label)));
             lines.push(format!("            description: {}", scalar(description)));
+            if let Some(note) = implementation_note {
+                lines.push(format!("            implementation_note: {}", scalar(note)));
+            }
             push_phases(&mut lines, phases);
         }
     }
@@ -1186,6 +1191,7 @@ mod tests {
             id: "new-scenario".into(),
             label: "新しいシナリオ".into(),
             description: "説明".into(),
+            implementation_note: Some("メモ".into()),
             phases: vec![ScenarioPhase {
                 steps: vec![
                     ScenarioStep::Use("seed".into()),
@@ -1209,6 +1215,7 @@ mod tests {
                 "          - id: \"new-scenario\"",
                 "            label: \"新しいシナリオ\"",
                 "            description: \"説明\"",
+                "            implementation_note: \"メモ\"",
                 "            phases:",
                 "              - steps:",
                 "                  - use: \"seed\"",

@@ -860,6 +860,7 @@ async fn a_new_scenario_is_created_with_its_phases_and_gets_a_test_case() {
         id: "new-scenario".into(),
         label: "新しいシナリオ".into(),
         description: "説明".into(),
+        implementation_note: None,
         phases,
     };
 
