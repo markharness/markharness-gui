@@ -7,6 +7,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
+use markharness_gui_lib::bindings::{read_bindings, set_binding};
 use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{
     read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
@@ -713,5 +714,41 @@ async fn the_display_id_of_each_element_is_renamed_and_its_uid_stays() {
     assert_eq!(after.behaviors[0].behavior_uid, behavior_uid);
     assert_eq!(after.scenarios[0].scenario_id, "renamed-scenario");
     assert_eq!(after.scenarios[0].scenario_uid, scenario_uid);
+    assert!(refused.is_err());
+}
+
+#[tokio::test]
+async fn the_means_of_a_case_is_declared_and_read_back_from_the_working_tree() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let case_uid = t.test_cases[0].case_uid.clone();
+
+    let first = set_binding(
+        &runner,
+        &project,
+        &case_uid,
+        "automated",
+        Some("tests/a.ts"),
+    )
+    .await;
+    let declared = read_bindings(&runner, &project).await.unwrap();
+    let second = set_binding(&runner, &project, &case_uid, "manual", None).await;
+    let replaced = read_bindings(&runner, &project).await.unwrap();
+    let refused = set_binding(&runner, &project, &case_uid, "robot", None).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!((first, second), (Ok(()), Ok(())));
+    let mine = |all: &[markharness_gui_lib::bindings::Binding]| {
+        all.iter()
+            .find(|b| b.case_uid == case_uid)
+            .map(|b| (b.mode.clone(), b.reference.clone()))
+    };
+    assert_eq!(
+        mine(&declared),
+        Some(("automated".to_string(), Some("tests/a.ts".to_string())))
+    );
+    assert_eq!(mine(&replaced), Some(("manual".to_string(), None)));
     assert!(refused.is_err());
 }

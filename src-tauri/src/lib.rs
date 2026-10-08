@@ -1,4 +1,5 @@
 pub mod axes;
+pub mod bindings;
 pub mod coverage;
 pub mod detail;
 pub mod edit;
@@ -174,6 +175,40 @@ async fn add_axis(
         bin: config.markharness_bin.clone(),
     };
     axes::add_axis(&runner, &config.project_root, &id, label.as_deref()).await
+}
+
+/// What each case declares as its verification means, in the working tree.
+#[tauri::command]
+async fn get_bindings(
+    config: tauri::State<'_, LaunchConfig>,
+) -> Result<Vec<bindings::Binding>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    bindings::read_bindings(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Declares the verification means of a case, replacing the one it had.
+#[tauri::command]
+async fn set_binding(
+    config: tauri::State<'_, LaunchConfig>,
+    case_uid: String,
+    mode: String,
+    reference: Option<String>,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    bindings::set_binding(
+        &runner,
+        &config.project_root,
+        &case_uid,
+        &mode,
+        reference.as_deref(),
+    )
+    .await
 }
 
 /// Writes one edit through the core, then regenerates the test cases from the knowledge.
