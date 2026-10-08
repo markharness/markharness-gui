@@ -12,7 +12,9 @@ use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{
     read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
 };
-use markharness_gui_lib::edit::{apply_create, apply_edit, Create, Edit, NamedProcedure};
+use markharness_gui_lib::edit::{
+    apply_create, apply_edit, apply_remove, Create, Edit, NamedProcedure, RemoveKind,
+};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -889,4 +891,46 @@ async fn a_new_scenario_is_created_with_its_phases_and_gets_a_test_case() {
         .iter()
         .any(|c| c.scenario_uid == scenario.scenario_uid));
     assert!(without_phases.is_err());
+}
+
+#[tokio::test]
+async fn a_scenario_is_removed_with_its_case_and_a_missing_one_is_refused() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let scenario_uid = before.scenarios[0].scenario_uid.clone();
+
+    let removed = apply_remove(&runner, &project, RemoveKind::Scenario, &scenario_uid).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let again = apply_remove(&runner, &project, RemoveKind::Scenario, &scenario_uid).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(removed, Ok(()));
+    assert!(after
+        .scenarios
+        .iter()
+        .all(|s| s.scenario_uid != scenario_uid));
+    assert!(after
+        .test_cases
+        .iter()
+        .all(|c| c.scenario_uid != scenario_uid));
+    assert!(again.unwrap_err().contains("no scenario matches"));
+}
+
+#[tokio::test]
+async fn a_feature_is_removed_with_its_behaviors_and_scenarios() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let feature_uid = before.features[0].feature_uid.clone();
+
+    let removed = apply_remove(&runner, &project, RemoveKind::Feature, &feature_uid).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(removed, Ok(()));
+    assert!(after.features.iter().all(|f| f.feature_uid != feature_uid));
+    assert!(after.behaviors.iter().all(|b| b.feature_uid != feature_uid));
 }
