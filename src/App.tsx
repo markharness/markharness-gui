@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Backend } from "./backend";
 import { CaseDetail } from "./CaseDetail";
 import { describeCase } from "./caseView";
+import { ElementCreator } from "./ElementCreator";
 import { ContextBar } from "./ContextBar";
 import { RequirementDetail } from "./RequirementDetail";
 import { RequirementTable } from "./RequirementTable";
@@ -72,6 +73,24 @@ export function App({ backend }: { backend: Backend }) {
       )}
       <div className="panes">
         <section className="list">
+          <ElementCreator
+            noun="要求"
+            buttonLabel="＋ 要求を追加"
+            toCreate={(values) => ({
+              kind: "requirement",
+              id: values.id,
+              label: values.label,
+              description:
+                values.description === "" ? undefined : values.description,
+              axis: values.axis ?? [],
+            })}
+            backend={backend}
+            onCreated={(uid) => {
+              data.refreshTraceability();
+              setPickedKey(uid);
+              setPickedCaseUid(undefined);
+            }}
+          />
           <RequirementTable
             rows={rows}
             casesToConfirm={

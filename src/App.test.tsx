@@ -103,6 +103,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
         ),
       ),
     setBinding: async () => {},
+    createElement: async () => "",
     getTags: async () => [],
     getImpact: async () => ({ requirements: [] }),
     getStrictDoc: async () => null,
@@ -467,6 +468,59 @@ describe("App", () => {
     expect(await within(pane).findByText("手動(参照)")).toBeInTheDocument();
     expect(within(pane).getByText(/docs\/check\.md/)).toBeInTheDocument();
     expect(within(pane).queryByLabelText("方法")).not.toBeInTheDocument();
+  });
+
+  it("creates a requirement from above the list and shows it picked once the core has it", async () => {
+    const created: unknown[] = [];
+    let traceability = project.traceability;
+    const backend = fakeBackend({
+      getTraceability: async () => traceability,
+      createElement: async (create) => {
+        created.push(create);
+        traceability = {
+          ...traceability,
+          requirements: [
+            ...traceability.requirements,
+            {
+              requirement_id: "req-new",
+              requirement_uid: "RN",
+              source: "native",
+              label: "New requirement",
+              case_uids: [],
+            },
+          ],
+        };
+        return "RN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "＋ 要求を追加" }),
+    );
+
+    fireEvent.change(await screen.findByLabelText("ID"), {
+      target: { value: "req-new" },
+    });
+    fireEvent.change(screen.getByLabelText("ラベル"), {
+      target: { value: "New requirement" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "requirement",
+          id: "req-new",
+          label: "New requirement",
+          axis: [],
+        },
+      ]),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(
+      await within(pane).findByText("New requirement"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("ラベル")).not.toBeInTheDocument();
   });
 
   it("keeps the table and says why the detail of a case could not be read", async () => {

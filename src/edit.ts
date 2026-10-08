@@ -50,6 +50,17 @@ export interface RequirementEdit {
   axis: string[];
 }
 
+/** One new element, with the fields the core needs to create it; a blank description is left out. */
+export interface RequirementCreate {
+  kind: "requirement";
+  id: string;
+  label: string;
+  description?: string;
+  axis: string[];
+}
+
+export type Create = RequirementCreate;
+
 export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 
 /**

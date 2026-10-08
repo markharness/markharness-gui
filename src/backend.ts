@@ -1,4 +1,4 @@
-import type { Edit } from "./edit";
+import type { Create, Edit } from "./edit";
 
 export interface Requirement {
   requirement_id: string;
@@ -182,6 +182,8 @@ export interface Backend {
   deleteUnusedAxes(): Promise<void>;
   /** Registers a new axis; the label is the id in the core when omitted. Rejects with what the core said. */
   addAxis(id: string, label?: string): Promise<void>;
+  /** Creates one element through the core and returns the uid the core gave it; rejects with what the core said when it did not. */
+  createElement(create: Create): Promise<string>;
   /** Writes the edit through the core; rejects with what the core said when it did not apply it. */
   editKnowledge(edit: Edit): Promise<void>;
 }
