@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Backend } from "./backend";
 import {
   ElementEditor,
@@ -15,6 +16,7 @@ export function ElementCard({
   toEdit,
   backend,
   onEdited,
+  children,
 }: {
   noun: string;
   element: { title: string; id: string; label: string | null };
@@ -22,6 +24,7 @@ export function ElementCard({
   toEdit: (values: EditedValues, detail: EditableDetail) => Edit;
   backend: Backend;
   onEdited: () => void;
+  children?: ReactNode;
 }) {
   return (
     <Card>
@@ -39,6 +42,7 @@ export function ElementCard({
         backend={backend}
         onEdited={onEdited}
       />
+      {children}
     </Card>
   );
 }

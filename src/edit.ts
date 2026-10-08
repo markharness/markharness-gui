@@ -8,14 +8,21 @@ export interface FeatureEdit {
   axis: string[];
 }
 
+/** A common procedure of a behavior: the steps scenarios call by its name. */
+export interface NamedProcedure {
+  name: string;
+  steps: string[];
+}
+
 /** One edit of a behavior, with the label, the description and the axes as the form holds them. */
 export interface BehaviorEdit {
   kind: "behavior";
   feature_uid: string;
   uid: string;
-  label: string;
+  label?: string;
   description?: string;
-  axis: string[];
+  axis?: string[];
+  procedures?: NamedProcedure[];
 }
 
 /** One edit of a scenario, with the label, the description and the implementation note as the form holds them. */

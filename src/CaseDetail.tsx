@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Backend, CaseDetail as Detail, ScenarioPhase } from "./backend";
 import type { CaseView } from "./caseView";
+import { BehaviorProcedures } from "./BehaviorProcedures";
 import { ElementCard } from "./ElementCard";
 import { ElementEditor } from "./ElementEditor";
 import { PhasesEditor } from "./PhasesEditor";
@@ -136,7 +137,17 @@ export function CaseDetail({
           })}
           backend={backend}
           onEdited={onEdited}
-        />
+        >
+          <BehaviorProcedures
+            featureUid={view.behavior.featureUid}
+            uid={view.behavior.uid}
+            backend={backend}
+            onEdited={() => {
+              read();
+              onEdited();
+            }}
+          />
+        </ElementCard>
       )}
       <Card selected>
         <ElementHeading

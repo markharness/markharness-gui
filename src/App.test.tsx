@@ -1456,6 +1456,50 @@ describe("App comparison with a tag", () => {
     expect(screen.queryByText(/要求に紐づかない/)).not.toBeInTheDocument();
   });
 
+  it("edits the common procedures of the behavior of a case, apart from its label and description", async () => {
+    const edits: unknown[] = [];
+    const backend = fakeBackend({
+      getElementDetail: async () => ({
+        axis: [],
+        description: "Checks.",
+        procedures: { seed: { steps: ["Add a task."] } },
+      }),
+      editKnowledge: async (edit) => {
+        edits.push(edit);
+      },
+    });
+    render(<App backend={backend} />);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "共通手順を編集" }),
+    );
+    fireEvent.change(await within(pane).findByLabelText("手順1"), {
+      target: { value: "Add two tasks." },
+    });
+    fireEvent.click(
+      within(
+        within(pane).getByRole("group", { name: "共通手順の保存とキャンセル" }),
+      ).getByRole("button", { name: "保存" }),
+    );
+
+    await waitFor(() => expect(edits).toHaveLength(1));
+    expect(edits[0]).toEqual({
+      kind: "behavior",
+      feature_uid: "F1",
+      uid: "B",
+      procedures: [{ name: "seed", steps: ["Add two tasks."] }],
+    });
+    await waitFor(() =>
+      expect(within(pane).queryByLabelText("手順1")).not.toBeInTheDocument(),
+    );
+  });
+
   it("edits the steps and results of the scenario of a case, apart from its label and description", async () => {
     const phases = [
       { steps: [{ use: "seed" }, { action: "Click." }], results: ["Shown."] },
