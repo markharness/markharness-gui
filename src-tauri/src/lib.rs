@@ -248,7 +248,9 @@ pub fn run() {
             add_axis,
             get_unused_axes,
             delete_unused_axes,
-            edit_knowledge
+            edit_knowledge,
+            get_bindings,
+            set_binding
         ])
         .run(tauri::generate_context!())
         .expect("failed to run markharness-gui");
