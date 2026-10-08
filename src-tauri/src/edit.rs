@@ -53,6 +53,18 @@ pub enum Edit {
     },
 }
 
+/// One new element, which the core creates when it gets no `uid` for it.
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Create {
+    Requirement {
+        id: String,
+        label: String,
+        description: Option<String>,
+        axis: Vec<String>,
+    },
+}
+
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
 fn scalar(value: &str) -> String {
     serde_json::to_string(value).expect("a string always serializes")
@@ -61,6 +73,33 @@ fn scalar(value: &str) -> String {
 fn list(values: &[String]) -> String {
     let items: Vec<String> = values.iter().map(|v| scalar(v)).collect();
     format!("[{}]", items.join(", "))
+}
+
+pub fn create_intent_yaml(create: &Create) -> String {
+    let Create::Requirement {
+        id,
+        label,
+        description,
+        axis,
+    } = create;
+    let mut lines = vec![
+        "format: markharness/knowledge-intent/v1".to_string(),
+        "mode: merge".to_string(),
+        String::new(),
+        "requirements:".to_string(),
+        format!("  - id: {}", scalar(id)),
+        "    source: native".to_string(),
+        format!("    label: {}", scalar(label)),
+    ];
+    if let Some(description) = description {
+        lines.push(format!("    description: {}", scalar(description)));
+    }
+    lines.push(format!("    axis: {}", list(axis)));
+    lines.push(String::new());
+    lines.join(
+        "
+",
+    )
 }
 
 pub fn intent_yaml(edit: &Edit) -> String {
@@ -272,7 +311,32 @@ pub async fn apply_edit(
     project_root: &Path,
     edit: &Edit,
 ) -> Result<(), String> {
-    let output = writer.reconcile(project_root, &intent_yaml(edit)).await?;
+    reconcile_and_generate(writer, project_root, &intent_yaml(edit)).await?;
+    Ok(())
+}
+
+/// Creates the element through the core and returns the uid it gave, with the failures reported as
+/// `apply_edit` does.
+pub async fn apply_create(
+    writer: &impl KnowledgeWriter,
+    project_root: &Path,
+    create: &Create,
+) -> Result<String, String> {
+    let reply = reconcile_and_generate(writer, project_root, &create_intent_yaml(create)).await?;
+    reply
+        .created
+        .into_iter()
+        .next()
+        .map(|created| created.uid)
+        .ok_or_else(|| "the core created nothing".to_string())
+}
+
+async fn reconcile_and_generate(
+    writer: &impl KnowledgeWriter,
+    project_root: &Path,
+    intent_yaml: &str,
+) -> Result<ReconcileReply, String> {
+    let output = writer.reconcile(project_root, intent_yaml).await?;
     let Ok(reply) = serde_json::from_str::<ReconcileReply>(&output.stdout) else {
         return Err(output.stderr);
     };
@@ -282,13 +346,16 @@ pub async fn apply_edit(
             .iter()
             .map(|d| format!("{}: {}", d.location, d.message))
             .collect();
-        return Err(lines.join("\n"));
+        return Err(lines.join(
+            "
+",
+        ));
     }
     let generated = writer.generate(project_root).await?;
     if generated.exit_code != Some(0) {
         return Err(generated.stderr);
     }
-    Ok(())
+    Ok(reply)
 }
 
 #[derive(Deserialize)]
@@ -296,6 +363,13 @@ struct ReconcileReply {
     ok: bool,
     #[serde(default)]
     diagnostics: Vec<Diagnostic>,
+    #[serde(default)]
+    created: Vec<Created>,
+}
+
+#[derive(Deserialize)]
+struct Created {
+    uid: String,
 }
 
 #[cfg(test)]
@@ -900,5 +974,85 @@ mod tests {
     label: \"名前\"
 "
         ));
+    }
+
+    #[test]
+    fn a_new_requirement_is_sent_without_a_uid_so_the_core_creates_it() {
+        let create = Create::Requirement {
+            id: "new-requirement".into(),
+            label: "新しい要求".into(),
+            description: Some("説明".into()),
+            axis: vec!["ui".into()],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "requirements:",
+                "  - id: \"new-requirement\"",
+                "    source: native",
+                "    label: \"新しい要求\"",
+                "    description: \"説明\"",
+                "    axis: [\"ui\"]",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        );
+    }
+
+    #[test]
+    fn a_new_requirement_without_a_description_leaves_it_out() {
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        assert!(!create_intent_yaml(&create).contains("description"));
+    }
+
+    #[tokio::test]
+    async fn creating_returns_the_uid_the_core_gave_and_generates_once() {
+        let writer = FakeWriter::replying(
+            0,
+            r#"{"ok":true,"created":[{"kind":"requirement","uid":"01NEW","id":"r","path":"p"}],"updated":[],"unchanged":[]}"#,
+        );
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        let uid = apply_create(&writer, Path::new("."), &create).await;
+
+        assert_eq!(uid, Ok("01NEW".to_string()));
+        assert_eq!(*writer.generated.lock().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_refused_creation_returns_the_diagnostics_as_they_are_and_does_not_generate() {
+        let writer = FakeWriter::replying(
+            2,
+            r#"{"ok":false,"diagnostics":[{"code":"ambiguous_identity","location":"requirements[0]","message":"already exists"}]}"#,
+        );
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        let result = apply_create(&writer, Path::new("."), &create).await;
+
+        assert_eq!(result, Err("requirements[0]: already exists".to_string()));
+        assert_eq!(*writer.generated.lock().unwrap(), 0);
     }
 }

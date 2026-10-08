@@ -12,7 +12,7 @@ use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{
     read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
 };
-use markharness_gui_lib::edit::{apply_edit, Edit, NamedProcedure};
+use markharness_gui_lib::edit::{apply_create, apply_edit, Create, Edit, NamedProcedure};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -751,4 +751,31 @@ async fn the_means_of_a_case_is_declared_and_read_back_from_the_working_tree() {
     );
     assert_eq!(mine(&replaced), Some(("manual".to_string(), None)));
     assert!(refused.is_err());
+}
+
+#[tokio::test]
+async fn a_new_requirement_is_created_and_read_back_with_the_uid_the_core_gave() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let create = |label: &str| Create::Requirement {
+        id: "new-requirement".into(),
+        label: label.into(),
+        description: Some("説明".into()),
+        axis: vec![],
+    };
+
+    let created = apply_create(&runner, &project, &create("新しい要求")).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let again = apply_create(&runner, &project, &create("別の内容")).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let found = after
+        .requirements
+        .iter()
+        .find(|r| r.requirement_id == "new-requirement")
+        .expect("the new requirement is read back");
+    assert_eq!(created, Ok(found.requirement_uid.clone()));
+    assert_eq!(found.label.as_deref(), Some("新しい要求"));
+    assert!(again.unwrap_err().contains("new-requirement"));
 }
