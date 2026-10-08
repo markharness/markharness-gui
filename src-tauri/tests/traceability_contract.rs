@@ -813,3 +813,33 @@ async fn a_new_feature_is_created_under_a_requirement_before_it_has_any_case() {
         .iter()
         .any(|r| r.from_uid == feature.feature_uid && r.to_uid == requirement_uid));
 }
+
+#[tokio::test]
+async fn a_new_behavior_is_created_under_a_feature_before_it_has_any_scenario() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let feature_uid = before.features[0].feature_uid.clone();
+    let create = |description: &str| Create::Behavior {
+        feature_uid: feature_uid.clone(),
+        id: "new-behavior".into(),
+        label: "新しい振る舞い".into(),
+        description: description.into(),
+        axis: vec![],
+    };
+
+    let created = apply_create(&runner, &project, &create("説明")).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let blank = apply_create(&runner, &project, &create("")).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let behavior = after
+        .behaviors
+        .iter()
+        .find(|b| b.behavior_id == "new-behavior")
+        .expect("the new behavior is read back");
+    assert_eq!(created, Ok(behavior.behavior_uid.clone()));
+    assert_eq!(behavior.feature_uid, feature_uid);
+    assert!(blank.is_err());
+}

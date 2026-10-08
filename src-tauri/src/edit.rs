@@ -70,6 +70,14 @@ pub enum Create {
         contributes_to: Vec<String>,
         axis: Vec<String>,
     },
+    Behavior {
+        feature_uid: String,
+        id: String,
+        label: String,
+        /// The core requires a description when it creates a behavior.
+        description: String,
+        axis: Vec<String>,
+    },
 }
 
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
@@ -115,6 +123,21 @@ pub fn create_intent_yaml(create: &Create) -> String {
             lines.push(format!("    contributes_to: {}", list(contributes_to)));
             lines.push(format!("    label: {}", scalar(label)));
             lines.push(format!("    axis: {}", list(axis)));
+        }
+        Create::Behavior {
+            feature_uid,
+            id,
+            label,
+            description,
+            axis,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - uid: {}", scalar(feature_uid)));
+            lines.push("    behaviors:".to_string());
+            lines.push(format!("      - id: {}", scalar(id)));
+            lines.push(format!("        label: {}", scalar(label)));
+            lines.push(format!("        description: {}", scalar(description)));
+            lines.push(format!("        axis: {}", list(axis)));
         }
     }
     lines.push(String::new());
@@ -1098,6 +1121,38 @@ mod tests {
                 "    contributes_to: [\"01REQ\", \"01REQ2\"]",
                 "    label: \"新しい機能\"",
                 "    axis: []",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        );
+    }
+
+    #[test]
+    fn a_new_behavior_is_sent_under_its_feature_with_a_description() {
+        let create = Create::Behavior {
+            feature_uid: "01FEATURE".into(),
+            id: "new-behavior".into(),
+            label: "新しい振る舞い".into(),
+            description: "説明".into(),
+            axis: vec!["ui".into()],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - uid: \"01FEATURE\"",
+                "    behaviors:",
+                "      - id: \"new-behavior\"",
+                "        label: \"新しい振る舞い\"",
+                "        description: \"説明\"",
+                "        axis: [\"ui\"]",
                 "",
             ]
             .join(
