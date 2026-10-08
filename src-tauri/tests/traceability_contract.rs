@@ -933,4 +933,63 @@ async fn a_feature_is_removed_with_its_behaviors_and_scenarios() {
     assert_eq!(removed, Ok(()));
     assert!(after.features.iter().all(|f| f.feature_uid != feature_uid));
     assert!(after.behaviors.iter().all(|b| b.feature_uid != feature_uid));
+    assert!(
+        after.scenarios.is_empty()
+            || after.scenarios.iter().all(|s| {
+                before
+                    .behaviors
+                    .iter()
+                    .find(|b| b.behavior_uid == s.behavior_uid)
+                    .is_none_or(|b| b.feature_uid != feature_uid)
+            })
+    );
+}
+
+#[tokio::test]
+async fn a_behavior_is_removed_with_its_scenarios_and_the_feature_stays() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid) = (
+        before.features[0].feature_uid.clone(),
+        before.behaviors[0].behavior_uid.clone(),
+    );
+
+    let removed = apply_remove(&runner, &project, RemoveKind::Behavior, &behavior_uid).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(removed, Ok(()));
+    assert!(after
+        .behaviors
+        .iter()
+        .all(|b| b.behavior_uid != behavior_uid));
+    assert!(after
+        .scenarios
+        .iter()
+        .all(|s| s.behavior_uid != behavior_uid));
+    assert!(after.features.iter().any(|f| f.feature_uid == feature_uid));
+}
+
+#[tokio::test]
+async fn a_requirement_is_removed_and_its_features_stay_without_it() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let requirement_uid = before.requirements[0].requirement_uid.clone();
+    let features_before = before.features.len();
+
+    let removed = apply_remove(&runner, &project, RemoveKind::Requirement, &requirement_uid).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(removed, Ok(()));
+    assert!(after
+        .requirements
+        .iter()
+        .all(|r| r.requirement_uid != requirement_uid));
+    assert_eq!(after.features.len(), features_before);
+    assert!(after.relations.iter().all(|r| r.to_uid != requirement_uid));
 }

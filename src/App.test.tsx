@@ -917,6 +917,46 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("deletes a feature with no case, and goes back to a requirement that no longer lists it", async () => {
+    let features = [
+      ...project.traceability.features,
+      { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+    ];
+    const removed: unknown[] = [];
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features,
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+      removeElement: async (kind, uid) => {
+        removed.push([kind, uid]);
+        features = features.filter((f) => f.feature_uid !== uid);
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Featureを削除" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Featureを削除" });
+    expect(dialog).toHaveTextContent("配下のBehaviorとScenarioも削除されます");
+    fireEvent.click(within(dialog).getByRole("button", { name: "削除" }));
+
+    await waitFor(() => expect(removed).toEqual([["feature", "FN"]]));
+    await waitFor(() =>
+      expect(
+        within(pane).queryByRole("button", { name: "New feature" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(within(pane).getByText("この要求のFeature")).toBeInTheDocument();
+  });
+
   it("deletes a requirement and shows nothing picked once the core no longer has it", async () => {
     let traceability = project.traceability;
     const backend = fakeBackend({
