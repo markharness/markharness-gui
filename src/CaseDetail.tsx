@@ -275,7 +275,6 @@ export function CaseDetail({
                     : "—"}
                 </dd>
               </dl>
-              <small>作業ツリーの宣言です。</small>
               {editingVerification ? (
                 <VerificationEditor
                   mode={binding?.mode ?? null}
