@@ -141,10 +141,7 @@ pub fn create_intent_yaml(create: &Create) -> String {
         }
     }
     lines.push(String::new());
-    lines.join(
-        "
-",
-    )
+    lines.join("\n")
 }
 
 pub fn intent_yaml(edit: &Edit) -> String {
@@ -391,10 +388,7 @@ async fn reconcile_and_generate(
             .iter()
             .map(|d| format!("{}: {}", d.location, d.message))
             .collect();
-        return Err(lines.join(
-            "
-",
-        ));
+        return Err(lines.join("\n"));
     }
     let generated = writer.generate(project_root).await?;
     if generated.exit_code != Some(0) {
@@ -1044,10 +1038,7 @@ mod tests {
                 "    axis: [\"ui\"]",
                 "",
             ]
-            .join(
-                "
-"
-            )
+            .join("\n")
         );
     }
 
@@ -1123,10 +1114,7 @@ mod tests {
                 "    axis: []",
                 "",
             ]
-            .join(
-                "
-"
-            )
+            .join("\n")
         );
     }
 
@@ -1155,10 +1143,7 @@ mod tests {
                 "        axis: [\"ui\"]",
                 "",
             ]
-            .join(
-                "
-"
-            )
+            .join("\n")
         );
     }
 }
