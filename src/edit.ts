@@ -59,7 +59,16 @@ export interface RequirementCreate {
   axis: string[];
 }
 
-export type Create = RequirementCreate;
+/** A new feature, which contributes to the requirements whose uids are given. */
+export interface FeatureCreate {
+  kind: "feature";
+  id: string;
+  label: string;
+  contributes_to: string[];
+  axis: string[];
+}
+
+export type Create = RequirementCreate | FeatureCreate;
 
 export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 

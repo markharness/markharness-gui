@@ -8,6 +8,7 @@ import type {
 import type { CaseView } from "./caseView";
 import { BehaviorProcedures } from "./BehaviorProcedures";
 import { ElementCard } from "./ElementCard";
+import { FeatureCreator } from "./FeatureCreator";
 import { ElementEditor } from "./ElementEditor";
 import { PhasesEditor } from "./PhasesEditor";
 import { scenarioEdit } from "./edit";
@@ -26,6 +27,7 @@ export function CaseDetail({
   bindingsLoading,
   onEdited,
   onBindingEdited,
+  onFeatureCreated,
 }: {
   view: CaseView;
   backend: Backend;
@@ -34,6 +36,7 @@ export function CaseDetail({
   bindingsLoading: boolean;
   onEdited: () => void;
   onBindingEdited: () => void;
+  onFeatureCreated: (featureUid: string) => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -111,6 +114,11 @@ export function CaseDetail({
           />
         )}
       </Card>
+      <FeatureCreator
+        requirementUid={view.requirement.uid}
+        backend={backend}
+        onCreated={onFeatureCreated}
+      />
       {view.feature && (
         <ElementCard
           noun="Feature"

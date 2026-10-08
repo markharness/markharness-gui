@@ -21,6 +21,8 @@ export interface RequirementRow {
   headings: string[];
   /** Why the core reports the requirement as not covered; unknown until the coverage is read. */
   gaps?: { label: string; value: string }[];
+  /** The features that contribute to the requirement, with or without a case. */
+  features: { uid: string; title: string }[];
   cases: { caseUid: string; title: string; belongsTo: string }[];
   /** What StrictDoc reports; absent for a project that does not use it. */
   strictdoc?: {
@@ -71,11 +73,31 @@ export function buildRequirementRows(
     ),
   );
 
+  const featuresOf = (requirementUid: string) =>
+    traceability.relations
+      .filter(
+        (rel) => rel.kind === "contributes_to" && rel.to_uid === requirementUid,
+      )
+      .flatMap((rel) => {
+        const feature = traceability.features.find(
+          (f) => f.feature_uid === rel.from_uid,
+        );
+        return feature
+          ? [
+              {
+                uid: feature.feature_uid,
+                title: feature.label ?? feature.feature_id,
+              },
+            ]
+          : [];
+      });
+
   type Known = Traceability["requirements"][number];
   const known = (r: Known | undefined, title: string, headings: string[]) => ({
     requirementUid: r?.requirement_uid,
     requirementId: r?.requirement_id,
     description: r ? descriptions[r.requirement_uid] : undefined,
+    features: r ? featuresOf(r.requirement_uid) : [],
     source: r?.source ?? ("external" as const),
     title,
     label: r?.label ?? null,

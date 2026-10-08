@@ -523,6 +523,97 @@ describe("App", () => {
     expect(screen.queryByLabelText("ラベル")).not.toBeInTheDocument();
   });
 
+  it("creates a feature under the picked requirement and shows it picked, though it has no case yet", async () => {
+    const created: unknown[] = [];
+    let traceability = project.traceability;
+    const backend = fakeBackend({
+      getTraceability: async () => traceability,
+      createElement: async (create) => {
+        created.push(create);
+        traceability = {
+          ...traceability,
+          features: [
+            ...traceability.features,
+            { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+          ],
+          relations: [
+            ...traceability.relations,
+            { from_uid: "FN", to_uid: "R2", kind: "contributes_to" },
+          ],
+        };
+        return "FN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      within(pane).getByRole("button", { name: "↓ Featureを追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Featureを追加" });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "f-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New feature" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "feature",
+          id: "f-new",
+          label: "New feature",
+          contributes_to: ["R2"],
+          axis: [],
+        },
+      ]),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    ).toBeInTheDocument();
+    expect(within(pane).getByText("New feature")).toBeInTheDocument();
+  });
+
+  it("reaches a feature that has no case from the requirement it contributes to", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(within(pane).getByRole("button", { name: "New feature" }));
+
+    expect(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers to add a feature under the requirement of a picked case too", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "↓ Featureを追加" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the table and says why the detail of a case could not be read", async () => {
     const backend = fakeBackend({
       getCaseDetail: async () => {

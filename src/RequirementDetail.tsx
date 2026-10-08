@@ -1,5 +1,6 @@
 import type { Backend } from "./backend";
 import { ElementEditor } from "./ElementEditor";
+import { FeatureCreator } from "./FeatureCreator";
 import { Card, ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
 import { sourceName } from "./sources";
@@ -36,6 +37,8 @@ export function RequirementDetail({
   coverageLoading,
   onPickCase,
   onJump,
+  onPickFeature,
+  onFeatureCreated,
   onEdited,
 }: {
   row: RequirementRow;
@@ -43,6 +46,8 @@ export function RequirementDetail({
   coverageLoading: boolean;
   onPickCase: (caseUid: string) => void;
   onJump: (key: string) => void;
+  onPickFeature: (featureUid: string) => void;
+  onFeatureCreated: (featureUid: string) => void;
   onEdited: () => void;
 }) {
   const { strictdoc } = row;
@@ -114,6 +119,13 @@ export function RequirementDetail({
           </dl>
         </Section>
       </Card>
+      {row.requirementUid && (
+        <FeatureCreator
+          requirementUid={row.requirementUid}
+          backend={backend}
+          onCreated={onFeatureCreated}
+        />
+      )}
       {strictdoc && (
         <Section title="子の要求" badge="StrictDoc">
           <Links
@@ -122,6 +134,21 @@ export function RequirementDetail({
           />
         </Section>
       )}
+      <Section title="この要求のFeature" badge="markharness">
+        {row.features.length === 0 ? (
+          <p>ありません。</p>
+        ) : (
+          <ul>
+            {row.features.map((f) => (
+              <li key={f.uid}>
+                <button type="button" onClick={() => onPickFeature(f.uid)}>
+                  {f.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
       <Section title="紐づくケース" badge="markharness">
         {row.cases.length === 0 ? (
           <p>紐づいていません。</p>

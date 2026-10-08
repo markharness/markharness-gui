@@ -3,6 +3,7 @@ import type { Backend } from "./backend";
 import { CaseDetail } from "./CaseDetail";
 import { describeCase } from "./caseView";
 import { ElementCreator } from "./ElementCreator";
+import { FeatureDetail } from "./FeatureDetail";
 import { ContextBar } from "./ContextBar";
 import { RequirementDetail } from "./RequirementDetail";
 import { RequirementTable } from "./RequirementTable";
@@ -17,6 +18,8 @@ export function App({ backend }: { backend: Backend }) {
   const comparison = useComparison(backend, data.readOf);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
+  /** A feature picked without a case, which no case leads to. */
+  const [pickedFeatureUid, setPickedFeatureUid] = useState<string>();
 
   if (data.error) return <pre role="alert">{data.error}</pre>;
   if (!data.loaded) return <p>読み込み中…</p>;
@@ -40,9 +43,13 @@ export function App({ backend }: { backend: Backend }) {
           pickedCaseUid,
         )
       : undefined;
+  const pickedFeature = traceability.features.find(
+    (f) => f.feature_uid === pickedFeatureUid,
+  );
   const pick = (key: string) => {
     setPickedKey(key);
     setPickedCaseUid(undefined);
+    setPickedFeatureUid(undefined);
     document
       .getElementById(`row-${key}`)
       ?.scrollIntoView?.({ block: "center" });
@@ -50,6 +57,12 @@ export function App({ backend }: { backend: Backend }) {
   const pickCase = (key: string, caseUid: string) => {
     setPickedKey(key);
     setPickedCaseUid(caseUid);
+    setPickedFeatureUid(undefined);
+  };
+  const pickFeature = (featureUid: string) => {
+    data.refreshTraceability();
+    setPickedCaseUid(undefined);
+    setPickedFeatureUid(featureUid);
   };
 
   return (
@@ -89,6 +102,7 @@ export function App({ backend }: { backend: Backend }) {
               data.refreshTraceability();
               setPickedKey(uid);
               setPickedCaseUid(undefined);
+              setPickedFeatureUid(undefined);
             }}
           />
           <RequirementTable
@@ -117,6 +131,20 @@ export function App({ backend }: { backend: Backend }) {
               bindingsLoading={data.bindingsLoading}
               onEdited={data.refreshTraceability}
               onBindingEdited={data.refreshBindings}
+              onFeatureCreated={pickFeature}
+            />
+          ) : picked && pickedFeature ? (
+            <FeatureDetail
+              row={picked}
+              feature={{
+                uid: pickedFeature.feature_uid,
+                title: pickedFeature.label ?? pickedFeature.feature_id,
+                id: pickedFeature.feature_id,
+                label: pickedFeature.label,
+              }}
+              backend={backend}
+              onFeatureCreated={pickFeature}
+              onEdited={data.refreshTraceability}
             />
           ) : picked ? (
             <RequirementDetail
@@ -125,6 +153,8 @@ export function App({ backend }: { backend: Backend }) {
               coverageLoading={data.coverageLoading}
               onPickCase={setPickedCaseUid}
               onJump={pick}
+              onPickFeature={pickFeature}
+              onFeatureCreated={pickFeature}
               onEdited={data.refreshTraceability}
             />
           ) : (
