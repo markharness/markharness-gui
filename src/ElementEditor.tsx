@@ -11,6 +11,7 @@ export interface EditableDetail {
 }
 
 export interface EditedValues {
+  id: string;
   label: string;
   axis?: string[];
   description?: string;
@@ -20,6 +21,7 @@ export interface EditedValues {
 /** The button that turns an element of a picked case into a form to edit it in place. */
 export function ElementEditor({
   noun,
+  id,
   label,
   load,
   toEdit,
@@ -28,6 +30,8 @@ export function ElementEditor({
 }: {
   /** What the element is called to the user: "Feature", "Behavior" or "Scenario". */
   noun: string;
+  /** The display id the element has now. */
+  id: string;
   label: string | null;
   /** Reads what the form starts from, when the edit button is pressed. */
   load: () => Promise<EditableDetail>;
@@ -58,6 +62,7 @@ export function ElementEditor({
       <ElementEditForm
         noun={noun}
         element={{
+          id,
           label,
           ...(detail.axis !== undefined && { axis: detail.axis }),
           ...(detail.description !== undefined && {

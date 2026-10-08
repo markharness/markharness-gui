@@ -1011,7 +1011,7 @@ describe("App comparison with a tag", () => {
 
     expect(await within(pane).findByText("Log in")).toBeInTheDocument();
     expect(edits).toEqual([
-      { kind: "feature", uid: "F1", label: "Log in", axis: ["ui"] },
+      { kind: "feature", uid: "F1", id: "f-1", label: "Log in", axis: ["ui"] },
     ]);
     expect(within(pane).queryByLabelText("ラベル")).not.toBeInTheDocument();
   });
@@ -1218,6 +1218,7 @@ describe("App comparison with a tag", () => {
         kind: "behavior",
         feature_uid: "F1",
         uid: "B",
+        id: "b-1",
         label: "Credentials check",
         description: "Checks the user and the password.",
         axis: ["ui"],
@@ -1291,6 +1292,7 @@ describe("App comparison with a tag", () => {
         feature_uid: "F1",
         behavior_uid: "B",
         uid: "S1",
+        id: "sc-1",
         label: "Log in with a wrong password",
         description: "Shows an error.",
       },
@@ -1349,6 +1351,7 @@ describe("App comparison with a tag", () => {
       {
         kind: "requirement",
         uid: "R1",
+        id: "req-1",
         label: "Sign-in requirement",
         description: "Users can sign in.",
         axis: ["ui"],

@@ -36,6 +36,7 @@ export function ElementCard({
       />
       <ElementEditor
         noun={noun}
+        id={element.id}
         label={element.label}
         load={load}
         toEdit={toEdit}

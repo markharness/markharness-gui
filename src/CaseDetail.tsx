@@ -78,6 +78,7 @@ export function CaseDetail({
         {view.requirement.source === "native" && (
           <ElementEditor
             noun="要求"
+            id={view.requirement.id}
             label={view.requirement.label}
             load={async () => {
               const detail = await backend.getElementDetail(
@@ -88,6 +89,7 @@ export function CaseDetail({
             toEdit={(values) => ({
               kind: "requirement",
               uid: view.requirement.uid,
+              id: values.id,
               label: values.label,
               description: values.description,
               axis: values.axis ?? [],
@@ -110,6 +112,7 @@ export function CaseDetail({
           toEdit={(values) => ({
             kind: "feature",
             uid: view.feature?.uid ?? "",
+            id: values.id,
             label: values.label,
             axis: values.axis ?? [],
           })}
@@ -131,6 +134,7 @@ export function CaseDetail({
             kind: "behavior",
             feature_uid: view.behavior?.featureUid ?? "",
             uid: view.behavior?.uid ?? "",
+            id: values.id,
             label: values.label,
             description: values.description,
             axis: values.axis ?? [],
@@ -160,6 +164,7 @@ export function CaseDetail({
         {view.feature && view.behavior && (
           <ElementEditor
             noun="Scenario"
+            id={picked.scenarioId}
             label={picked.label}
             load={async () => {
               const detail = await backend.getScenarioDetail(

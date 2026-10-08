@@ -4,6 +4,7 @@ import type { ScenarioPhase } from "./backend";
 export interface FeatureEdit {
   kind: "feature";
   uid: string;
+  id?: string;
   label: string;
   axis: string[];
 }
@@ -19,6 +20,7 @@ export interface BehaviorEdit {
   kind: "behavior";
   feature_uid: string;
   uid: string;
+  id?: string;
   label?: string;
   description?: string;
   axis?: string[];
@@ -31,6 +33,7 @@ export interface ScenarioEdit {
   feature_uid: string;
   behavior_uid: string;
   uid: string;
+  id?: string;
   label?: string;
   description?: string;
   implementation_note?: string;
@@ -41,6 +44,7 @@ export interface ScenarioEdit {
 export interface RequirementEdit {
   kind: "requirement";
   uid: string;
+  id?: string;
   label: string;
   description?: string;
   axis: string[];
@@ -55,13 +59,19 @@ export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 export function scenarioEdit(
   ids: { featureUid: string; behaviorUid: string; uid: string },
   original: { implementationNote: string | null },
-  values: { label: string; description?: string; implementationNote?: string },
+  values: {
+    id: string;
+    label: string;
+    description?: string;
+    implementationNote?: string;
+  },
 ): ScenarioEdit {
   const edit: ScenarioEdit = {
     kind: "scenario",
     feature_uid: ids.featureUid,
     behavior_uid: ids.behaviorUid,
     uid: ids.uid,
+    id: values.id,
     label: values.label,
     description: values.description,
   };

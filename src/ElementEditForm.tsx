@@ -17,6 +17,7 @@ export function ElementEditForm({
   noun: string;
   /** `description` is given only for an element whose description is edited too. */
   element: {
+    id: string;
     label: string | null;
     /** Given only for an element that has categories. */
     axis?: string[];
@@ -27,6 +28,7 @@ export function ElementEditForm({
   candidates: Axis[];
   /** Saves the label and the axes as the form holds them. */
   save: (values: {
+    id: string;
     label: string;
     axis?: string[];
     description?: string;
@@ -41,6 +43,7 @@ export function ElementEditForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const [id, setId] = useState(element.id);
   const [label, setLabel] = useState(element.label ?? "");
   const [axis, setAxis] = useState(element.axis ?? []);
   const [implementationNote, setImplementationNote] = useState(
@@ -70,6 +73,7 @@ export function ElementEditForm({
         e.preventDefault();
         setError(undefined);
         save({
+          id,
           label,
           ...(element.axis !== undefined && { axis }),
           ...(element.description !== undefined && { description }),
@@ -80,6 +84,10 @@ export function ElementEditForm({
       }}
     >
       {error && <pre role="alert">{error}</pre>}
+      <label className="field">
+        <span>ID</span>
+        <input value={id} onChange={(e) => setId(e.target.value)} />
+      </label>
       <label className="field">
         <span>ラベル</span>
         <input value={label} onChange={(e) => setLabel(e.target.value)} />

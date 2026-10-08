@@ -64,6 +64,7 @@ export function RequirementDetail({
         {row.source === "native" && row.requirementUid && (
           <ElementEditor
             noun="要求"
+            id={row.requirementId ?? ""}
             label={row.label}
             load={async () => {
               const detail = await backend.getElementDetail(
@@ -74,6 +75,7 @@ export function RequirementDetail({
             toEdit={(values) => ({
               kind: "requirement",
               uid: row.requirementUid ?? "",
+              id: values.id,
               label: values.label,
               description: values.description,
               axis: values.axis ?? [],

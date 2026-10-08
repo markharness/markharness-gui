@@ -10,6 +10,7 @@ describe("scenarioEdit", () => {
         ids,
         { implementationNote: "Old note.\n" },
         {
+          id: "log-in",
           label: "Log in",
           description: "Logs in.",
           implementationNote: "New note.",
@@ -20,6 +21,7 @@ describe("scenarioEdit", () => {
       feature_uid: "F1",
       behavior_uid: "B1",
       uid: "S1",
+      id: "log-in",
       label: "Log in",
       description: "Logs in.",
       implementation_note: "New note.",
@@ -30,7 +32,12 @@ describe("scenarioEdit", () => {
     const edit = scenarioEdit(
       ids,
       { implementationNote: null },
-      { label: "Log in", description: "Logs in.", implementationNote: "" },
+      {
+        id: "log-in",
+        label: "Log in",
+        description: "Logs in.",
+        implementationNote: "",
+      },
     );
 
     expect("implementation_note" in edit).toBe(false);
@@ -41,7 +48,12 @@ describe("scenarioEdit", () => {
       scenarioEdit(
         ids,
         { implementationNote: "Old note.\n" },
-        { label: "Log in", description: "Logs in.", implementationNote: "" },
+        {
+          id: "log-in",
+          label: "Log in",
+          description: "Logs in.",
+          implementationNote: "",
+        },
       ).implementation_note,
     ).toBe("");
   });

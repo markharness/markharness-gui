@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Axis } from "./backend";
 import { ElementEditForm } from "./ElementEditForm";
 
-const feature = { uid: "F1", label: "Sign in", axis: ["ui"] };
+const feature = { id: "sign-in", label: "Sign in", axis: ["ui"] };
 const candidates = [
   { id: "functional", label: "機能" },
   { id: "ui", label: "画面" },
@@ -19,6 +19,7 @@ const newCategory = () => screen.getByRole("group", { name: "新しい分類" })
 
 function renderForm(
   save: (values: {
+    id: string;
     label: string;
     axis?: string[];
     description?: string;
@@ -53,9 +54,15 @@ function renderForm(
 }
 
 describe("ElementEditForm", () => {
-  it("starts from the label and the axes the feature has", () => {
+  it("starts from the id, the label and the axes the feature has, with the id first", () => {
     renderForm();
 
+    const id = screen.getByLabelText("ID");
+    expect(id).toHaveValue("sign-in");
+    expect(
+      id.compareDocumentPosition(screen.getByLabelText("ラベル")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(screen.getByLabelText("ラベル")).toHaveValue("Sign in");
     expect(screen.getByLabelText("機能")).not.toBeChecked();
     expect(screen.getByLabelText("画面")).toBeChecked();
@@ -65,6 +72,9 @@ describe("ElementEditForm", () => {
     const save = vi.fn(async () => {});
     renderForm(save);
 
+    fireEvent.change(screen.getByLabelText("ID"), {
+      target: { value: "log-in" },
+    });
     fireEvent.change(screen.getByLabelText("ラベル"), {
       target: { value: "Log in" },
     });
@@ -73,6 +83,7 @@ describe("ElementEditForm", () => {
 
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith({
+        id: "log-in",
         label: "Log in",
         axis: ["ui", "functional"],
       }),
@@ -86,7 +97,11 @@ describe("ElementEditForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ label: "Sign in", axis: ["ui"] }),
+      expect(save).toHaveBeenCalledWith({
+        id: "sign-in",
+        label: "Sign in",
+        axis: ["ui"],
+      }),
     );
   });
 
@@ -311,7 +326,11 @@ describe("ElementEditForm", () => {
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ label: "Sign in", axis: ["ui"] }),
+      expect(save).toHaveBeenCalledWith({
+        id: "sign-in",
+        label: "Sign in",
+        axis: ["ui"],
+      }),
     );
   });
 
@@ -429,6 +448,7 @@ describe("ElementEditForm", () => {
 
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith({
+        id: "sign-in",
         label: "Sign in",
         axis: ["ui"],
         description: "Checks the password twice.",
@@ -444,6 +464,7 @@ describe("ElementEditForm", () => {
         <ElementEditForm
           noun="Scenario"
           element={{
+            id: "wrong-password",
             label: "Wrong password",
             description: "Rejects it.",
             implementationNote: "Uses the form.",
@@ -485,6 +506,7 @@ describe("ElementEditForm", () => {
 
       await waitFor(() =>
         expect(save).toHaveBeenCalledWith({
+          id: "wrong-password",
           label: "Wrong password",
           description: "Rejects it.",
           implementationNote: "Uses the page.",
