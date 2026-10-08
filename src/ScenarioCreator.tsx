@@ -1,10 +1,9 @@
 import { useState } from "react";
 import type { Backend, ScenarioPhase } from "./backend";
-import { ignoreEnterInOneLineFields } from "./ignoreEnter";
 import { Modal } from "./Modal";
-import { PhasesFields } from "./PhasesFields";
+import { ScenarioForm } from "./ScenarioForm";
 
-const EMPTY_PHASE: ScenarioPhase[] = [
+const EMPTY_PHASES: ScenarioPhase[] = [
   { steps: [{ action: "" }], results: [""] },
 ];
 
@@ -24,82 +23,39 @@ export function ScenarioCreator({
   const [procedures, setProcedures] =
     useState<Record<string, { steps: string[] }>>();
   const [loadError, setLoadError] = useState<string>();
-  const [id, setId] = useState("");
-  const [label, setLabel] = useState("");
-  const [description, setDescription] = useState("");
-  const [phases, setPhases] = useState(EMPTY_PHASE);
-  const [error, setError] = useState<string>();
-
-  const close = () => {
-    setProcedures(undefined);
-    setId("");
-    setLabel("");
-    setDescription("");
-    setPhases(EMPTY_PHASE);
-    setError(undefined);
-  };
 
   if (procedures) {
     return (
-      <Modal title="Scenarioを追加" onClose={close}>
-        <form
-          className="edit-form phases-form"
-          onKeyDown={ignoreEnterInOneLineFields}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(undefined);
-            backend
-              .createElement({
-                kind: "scenario",
-                feature_uid: featureUid,
-                behavior_uid: behaviorUid,
-                id,
-                label,
-                description,
-                phases,
-              })
-              .then(
-                (uid) => {
-                  close();
-                  onCreated(uid);
-                },
-                (reason) => setError(String(reason)),
-              );
+      <Modal title="Scenarioを追加" onClose={() => setProcedures(undefined)}>
+        <ScenarioForm
+          initial={{
+            id: "",
+            label: "",
+            description: "",
+            implementationNote: "",
+            phases: EMPTY_PHASES,
           }}
-        >
-          {error && <pre role="alert">{error}</pre>}
-          <label className="field">
-            <span>ID</span>
-            <input value={id} onChange={(e) => setId(e.target.value)} />
-          </label>
-          <label className="field">
-            <span>ラベル</span>
-            <input value={label} onChange={(e) => setLabel(e.target.value)} />
-          </label>
-          <label className="field">
-            <span>説明</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </label>
-          <PhasesFields
-            phases={EMPTY_PHASE}
-            procedures={procedures}
-            onChange={setPhases}
-          />
-          <fieldset
-            aria-label="Scenarioの保存とキャンセル"
-            className="form-actions"
-          >
-            <button type="submit" className="primary">
-              保存
-            </button>
-            <button type="button" onClick={close}>
-              キャンセル
-            </button>
-          </fieldset>
-        </form>
+          procedures={procedures}
+          save={async (values) => {
+            const uid = await backend.createElement({
+              kind: "scenario",
+              feature_uid: featureUid,
+              behavior_uid: behaviorUid,
+              id: values.id,
+              label: values.label,
+              description: values.description,
+              implementation_note:
+                values.implementationNote === ""
+                  ? undefined
+                  : values.implementationNote,
+              phases: values.phases,
+            });
+            setProcedures(undefined);
+            onCreated(uid);
+          }}
+          onSaved={() => {}}
+          onCancel={() => setProcedures(undefined)}
+        />
       </Modal>
     );
   }

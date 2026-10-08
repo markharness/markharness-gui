@@ -90,6 +90,22 @@ describe("ScenarioCreator", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("sends the implementation note when one is typed", async () => {
+    const createElement = vi.fn(async () => "S-new");
+    const dialog = await open(backendWith({ createElement }));
+
+    fireEvent.change(dialog.getByLabelText("実装メモ"), {
+      target: { value: "Uses the form." },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(createElement).toHaveBeenCalledWith(
+        expect.objectContaining({ implementation_note: "Uses the form." }),
+      ),
+    );
+  });
+
   it("shows the core's refusal as it is and stays open", async () => {
     const onCreated = vi.fn();
     const dialog = await open(

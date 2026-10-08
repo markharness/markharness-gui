@@ -86,6 +86,7 @@ export interface ScenarioCreate {
   id: string;
   label: string;
   description: string;
+  implementation_note?: string;
   phases: ScenarioPhase[];
 }
 
@@ -109,6 +110,7 @@ export function scenarioEdit(
     label: string;
     description?: string;
     implementationNote?: string;
+    phases?: ScenarioPhase[];
   },
 ): ScenarioEdit {
   const edit: ScenarioEdit = {
@@ -119,6 +121,7 @@ export function scenarioEdit(
     id: values.id,
     label: values.label,
     description: values.description,
+    ...(values.phases !== undefined && { phases: values.phases }),
   };
   const note = values.implementationNote;
   if (
