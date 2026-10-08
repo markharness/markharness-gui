@@ -9,6 +9,7 @@ import { Modal } from "./Modal";
 export function ElementCreator({
   noun,
   buttonLabel,
+  withDescription = false,
   toCreate,
   backend,
   onCreated,
@@ -16,6 +17,8 @@ export function ElementCreator({
   /** What the element is called to the user, as in "要求の保存とキャンセル". */
   noun: string;
   buttonLabel: string;
+  /** Whether the form asks for a description, for an element that has one. */
+  withDescription?: boolean;
   toCreate: (values: EditedValues) => Create;
   backend: Backend;
   /** Called with the uid the core gave the new element. */
@@ -37,7 +40,12 @@ export function ElementCreator({
       <Modal title={`${noun}を追加`} onClose={() => setCandidates(undefined)}>
         <ElementEditForm
           noun={noun}
-          element={{ id: "", label: "", axis: [], description: "" }}
+          element={{
+            id: "",
+            label: "",
+            axis: [],
+            ...(withDescription && { description: "" }),
+          }}
           candidates={candidates}
           save={async (values) => {
             const uid = await backend.createElement(toCreate(values));

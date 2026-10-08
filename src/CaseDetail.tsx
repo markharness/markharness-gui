@@ -6,8 +6,9 @@ import type {
   ScenarioPhase,
 } from "./backend";
 import type { CaseView } from "./caseView";
-import { BehaviorProcedures } from "./BehaviorProcedures";
-import { ElementCard } from "./ElementCard";
+import { BehaviorCard } from "./BehaviorCard";
+import { BehaviorCreator } from "./BehaviorCreator";
+import { FeatureCard } from "./FeatureCard";
 import { FeatureCreator } from "./FeatureCreator";
 import { ElementEditor } from "./ElementEditor";
 import { PhasesEditor } from "./PhasesEditor";
@@ -28,6 +29,7 @@ export function CaseDetail({
   onEdited,
   onBindingEdited,
   onFeatureCreated,
+  onBehaviorCreated,
 }: {
   view: CaseView;
   backend: Backend;
@@ -37,6 +39,7 @@ export function CaseDetail({
   onEdited: () => void;
   onBindingEdited: () => void;
   onFeatureCreated: (featureUid: string) => void;
+  onBehaviorCreated: (behaviorUid: string) => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -120,58 +123,29 @@ export function CaseDetail({
         onCreated={onFeatureCreated}
       />
       {view.feature && (
-        <ElementCard
-          noun="Feature"
-          element={view.feature}
-          load={async () => {
-            const detail = await backend.getElementDetail(
-              view.feature?.uid ?? "",
-            );
-            return { axis: detail.axis };
-          }}
-          toEdit={(values) => ({
-            kind: "feature",
-            uid: view.feature?.uid ?? "",
-            id: values.id,
-            label: values.label,
-            axis: values.axis ?? [],
-          })}
-          backend={backend}
-          onEdited={onEdited}
-        />
+        <>
+          <FeatureCard
+            feature={view.feature}
+            backend={backend}
+            onEdited={onEdited}
+          />
+          <BehaviorCreator
+            featureUid={view.feature.uid}
+            backend={backend}
+            onCreated={onBehaviorCreated}
+          />
+        </>
       )}
       {view.behavior && (
-        <ElementCard
-          noun="Behavior"
-          element={view.behavior}
-          load={async () => {
-            const detail = await backend.getElementDetail(
-              view.behavior?.uid ?? "",
-            );
-            return { axis: detail.axis, description: detail.description };
-          }}
-          toEdit={(values) => ({
-            kind: "behavior",
-            feature_uid: view.behavior?.featureUid ?? "",
-            uid: view.behavior?.uid ?? "",
-            id: values.id,
-            label: values.label,
-            description: values.description,
-            axis: values.axis ?? [],
-          })}
+        <BehaviorCard
+          behavior={view.behavior}
           backend={backend}
           onEdited={onEdited}
-        >
-          <BehaviorProcedures
-            featureUid={view.behavior.featureUid}
-            uid={view.behavior.uid}
-            backend={backend}
-            onEdited={() => {
-              read();
-              onEdited();
-            }}
-          />
-        </ElementCard>
+          onProceduresEdited={() => {
+            read();
+            onEdited();
+          }}
+        />
       )}
       <Card selected>
         <ElementHeading

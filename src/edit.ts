@@ -68,7 +68,17 @@ export interface FeatureCreate {
   axis: string[];
 }
 
-export type Create = RequirementCreate | FeatureCreate;
+/** A new behavior of the feature whose uid is given; the core needs its description. */
+export interface BehaviorCreate {
+  kind: "behavior";
+  feature_uid: string;
+  id: string;
+  label: string;
+  description: string;
+  axis: string[];
+}
+
+export type Create = RequirementCreate | FeatureCreate | BehaviorCreate;
 
 export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 

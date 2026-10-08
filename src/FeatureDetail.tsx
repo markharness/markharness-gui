@@ -1,7 +1,8 @@
 import type { Backend } from "./backend";
-import { ElementCard } from "./ElementCard";
+import { BehaviorCreator } from "./BehaviorCreator";
+import { FeatureCard } from "./FeatureCard";
 import { FeatureCreator } from "./FeatureCreator";
-import { Card, ElementHeading } from "./Section";
+import { Card, ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
 import { sourceName } from "./sources";
 
@@ -9,14 +10,21 @@ import { sourceName } from "./sources";
 export function FeatureDetail({
   row,
   feature,
+  behaviors,
   backend,
   onFeatureCreated,
+  onBehaviorCreated,
+  onPickBehavior,
   onEdited,
 }: {
   row: RequirementRow;
   feature: { uid: string; title: string; id: string; label: string | null };
+  /** The behaviors of the feature, with or without a case. */
+  behaviors: { uid: string; title: string }[];
   backend: Backend;
   onFeatureCreated: (featureUid: string) => void;
+  onBehaviorCreated: (behaviorUid: string) => void;
+  onPickBehavior: (behaviorUid: string) => void;
   onEdited: () => void;
 }) {
   return (
@@ -36,23 +44,27 @@ export function FeatureDetail({
           onCreated={onFeatureCreated}
         />
       )}
-      <ElementCard
-        noun="Feature"
-        element={feature}
-        load={async () => {
-          const detail = await backend.getElementDetail(feature.uid);
-          return { axis: detail.axis };
-        }}
-        toEdit={(values) => ({
-          kind: "feature",
-          uid: feature.uid,
-          id: values.id,
-          label: values.label,
-          axis: values.axis ?? [],
-        })}
+      <FeatureCard feature={feature} backend={backend} onEdited={onEdited} />
+      <BehaviorCreator
+        featureUid={feature.uid}
         backend={backend}
-        onEdited={onEdited}
+        onCreated={onBehaviorCreated}
       />
+      <Section title="このFeatureのBehavior" badge="markharness">
+        {behaviors.length === 0 ? (
+          <p>ありません。</p>
+        ) : (
+          <ul>
+            {behaviors.map((b) => (
+              <li key={b.uid}>
+                <button type="button" onClick={() => onPickBehavior(b.uid)}>
+                  {b.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </>
   );
 }

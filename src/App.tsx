@@ -3,6 +3,7 @@ import type { Backend } from "./backend";
 import { CaseDetail } from "./CaseDetail";
 import { describeCase } from "./caseView";
 import { ElementCreator } from "./ElementCreator";
+import { BehaviorDetail } from "./BehaviorDetail";
 import { FeatureDetail } from "./FeatureDetail";
 import { ContextBar } from "./ContextBar";
 import { RequirementDetail } from "./RequirementDetail";
@@ -20,6 +21,8 @@ export function App({ backend }: { backend: Backend }) {
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
   /** A feature picked without a case, which no case leads to. */
   const [pickedFeatureUid, setPickedFeatureUid] = useState<string>();
+  /** A behavior picked without a case. */
+  const [pickedBehaviorUid, setPickedBehaviorUid] = useState<string>();
 
   if (data.error) return <pre role="alert">{data.error}</pre>;
   if (!data.loaded) return <p>読み込み中…</p>;
@@ -43,8 +46,13 @@ export function App({ backend }: { backend: Backend }) {
           pickedCaseUid,
         )
       : undefined;
+  const pickedBehavior = traceability.behaviors.find(
+    (b) => b.behavior_uid === pickedBehaviorUid,
+  );
   const pickedFeature = traceability.features.find(
-    (f) => f.feature_uid === pickedFeatureUid,
+    (f) =>
+      f.feature_uid ===
+      (pickedBehavior ? pickedBehavior.feature_uid : pickedFeatureUid),
   );
   const pick = (key: string) => {
     setPickedKey(key);
@@ -58,11 +66,18 @@ export function App({ backend }: { backend: Backend }) {
     setPickedKey(key);
     setPickedCaseUid(caseUid);
     setPickedFeatureUid(undefined);
+    setPickedBehaviorUid(undefined);
   };
   const pickFeature = (featureUid: string) => {
     data.refreshTraceability();
     setPickedCaseUid(undefined);
     setPickedFeatureUid(featureUid);
+    setPickedBehaviorUid(undefined);
+  };
+  const pickBehavior = (behaviorUid: string) => {
+    data.refreshTraceability();
+    setPickedCaseUid(undefined);
+    setPickedBehaviorUid(behaviorUid);
   };
 
   return (
@@ -89,6 +104,7 @@ export function App({ backend }: { backend: Backend }) {
           <ElementCreator
             noun="要求"
             buttonLabel="＋ 要求を追加"
+            withDescription
             toCreate={(values) => ({
               kind: "requirement",
               id: values.id,
@@ -103,6 +119,7 @@ export function App({ backend }: { backend: Backend }) {
               setPickedKey(uid);
               setPickedCaseUid(undefined);
               setPickedFeatureUid(undefined);
+              setPickedBehaviorUid(undefined);
             }}
           />
           <RequirementTable
@@ -132,6 +149,26 @@ export function App({ backend }: { backend: Backend }) {
               onEdited={data.refreshTraceability}
               onBindingEdited={data.refreshBindings}
               onFeatureCreated={pickFeature}
+              onBehaviorCreated={pickBehavior}
+            />
+          ) : picked && pickedFeature && pickedBehavior ? (
+            <BehaviorDetail
+              row={picked}
+              feature={{
+                uid: pickedFeature.feature_uid,
+                title: pickedFeature.label ?? pickedFeature.feature_id,
+                id: pickedFeature.feature_id,
+                label: pickedFeature.label,
+              }}
+              behavior={{
+                uid: pickedBehavior.behavior_uid,
+                featureUid: pickedBehavior.feature_uid,
+                title: pickedBehavior.label ?? pickedBehavior.behavior_id,
+                id: pickedBehavior.behavior_id,
+                label: pickedBehavior.label,
+              }}
+              backend={backend}
+              onEdited={data.refreshTraceability}
             />
           ) : picked && pickedFeature ? (
             <FeatureDetail
@@ -142,8 +179,16 @@ export function App({ backend }: { backend: Backend }) {
                 id: pickedFeature.feature_id,
                 label: pickedFeature.label,
               }}
+              behaviors={traceability.behaviors
+                .filter((b) => b.feature_uid === pickedFeature.feature_uid)
+                .map((b) => ({
+                  uid: b.behavior_uid,
+                  title: b.label ?? b.behavior_id,
+                }))}
               backend={backend}
               onFeatureCreated={pickFeature}
+              onBehaviorCreated={pickBehavior}
+              onPickBehavior={pickBehavior}
               onEdited={data.refreshTraceability}
             />
           ) : picked ? (
