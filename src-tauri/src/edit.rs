@@ -63,6 +63,13 @@ pub enum Create {
         description: Option<String>,
         axis: Vec<String>,
     },
+    Feature {
+        id: String,
+        label: String,
+        /// The uids of the requirements the feature contributes to.
+        contributes_to: Vec<String>,
+        axis: Vec<String>,
+    },
 }
 
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
@@ -76,25 +83,40 @@ fn list(values: &[String]) -> String {
 }
 
 pub fn create_intent_yaml(create: &Create) -> String {
-    let Create::Requirement {
-        id,
-        label,
-        description,
-        axis,
-    } = create;
     let mut lines = vec![
         "format: markharness/knowledge-intent/v1".to_string(),
         "mode: merge".to_string(),
         String::new(),
-        "requirements:".to_string(),
-        format!("  - id: {}", scalar(id)),
-        "    source: native".to_string(),
-        format!("    label: {}", scalar(label)),
     ];
-    if let Some(description) = description {
-        lines.push(format!("    description: {}", scalar(description)));
+    match create {
+        Create::Requirement {
+            id,
+            label,
+            description,
+            axis,
+        } => {
+            lines.push("requirements:".to_string());
+            lines.push(format!("  - id: {}", scalar(id)));
+            lines.push("    source: native".to_string());
+            lines.push(format!("    label: {}", scalar(label)));
+            if let Some(description) = description {
+                lines.push(format!("    description: {}", scalar(description)));
+            }
+            lines.push(format!("    axis: {}", list(axis)));
+        }
+        Create::Feature {
+            id,
+            label,
+            contributes_to,
+            axis,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - id: {}", scalar(id)));
+            lines.push(format!("    contributes_to: {}", list(contributes_to)));
+            lines.push(format!("    label: {}", scalar(label)));
+            lines.push(format!("    axis: {}", list(axis)));
+        }
     }
-    lines.push(format!("    axis: {}", list(axis)));
     lines.push(String::new());
     lines.join(
         "
@@ -1054,5 +1076,34 @@ mod tests {
 
         assert_eq!(result, Err("requirements[0]: already exists".to_string()));
         assert_eq!(*writer.generated.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn a_new_feature_names_the_requirements_it_contributes_to_by_uid() {
+        let create = Create::Feature {
+            id: "new-feature".into(),
+            label: "新しい機能".into(),
+            contributes_to: vec!["01REQ".into(), "01REQ2".into()],
+            axis: vec![],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - id: \"new-feature\"",
+                "    contributes_to: [\"01REQ\", \"01REQ2\"]",
+                "    label: \"新しい機能\"",
+                "    axis: []",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        );
     }
 }

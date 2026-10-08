@@ -779,3 +779,37 @@ async fn a_new_requirement_is_created_and_read_back_with_the_uid_the_core_gave()
     assert_eq!(found.label.as_deref(), Some("新しい要求"));
     assert!(again.unwrap_err().contains("new-requirement"));
 }
+
+#[tokio::test]
+async fn a_new_feature_is_created_under_a_requirement_before_it_has_any_case() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let requirement_uid = before.requirements[0].requirement_uid.clone();
+
+    let created = apply_create(
+        &runner,
+        &project,
+        &Create::Feature {
+            id: "new-feature".into(),
+            label: "新しい機能".into(),
+            contributes_to: vec![requirement_uid.clone()],
+            axis: vec![],
+        },
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    let feature = after
+        .features
+        .iter()
+        .find(|f| f.feature_id == "new-feature")
+        .expect("the new feature is read back");
+    assert_eq!(created, Ok(feature.feature_uid.clone()));
+    assert!(after
+        .relations
+        .iter()
+        .any(|r| r.from_uid == feature.feature_uid && r.to_uid == requirement_uid));
+}
