@@ -78,6 +78,14 @@ pub enum Create {
         description: String,
         axis: Vec<String>,
     },
+    Scenario {
+        feature_uid: String,
+        behavior_uid: String,
+        id: String,
+        label: String,
+        description: String,
+        phases: Vec<ScenarioPhase>,
+    },
 }
 
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
@@ -88,6 +96,28 @@ fn scalar(value: &str) -> String {
 fn list(values: &[String]) -> String {
     let items: Vec<String> = values.iter().map(|v| scalar(v)).collect();
     format!("[{}]", items.join(", "))
+}
+
+/// The phases of a scenario, written under a scenario whose fields sit at twelve spaces.
+fn push_phases(lines: &mut Vec<String>, phases: &[ScenarioPhase]) {
+    lines.push("            phases:".to_string());
+    for phase in phases {
+        lines.push("              - steps:".to_string());
+        for step in &phase.steps {
+            lines.push(match step {
+                ScenarioStep::Action(text) => {
+                    format!("                  - action: {}", scalar(text))
+                }
+                ScenarioStep::Use(name) => {
+                    format!("                  - use: {}", scalar(name))
+                }
+            });
+        }
+        lines.push("                results:".to_string());
+        for result in &phase.results {
+            lines.push(format!("                  - {}", scalar(result)));
+        }
+    }
 }
 
 pub fn create_intent_yaml(create: &Create) -> String {
@@ -138,6 +168,24 @@ pub fn create_intent_yaml(create: &Create) -> String {
             lines.push(format!("        label: {}", scalar(label)));
             lines.push(format!("        description: {}", scalar(description)));
             lines.push(format!("        axis: {}", list(axis)));
+        }
+        Create::Scenario {
+            feature_uid,
+            behavior_uid,
+            id,
+            label,
+            description,
+            phases,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - uid: {}", scalar(feature_uid)));
+            lines.push("    behaviors:".to_string());
+            lines.push(format!("      - uid: {}", scalar(behavior_uid)));
+            lines.push("        scenarios:".to_string());
+            lines.push(format!("          - id: {}", scalar(id)));
+            lines.push(format!("            label: {}", scalar(label)));
+            lines.push(format!("            description: {}", scalar(description)));
+            push_phases(&mut lines, phases);
         }
     }
     lines.push(String::new());
@@ -257,24 +305,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
                 lines.push(format!("            implementation_note: {}", scalar(note)));
             }
             if let Some(phases) = phases {
-                lines.push("            phases:".to_string());
-                for phase in phases {
-                    lines.push("              - steps:".to_string());
-                    for step in &phase.steps {
-                        lines.push(match step {
-                            ScenarioStep::Action(text) => {
-                                format!("                  - action: {}", scalar(text))
-                            }
-                            ScenarioStep::Use(name) => {
-                                format!("                  - use: {}", scalar(name))
-                            }
-                        });
-                    }
-                    lines.push("                results:".to_string());
-                    for result in &phase.results {
-                        lines.push(format!("                  - {}", scalar(result)));
-                    }
-                }
+                push_phases(&mut lines, phases);
             }
         }
     }
@@ -1144,6 +1175,52 @@ mod tests {
                 "",
             ]
             .join("\n")
+        );
+    }
+
+    #[test]
+    fn a_new_scenario_is_sent_under_its_feature_and_behavior_with_its_phases() {
+        let create = Create::Scenario {
+            feature_uid: "01FEATURE".into(),
+            behavior_uid: "01BEHAVIOR".into(),
+            id: "new-scenario".into(),
+            label: "新しいシナリオ".into(),
+            description: "説明".into(),
+            phases: vec![ScenarioPhase {
+                steps: vec![
+                    ScenarioStep::Use("seed".into()),
+                    ScenarioStep::Action("押す".into()),
+                ],
+                results: vec!["出る".into()],
+            }],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - uid: \"01FEATURE\"",
+                "    behaviors:",
+                "      - uid: \"01BEHAVIOR\"",
+                "        scenarios:",
+                "          - id: \"new-scenario\"",
+                "            label: \"新しいシナリオ\"",
+                "            description: \"説明\"",
+                "            phases:",
+                "              - steps:",
+                "                  - use: \"seed\"",
+                "                  - action: \"押す\"",
+                "                results:",
+                "                  - \"出る\"",
+                "",
+            ]
+            .join(
+                "
+"
+            )
         );
     }
 }

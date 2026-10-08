@@ -843,3 +843,48 @@ async fn a_new_behavior_is_created_under_a_feature_before_it_has_any_scenario() 
     assert_eq!(behavior.feature_uid, feature_uid);
     assert!(blank.is_err());
 }
+
+#[tokio::test]
+async fn a_new_scenario_is_created_with_its_phases_and_gets_a_test_case() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid) = (
+        before.features[0].feature_uid.clone(),
+        before.behaviors[0].behavior_uid.clone(),
+    );
+    let create = |phases: Vec<ScenarioPhase>| Create::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        id: "new-scenario".into(),
+        label: "新しいシナリオ".into(),
+        description: "説明".into(),
+        phases,
+    };
+
+    let created = apply_create(
+        &runner,
+        &project,
+        &create(vec![ScenarioPhase {
+            steps: vec![ScenarioStep::Action("押す".into())],
+            results: vec!["出る".into()],
+        }]),
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let without_phases = apply_create(&runner, &project, &create(vec![])).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let scenario = after
+        .scenarios
+        .iter()
+        .find(|s| s.scenario_id == "new-scenario")
+        .expect("the new scenario is read back");
+    assert_eq!(created, Ok(scenario.scenario_uid.clone()));
+    assert!(after
+        .test_cases
+        .iter()
+        .any(|c| c.scenario_uid == scenario.scenario_uid));
+    assert!(without_phases.is_err());
+}
