@@ -77,6 +77,8 @@ pub enum Create {
         /// The core requires a description when it creates a behavior.
         description: String,
         axis: Vec<String>,
+        /// The common procedures the behavior declares; none leaves it without any.
+        procedures: Option<Vec<NamedProcedure>>,
     },
     Scenario {
         feature_uid: String,
@@ -97,6 +99,18 @@ fn scalar(value: &str) -> String {
 fn list(values: &[String]) -> String {
     let items: Vec<String> = values.iter().map(|v| scalar(v)).collect();
     format!("[{}]", items.join(", "))
+}
+
+/// The common procedures of a behavior, written under a behavior whose fields sit at eight spaces.
+fn push_procedures(lines: &mut Vec<String>, procedures: &[NamedProcedure]) {
+    lines.push("        procedures:".to_string());
+    for procedure in procedures {
+        lines.push(format!("          - name: {}", scalar(&procedure.name)));
+        lines.push("            steps:".to_string());
+        for step in &procedure.steps {
+            lines.push(format!("              - {}", scalar(step)));
+        }
+    }
 }
 
 /// The phases of a scenario, written under a scenario whose fields sit at twelve spaces.
@@ -161,6 +175,7 @@ pub fn create_intent_yaml(create: &Create) -> String {
             label,
             description,
             axis,
+            procedures,
         } => {
             lines.push("features:".to_string());
             lines.push(format!("  - uid: {}", scalar(feature_uid)));
@@ -169,6 +184,9 @@ pub fn create_intent_yaml(create: &Create) -> String {
             lines.push(format!("        label: {}", scalar(label)));
             lines.push(format!("        description: {}", scalar(description)));
             lines.push(format!("        axis: {}", list(axis)));
+            if let Some(procedures) = procedures {
+                push_procedures(&mut lines, procedures);
+            }
         }
         Create::Scenario {
             feature_uid,
@@ -251,14 +269,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
                 lines.push(format!("        axis: {}", list(axis)));
             }
             if let Some(procedures) = procedures {
-                lines.push("        procedures:".to_string());
-                for procedure in procedures {
-                    lines.push(format!("          - name: {}", scalar(&procedure.name)));
-                    lines.push("            steps:".to_string());
-                    for step in &procedure.steps {
-                        lines.push(format!("              - {}", scalar(step)));
-                    }
-                }
+                push_procedures(&mut lines, procedures);
             }
         }
         Edit::Requirement {
@@ -1162,6 +1173,7 @@ mod tests {
             label: "新しい振る舞い".into(),
             description: "説明".into(),
             axis: vec!["ui".into()],
+            procedures: None,
         };
 
         assert_eq!(
@@ -1181,6 +1193,36 @@ mod tests {
             ]
             .join("\n")
         );
+    }
+
+    #[test]
+    fn a_new_behavior_can_declare_common_procedures() {
+        let create = Create::Behavior {
+            feature_uid: "01FEATURE".into(),
+            id: "b".into(),
+            label: "名前".into(),
+            description: "説明".into(),
+            axis: vec![],
+            procedures: Some(vec![NamedProcedure {
+                name: "seed".into(),
+                steps: vec!["開く".into()],
+            }]),
+        };
+
+        assert!(create_intent_yaml(&create).ends_with(
+            &[
+                "        axis: []",
+                "        procedures:",
+                "          - name: \"seed\"",
+                "            steps:",
+                "              - \"開く\"",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        ));
     }
 
     #[test]

@@ -827,6 +827,7 @@ async fn a_new_behavior_is_created_under_a_feature_before_it_has_any_scenario() 
         label: "新しい振る舞い".into(),
         description: description.into(),
         axis: vec![],
+        procedures: None,
     };
 
     let created = apply_create(&runner, &project, &create("説明")).await;
