@@ -1,5 +1,8 @@
+pub mod axes;
+pub mod bindings;
 pub mod coverage;
 pub mod detail;
+pub mod edit;
 pub mod impact;
 pub mod launch;
 pub mod refs;
@@ -100,6 +103,126 @@ async fn get_requirement_descriptions(
         .map_err(|e| e.to_string())
 }
 
+/// What the core records as the axes and the description of a requirement, a feature or a behavior.
+#[tauri::command]
+async fn get_element_detail(
+    config: tauri::State<'_, LaunchConfig>,
+    uid: String,
+) -> Result<detail::ElementDetail, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    detail::read_element_detail(&runner, &config.project_root, &uid)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The axes the project defines, to choose from when an element is edited.
+#[tauri::command]
+async fn get_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<axes::Axis>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::read_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// What the core records as the description and the implementation note of a scenario.
+#[tauri::command]
+async fn get_scenario_detail(
+    config: tauri::State<'_, LaunchConfig>,
+    uid: String,
+) -> Result<detail::ScenarioDetail, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    detail::read_scenario_detail(&runner, &config.project_root, &uid)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The ids of the axes no requirement, feature or behavior uses.
+#[tauri::command]
+async fn get_unused_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::read_unused_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Deletes every axis nobody uses.
+#[tauri::command]
+async fn delete_unused_axes(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::delete_unused_axes(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Registers a new axis; the label defaults to the id in the core when omitted.
+#[tauri::command]
+async fn add_axis(
+    config: tauri::State<'_, LaunchConfig>,
+    id: String,
+    label: Option<String>,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    axes::add_axis(&runner, &config.project_root, &id, label.as_deref()).await
+}
+
+/// What each case declares as its verification means, in the working tree.
+#[tauri::command]
+async fn get_bindings(
+    config: tauri::State<'_, LaunchConfig>,
+) -> Result<Vec<bindings::Binding>, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    bindings::read_bindings(&runner, &config.project_root)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Declares the verification means of a case, replacing the one it had.
+#[tauri::command]
+async fn set_binding(
+    config: tauri::State<'_, LaunchConfig>,
+    case_uid: String,
+    mode: String,
+    reference: Option<String>,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    bindings::set_binding(
+        &runner,
+        &config.project_root,
+        &case_uid,
+        &mode,
+        reference.as_deref(),
+    )
+    .await
+}
+
+/// Writes one edit through the core, then regenerates the test cases from the knowledge.
+#[tauri::command]
+async fn edit_knowledge(
+    config: tauri::State<'_, LaunchConfig>,
+    edit: edit::Edit,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    edit::apply_edit(&runner, &config.project_root, &edit).await
+}
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let config = launch::resolve(&args, std::env::var("MARKHARNESS_BIN").ok().as_deref())
@@ -118,7 +241,16 @@ pub fn run() {
             get_impact,
             get_case_detail,
             get_strictdoc,
-            get_requirement_descriptions
+            get_requirement_descriptions,
+            get_element_detail,
+            get_scenario_detail,
+            get_axes,
+            add_axis,
+            get_unused_axes,
+            delete_unused_axes,
+            edit_knowledge,
+            get_bindings,
+            set_binding
         ])
         .run(tauri::generate_context!())
         .expect("failed to run markharness-gui");

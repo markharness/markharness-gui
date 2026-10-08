@@ -42,7 +42,10 @@ pub struct CommandRunner {
 }
 
 impl CommandRunner {
-    async fn run(&self, mut command: tokio::process::Command) -> Result<CommandOutput, String> {
+    pub(crate) async fn run(
+        &self,
+        mut command: tokio::process::Command,
+    ) -> Result<CommandOutput, String> {
         let output = command
             .output()
             .await

@@ -1,14 +1,38 @@
-import type { Coverage, Traceability } from "./backend";
+import type { Binding, Coverage, Traceability } from "./backend";
 
 export interface CaseView {
-  requirement: { title: string; id: string; source: "native" | "external" };
-  feature: { title: string; id: string } | undefined;
-  behavior: { title: string; id: string } | undefined;
-  case: { caseUid: string; title: string; id: string; scenarioUid: string };
+  requirement: {
+    uid: string;
+    title: string;
+    id: string;
+    label: string | null;
+    source: "native" | "external";
+  };
+  feature:
+    | { uid: string; title: string; id: string; label: string | null }
+    | undefined;
+  behavior:
+    | {
+        uid: string;
+        featureUid: string;
+        title: string;
+        id: string;
+        label: string | null;
+      }
+    | undefined;
+  case: {
+    caseUid: string;
+    title: string;
+    id: string;
+    scenarioUid: string;
+    scenarioId: string;
+    label: string | null;
+  };
   /** What the case declares; says nothing about whether anything ran. Unknown until the coverage is read. */
   verification?: {
     method: string;
-    reference: { target: string; status: string } | null;
+    /** `status` is known only while the committed content declares the same reference. */
+    reference: { target: string; status: string | null } | null;
   };
 }
 
@@ -27,6 +51,7 @@ const REFERENCE_STATUS_NAMES = {
 export function describeCase(
   traceability: Traceability,
   coverage: Coverage | null,
+  bindings: Binding[] | null,
   requirementUid: string,
   caseUid: string,
 ): CaseView | undefined {
@@ -45,42 +70,55 @@ export function describeCase(
   const feature = traceability.features.find(
     (f) => f.feature_uid === behavior?.feature_uid,
   );
+  const binding = bindings?.find((b) => b.case_uid === caseUid);
   const declared = coverage?.requirements
     .find((r) => r.requirement_uid === requirementUid)
     ?.cases.find((c) => c.case_uid === caseUid);
 
   return {
     requirement: {
+      uid: requirement.requirement_uid,
       title: requirement.label ?? requirement.requirement_id,
       id: requirement.requirement_id,
+      label: requirement.label,
       source: requirement.source,
     },
     feature: feature && {
+      uid: feature.feature_uid,
       title: feature.label ?? feature.feature_id,
       id: feature.feature_id,
+      label: feature.label,
     },
     behavior: behavior && {
+      uid: behavior.behavior_uid,
+      featureUid: behavior.feature_uid,
       title: behavior.label ?? behavior.behavior_id,
       id: behavior.behavior_id,
+      label: behavior.label,
     },
     case: {
       caseUid: testCase.case_uid,
       title: scenario?.label ?? scenario?.scenario_id ?? testCase.case_id,
       id: testCase.case_id,
       scenarioUid: testCase.scenario_uid,
+      scenarioId: scenario?.scenario_id ?? "",
+      label: scenario?.label ?? null,
     },
-    verification: coverage
+    verification: bindings
       ? {
-          method: declared?.binding_mode
-            ? (METHOD_NAMES[declared.binding_mode] ?? declared.binding_mode)
+          method: binding?.mode
+            ? (METHOD_NAMES[binding.mode] ?? binding.mode)
             : "未宣言",
-          reference:
-            declared?.binding_reference && declared.reference_status
-              ? {
-                  target: declared.binding_reference,
-                  status: REFERENCE_STATUS_NAMES[declared.reference_status],
-                }
-              : null,
+          reference: binding?.reference
+            ? {
+                target: binding.reference,
+                status:
+                  declared?.reference_status &&
+                  declared.binding_reference === binding.reference
+                    ? REFERENCE_STATUS_NAMES[declared.reference_status]
+                    : null,
+              }
+            : null,
         }
       : undefined,
   };

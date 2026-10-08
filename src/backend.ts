@@ -1,3 +1,5 @@
+import type { Edit } from "./edit";
+
 export interface Requirement {
   requirement_id: string;
   requirement_uid: string;
@@ -71,6 +73,13 @@ export interface Coverage {
   }[];
 }
 
+/** What a case declares as its verification means in the working tree; declaring one does not mean anything ran. */
+export interface Binding {
+  case_uid: string;
+  mode: string;
+  reference: string | null;
+}
+
 /** What the core reports about the requirements touched between a base and `HEAD`. */
 export interface ChangeImpact {
   requirements: {
@@ -112,12 +121,47 @@ export interface RequirementDescription {
   description: string | null;
 }
 
+export interface ElementDetail {
+  axis: string[];
+  description: string | null;
+  /** The common procedures a behavior declares, by name. */
+  procedures: Record<string, { steps: string[] }>;
+}
+
+/** A step is free text, or the name of a procedure the behavior declares. */
+export type ScenarioStep = { action: string } | { use: string };
+
+/** One phase of a scenario as the knowledge writes it: steps to take, then results to check. */
+export interface ScenarioPhase {
+  steps: ScenarioStep[];
+  results: string[];
+}
+
+export interface ScenarioDetail {
+  description: string | null;
+  implementation_note: string | null;
+  phases: ScenarioPhase[];
+}
+
+export interface Axis {
+  id: string;
+  label: string;
+}
+
 export interface Backend {
   getProjectRoot(): Promise<string>;
   /** The working tree, including edits that are not committed yet. */
   getTraceability(): Promise<Traceability>;
   /** The committed content at `HEAD`; it cannot read the working tree. */
   getCoverage(): Promise<Coverage>;
+  /** What each case declares as its verification means, in the working tree. */
+  getBindings(): Promise<Binding[]>;
+  /** Declares the means of a case, replacing the one it had; no reference leaves it without one. */
+  setBinding(
+    caseUid: string,
+    mode: string,
+    reference: string | null,
+  ): Promise<void>;
   /** The tags to offer as the base of a comparison, the newest first; empty when none can be listed. */
   getTags(): Promise<string[]>;
   /** The committed content between `base` and `HEAD`; rejects with the core's message. */
@@ -126,4 +170,18 @@ export interface Backend {
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;
   getCaseDetail(caseUid: string, scenarioUid: string): Promise<CaseDetail>;
+  /** The axes and the description the core records on a requirement, a feature or a behavior. */
+  getElementDetail(uid: string): Promise<ElementDetail>;
+  /** The description and the implementation note the core records on a scenario. */
+  getScenarioDetail(uid: string): Promise<ScenarioDetail>;
+  /** The axes the project defines. */
+  getAxes(): Promise<Axis[]>;
+  /** The ids of the axes no requirement, feature or behavior uses. */
+  getUnusedAxes(): Promise<string[]>;
+  /** Deletes every axis nobody uses; rejects with what the core said. */
+  deleteUnusedAxes(): Promise<void>;
+  /** Registers a new axis; the label is the id in the core when omitted. Rejects with what the core said. */
+  addAxis(id: string, label?: string): Promise<void>;
+  /** Writes the edit through the core; rejects with what the core said when it did not apply it. */
+  editKnowledge(edit: Edit): Promise<void>;
 }

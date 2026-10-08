@@ -6,8 +6,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use markharness_gui_lib::axes::{add_axis, delete_unused_axes, read_axes, read_unused_axes};
+use markharness_gui_lib::bindings::{read_bindings, set_binding};
 use markharness_gui_lib::coverage::read_coverage;
-use markharness_gui_lib::detail::read_case_detail;
+use markharness_gui_lib::detail::{
+    read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
+};
+use markharness_gui_lib::edit::{apply_edit, Edit, NamedProcedure};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -238,4 +243,512 @@ async fn reads_the_cases_to_confirm_between_a_tag_and_head() {
     let cases: Vec<_> = impact.requirements.iter().flat_map(|r| &r.cases).collect();
     assert!(!cases.is_empty());
     assert!(cases.iter().all(|c| c.status == ImpactStatus::FollowedUp));
+}
+
+#[tokio::test]
+async fn an_edit_is_written_and_the_generated_cases_follow_it() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin: bin.clone() };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let edit = Edit::Scenario {
+        feature_uid: t.features[0].feature_uid.clone(),
+        behavior_uid: t.behaviors[0].behavior_uid.clone(),
+        uid: t.scenarios[0].scenario_uid.clone(),
+        // A label the core must quote to read it back (core issue #119).
+        id: None,
+        label: Some("- 題: 編集".into()),
+        description: Some("編集した説明".into()),
+        implementation_note: None,
+        phases: None,
+    };
+
+    let applied = apply_edit(&runner, &project, &edit).await;
+    let reread = read_traceability(&runner, &project).await;
+    let shown = Command::new(&bin)
+        .args(["traceability", "show", "--uid"])
+        .arg(&t.scenarios[0].scenario_uid)
+        .arg("--dir")
+        .arg(&project)
+        .output()
+        .unwrap();
+    // `verify` fails while `generated/` differs from `knowledge/`; the fixture never ran `generate`.
+    let verified = Command::new(&bin)
+        .arg("verify")
+        .arg("--dir")
+        .arg(&project)
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(applied, Ok(()));
+    assert_eq!(
+        reread.unwrap().scenarios[0].label.as_deref(),
+        Some("- 題: 編集")
+    );
+    let shown: serde_json::Value = serde_json::from_slice(&shown.stdout).unwrap();
+    assert_eq!(shown["description"], "編集した説明\n");
+    assert!(
+        verified.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verified.stderr)
+    );
+}
+
+#[tokio::test]
+async fn reads_the_axes_of_a_feature_and_the_axes_to_choose_from() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+
+    let detail = read_element_detail(&runner, &project, &t.features[0].feature_uid).await;
+    let candidates = read_axes(&runner, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(detail.unwrap().axis, ["ui", "validation"]);
+    let ids: Vec<String> = candidates.unwrap().into_iter().map(|a| a.id).collect();
+    for id in ["ui", "validation", "workflow"] {
+        assert!(ids.iter().any(|i| i == id), "{id} not in {ids:?}");
+    }
+}
+
+#[tokio::test]
+async fn adds_an_axis_that_can_then_be_chosen_and_refuses_the_same_id_again() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+
+    let added = add_axis(&runner, &project, "perf", Some("性能")).await;
+    let candidates = read_axes(&runner, &project).await;
+    let again = add_axis(&runner, &project, "perf", None).await;
+    let dash = add_axis(&runner, &project, "-bad", None).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(added, Ok(()));
+    let perf = candidates
+        .unwrap()
+        .into_iter()
+        .find(|a| a.id == "perf")
+        .expect("the new axis is offered");
+    assert_eq!(perf.label, "性能");
+    assert!(again.unwrap_err().contains("already exists"));
+    // An id that starts with `-` reaches the core as an id, not as an option the core cannot parse.
+    if let Err(message) = dash {
+        assert!(!message.contains("unexpected argument"), "{message}");
+    }
+}
+
+#[tokio::test]
+async fn deletes_only_the_axes_no_element_uses() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    add_axis(&runner, &project, "stale", None).await.unwrap();
+
+    let unused = read_unused_axes(&runner, &project).await.unwrap();
+    let still_there = read_axes(&runner, &project).await.unwrap();
+    let deleted = delete_unused_axes(&runner, &project).await.unwrap();
+    let after: Vec<String> = read_axes(&runner, &project)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|a| a.id)
+        .collect();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert!(unused.contains(&"stale".to_string()));
+    // Reading the report deletes nothing.
+    assert!(still_there.iter().any(|a| a.id == "stale"));
+    assert!(deleted.contains(&"stale".to_string()));
+    assert!(!after.contains(&"stale".to_string()));
+    // The feature uses `ui` and `validation`, so they stay.
+    assert!(after.contains(&"ui".to_string()));
+    assert!(after.contains(&"validation".to_string()));
+}
+
+#[tokio::test]
+async fn a_behavior_is_edited_and_its_own_description_can_be_sent_back_as_read() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+    );
+    let edit = |description: String, axis: Vec<String>| Edit::Behavior {
+        feature_uid: feature_uid.clone(),
+        uid: uid.clone(),
+        id: None,
+        label: Some("新しい名前".into()),
+        description: Some(description),
+        axis: Some(axis),
+        procedures: None,
+    };
+
+    let first = apply_edit(
+        &runner,
+        &project,
+        &edit("新しい説明".into(), vec!["ui".into()]),
+    )
+    .await;
+    let read = read_element_detail(&runner, &project, &uid).await.unwrap();
+    // What the core returned, with its trailing newline, goes back in without growing.
+    let again = apply_edit(
+        &runner,
+        &project,
+        &edit(read.description.clone().unwrap(), read.axis.clone()),
+    )
+    .await;
+    let reread = read_element_detail(&runner, &project, &uid).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(first, Ok(()));
+    assert_eq!(read.description.as_deref(), Some("新しい説明\n"));
+    assert_eq!(read.axis, ["ui"]);
+    assert_eq!(again, Ok(()));
+    assert_eq!(reread, read);
+}
+
+#[tokio::test]
+async fn a_scenario_is_edited_and_its_note_can_be_set_but_not_emptied() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+        t.scenarios[0].scenario_uid.clone(),
+    );
+    let edit = |note: &str| Edit::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        uid: uid.clone(),
+        id: None,
+        label: Some("新しい名前".into()),
+        description: Some("新しい説明".into()),
+        implementation_note: Some(note.into()),
+        phases: None,
+    };
+
+    let set = apply_edit(&runner, &project, &edit("実装メモ")).await;
+    let read = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let emptied = apply_edit(&runner, &project, &edit("")).await;
+    let reread = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(set, Ok(()));
+    assert_eq!(read.description.as_deref(), Some("新しい説明\n"));
+    assert_eq!(read.implementation_note.as_deref(), Some("実装メモ\n"));
+    assert!(emptied.unwrap_err().contains("must not be empty"));
+    assert_eq!(reread, read);
+}
+
+#[tokio::test]
+async fn a_native_requirement_is_edited_and_read_back() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let uid = t.requirements[0].requirement_uid.clone();
+    let edit = Edit::Requirement {
+        uid: uid.clone(),
+        id: None,
+        label: Some("- 新しい要求: 名前".into()),
+        description: Some("新しい説明".into()),
+        axis: Some(vec!["workflow".into()]),
+    };
+
+    let applied = apply_edit(&runner, &project, &edit).await;
+    let detail = read_element_detail(&runner, &project, &uid).await.unwrap();
+    let reread = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(applied, Ok(()));
+    assert_eq!(detail.axis, ["workflow"]);
+    assert_eq!(
+        detail.description.as_deref(),
+        Some(
+            "新しい説明
+"
+        )
+    );
+    assert_eq!(
+        reread.requirements[0].label.as_deref(),
+        Some("- 新しい要求: 名前")
+    );
+}
+
+#[tokio::test]
+async fn the_phases_of_a_scenario_are_read_as_written_and_sent_back_whole() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+        t.scenarios[0].scenario_uid.clone(),
+    );
+    let edit = |phases: Vec<ScenarioPhase>| Edit::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        uid: uid.clone(),
+        id: None,
+        label: None,
+        description: None,
+        implementation_note: None,
+        phases: Some(phases),
+    };
+    let revision = |t: &markharness_gui_lib::traceability::Traceability| {
+        (
+            t.test_cases[0].case_uid.clone(),
+            t.test_cases[0].case_revision.clone(),
+        )
+    };
+
+    let before = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let procedures = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let same = apply_edit(&runner, &project, &edit(before.phases)).await;
+    let unchanged = read_traceability(&runner, &project).await.unwrap();
+    let procedure = procedures
+        .keys()
+        .next()
+        .expect("the fixture declares one")
+        .clone();
+    let changed = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![
+            ScenarioPhase {
+                steps: vec![
+                    ScenarioStep::Use(procedure.clone()),
+                    ScenarioStep::Action("新しい手順".into()),
+                ],
+                results: vec!["新しい結果".into()],
+            },
+            ScenarioPhase {
+                steps: vec![ScenarioStep::Action("もう一つ".into())],
+                results: vec!["もう一つの結果".into()],
+            },
+        ]),
+    )
+    .await;
+    let after = read_scenario_detail(&runner, &project, &uid).await.unwrap();
+    let edited = read_traceability(&runner, &project).await.unwrap();
+    let empty = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![ScenarioPhase {
+            steps: vec![],
+            results: vec!["結果".into()],
+        }]),
+    )
+    .await;
+    let unknown = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![ScenarioPhase {
+            steps: vec![ScenarioStep::Use("no-such-procedure".into())],
+            results: vec!["結果".into()],
+        }]),
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(same, Ok(()));
+    assert_eq!(changed, Ok(()));
+    assert_eq!(after.phases.len(), 2);
+    assert_eq!(after.phases[0].steps[0], ScenarioStep::Use(procedure));
+    // The case keeps its identity, so what is bound to it stays; only its revision moves.
+    assert_eq!(revision(&unchanged).0, revision(&edited).0);
+    assert_ne!(revision(&unchanged).1, revision(&edited).1);
+    assert!(empty
+        .unwrap_err()
+        .contains("at least one entry is required"));
+    assert!(unknown.unwrap_err().contains("no-such-procedure"));
+}
+
+#[tokio::test]
+async fn the_procedures_of_a_behavior_are_sent_back_whole_and_a_used_one_cannot_be_dropped() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid) = (
+        t.features[0].feature_uid.clone(),
+        t.behaviors[0].behavior_uid.clone(),
+    );
+    let edit = |procedures: Vec<NamedProcedure>| Edit::Behavior {
+        feature_uid: feature_uid.clone(),
+        uid: behavior_uid.clone(),
+        id: None,
+        label: None,
+        description: None,
+        axis: None,
+        procedures: Some(procedures),
+    };
+    let named =
+        |read: &std::collections::BTreeMap<String, markharness_gui_lib::detail::Procedure>| {
+            read.iter()
+                .map(|(name, p)| NamedProcedure {
+                    name: name.clone(),
+                    steps: p.steps.clone(),
+                })
+                .collect::<Vec<_>>()
+        };
+
+    let before = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let same = apply_edit(&runner, &project, &edit(named(&before))).await;
+    let mut with_new = named(&before);
+    with_new[0].steps = vec!["書き換えた手順".into()];
+    with_new.push(NamedProcedure {
+        name: "added".into(),
+        steps: vec!["足した手順".into()],
+    });
+    let changed = apply_edit(&runner, &project, &edit(with_new)).await;
+    let after = read_element_detail(&runner, &project, &behavior_uid)
+        .await
+        .unwrap()
+        .procedures;
+    let used = before.keys().next().unwrap().clone();
+    let dropped = apply_edit(
+        &runner,
+        &project,
+        &edit(vec![NamedProcedure {
+            name: "added".into(),
+            steps: vec!["足した手順".into()],
+        }]),
+    )
+    .await;
+    let still_readable = read_traceability(&runner, &project).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!(same, Ok(()));
+    assert_eq!(changed, Ok(()));
+    assert_eq!(after.len(), 2);
+    assert_eq!(after[&used].steps, vec!["書き換えた手順".to_string()]);
+    assert_eq!(after["added"].steps, vec!["足した手順".to_string()]);
+    assert!(dropped.unwrap_err().contains(&used));
+    assert!(still_readable.is_ok());
+}
+
+#[tokio::test]
+async fn the_display_id_of_each_element_is_renamed_and_its_uid_stays() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, scenario_uid) = (
+        before.features[0].feature_uid.clone(),
+        before.behaviors[0].behavior_uid.clone(),
+        before.scenarios[0].scenario_uid.clone(),
+    );
+
+    let feature = apply_edit(
+        &runner,
+        &project,
+        &Edit::Feature {
+            uid: feature_uid.clone(),
+            id: Some("renamed-feature".into()),
+            label: None,
+            axis: None,
+        },
+    )
+    .await;
+    let behavior = apply_edit(
+        &runner,
+        &project,
+        &Edit::Behavior {
+            feature_uid: feature_uid.clone(),
+            uid: behavior_uid.clone(),
+            id: Some("renamed-behavior".into()),
+            label: None,
+            description: None,
+            axis: None,
+            procedures: None,
+        },
+    )
+    .await;
+    let scenario = apply_edit(
+        &runner,
+        &project,
+        &Edit::Scenario {
+            feature_uid: feature_uid.clone(),
+            behavior_uid: behavior_uid.clone(),
+            uid: scenario_uid.clone(),
+            id: Some("renamed-scenario".into()),
+            label: None,
+            description: None,
+            implementation_note: None,
+            phases: None,
+        },
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let refused = apply_edit(
+        &runner,
+        &project,
+        &Edit::Feature {
+            uid: feature_uid.clone(),
+            id: Some("Not A Slug".into()),
+            label: None,
+            axis: None,
+        },
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!((feature, behavior, scenario), (Ok(()), Ok(()), Ok(())));
+    assert_eq!(after.features[0].feature_id, "renamed-feature");
+    assert_eq!(after.features[0].feature_uid, feature_uid);
+    assert_eq!(after.behaviors[0].behavior_id, "renamed-behavior");
+    assert_eq!(after.behaviors[0].behavior_uid, behavior_uid);
+    assert_eq!(after.scenarios[0].scenario_id, "renamed-scenario");
+    assert_eq!(after.scenarios[0].scenario_uid, scenario_uid);
+    assert!(refused.is_err());
+}
+
+#[tokio::test]
+async fn the_means_of_a_case_is_declared_and_read_back_from_the_working_tree() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let t = read_traceability(&runner, &project).await.unwrap();
+    let case_uid = t.test_cases[0].case_uid.clone();
+
+    let first = set_binding(
+        &runner,
+        &project,
+        &case_uid,
+        "automated",
+        Some("tests/a.ts"),
+    )
+    .await;
+    let declared = read_bindings(&runner, &project).await.unwrap();
+    let second = set_binding(&runner, &project, &case_uid, "manual", None).await;
+    let replaced = read_bindings(&runner, &project).await.unwrap();
+    let refused = set_binding(&runner, &project, &case_uid, "robot", None).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!((first, second), (Ok(()), Ok(())));
+    let mine = |all: &[markharness_gui_lib::bindings::Binding]| {
+        all.iter()
+            .find(|b| b.case_uid == case_uid)
+            .map(|b| (b.mode.clone(), b.reference.clone()))
+    };
+    assert_eq!(
+        mine(&declared),
+        Some(("automated".to_string(), Some("tests/a.ts".to_string())))
+    );
+    assert_eq!(mine(&replaced), Some(("manual".to_string(), None)));
+    assert!(refused.is_err());
 }

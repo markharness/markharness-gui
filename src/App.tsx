@@ -7,12 +7,13 @@ import { RequirementDetail } from "./RequirementDetail";
 import { RequirementTable } from "./RequirementTable";
 import { buildRequirementRows } from "./rows";
 import { Toast } from "./Toast";
+import { unlinkedFeatures } from "./unlinked";
 import { useComparison } from "./useComparison";
 import { useProjectData } from "./useProjectData";
 
 export function App({ backend }: { backend: Backend }) {
   const data = useProjectData(backend);
-  const comparison = useComparison(backend, data.loaded);
+  const comparison = useComparison(backend, data.readOf);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
 
@@ -26,12 +27,14 @@ export function App({ backend }: { backend: Backend }) {
     data.descriptions,
     data.coverage,
   );
+  const unlinked = unlinkedFeatures(traceability);
   const picked = rows.find((r) => r.key === pickedKey);
   const caseView =
     picked?.requirementUid && pickedCaseUid
       ? describeCase(
           traceability,
           data.coverage,
+          data.bindings,
           picked.requirementUid,
           pickedCaseUid,
         )
@@ -58,6 +61,12 @@ export function App({ backend }: { backend: Backend }) {
         comparison={comparison}
         onReload={data.reload}
       />
+      {unlinked.length > 0 && (
+        <p className="unlinked">
+          要求に紐づかないFeatureが{unlinked.length}
+          件あります(一覧には表示されません): {unlinked.join("、")}
+        </p>
+      )}
       {data.notice && (
         <Toast message={data.notice} onDismiss={data.dismissNotice} />
       )}
@@ -83,14 +92,21 @@ export function App({ backend }: { backend: Backend }) {
             <CaseDetail
               view={caseView}
               backend={backend}
-              coverageLoading={data.coverageLoading}
+              binding={data.bindings?.find(
+                (b) => b.case_uid === caseView.case.caseUid,
+              )}
+              bindingsLoading={data.bindingsLoading}
+              onEdited={data.refreshTraceability}
+              onBindingEdited={data.refreshBindings}
             />
           ) : picked ? (
             <RequirementDetail
               row={picked}
+              backend={backend}
               coverageLoading={data.coverageLoading}
               onPickCase={setPickedCaseUid}
               onJump={pick}
+              onEdited={data.refreshTraceability}
             />
           ) : (
             <p className="placeholder">

@@ -1,3 +1,5 @@
+import type { Backend } from "./backend";
+import { ElementEditor } from "./ElementEditor";
 import { Card, ElementHeading, Section } from "./Section";
 import type { RequirementRow } from "./rows";
 import { sourceName } from "./sources";
@@ -30,14 +32,18 @@ function Links({
 /** The facts about one requirement, each under the name of the source that reports it. */
 export function RequirementDetail({
   row,
+  backend,
   coverageLoading,
   onPickCase,
   onJump,
+  onEdited,
 }: {
   row: RequirementRow;
+  backend: Backend;
   coverageLoading: boolean;
   onPickCase: (caseUid: string) => void;
   onJump: (key: string) => void;
+  onEdited: () => void;
 }) {
   const { strictdoc } = row;
   return (
@@ -55,6 +61,29 @@ export function RequirementDetail({
           id={row.requirementId ?? strictdoc?.uid ?? ""}
           level={2}
         />
+        {row.source === "native" && row.requirementUid && (
+          <ElementEditor
+            noun="要求"
+            id={row.requirementId ?? ""}
+            label={row.label}
+            load={async () => {
+              const detail = await backend.getElementDetail(
+                row.requirementUid ?? "",
+              );
+              return { axis: detail.axis, description: detail.description };
+            }}
+            toEdit={(values) => ({
+              kind: "requirement",
+              uid: row.requirementUid ?? "",
+              id: values.id,
+              label: values.label,
+              description: values.description,
+              axis: values.axis ?? [],
+            })}
+            backend={backend}
+            onEdited={onEdited}
+          />
+        )}
         {strictdoc?.statement && (
           <Section title="要求内容" badge="StrictDoc">
             <pre>{strictdoc.statement}</pre>
