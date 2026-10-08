@@ -21,12 +21,14 @@ pub struct NamedProcedure {
 pub enum Edit {
     Feature {
         uid: String,
+        id: Option<String>,
         label: Option<String>,
         axis: Option<Vec<String>>,
     },
     Behavior {
         feature_uid: String,
         uid: String,
+        id: Option<String>,
         label: Option<String>,
         description: Option<String>,
         axis: Option<Vec<String>>,
@@ -34,6 +36,7 @@ pub enum Edit {
     },
     Requirement {
         uid: String,
+        id: Option<String>,
         label: Option<String>,
         description: Option<String>,
         axis: Option<Vec<String>>,
@@ -42,6 +45,7 @@ pub enum Edit {
         feature_uid: String,
         behavior_uid: String,
         uid: String,
+        id: Option<String>,
         label: Option<String>,
         description: Option<String>,
         implementation_note: Option<String>,
@@ -71,8 +75,16 @@ pub fn intent_yaml(edit: &Edit) -> String {
         root.to_string(),
     ];
     match edit {
-        Edit::Feature { uid, label, axis } => {
+        Edit::Feature {
+            uid,
+            id,
+            label,
+            axis,
+        } => {
             lines.push(format!("  - uid: {}", scalar(uid)));
+            if let Some(id) = id {
+                lines.push(format!("    id: {}", scalar(id)));
+            }
             if let Some(label) = label {
                 lines.push(format!("    label: {}", scalar(label)));
             }
@@ -83,6 +95,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
         Edit::Behavior {
             feature_uid,
             uid,
+            id,
             label,
             description,
             axis,
@@ -91,6 +104,9 @@ pub fn intent_yaml(edit: &Edit) -> String {
             lines.push(format!("  - uid: {}", scalar(feature_uid)));
             lines.push("    behaviors:".to_string());
             lines.push(format!("      - uid: {}", scalar(uid)));
+            if let Some(id) = id {
+                lines.push(format!("        id: {}", scalar(id)));
+            }
             if let Some(label) = label {
                 lines.push(format!("        label: {}", scalar(label)));
             }
@@ -113,11 +129,15 @@ pub fn intent_yaml(edit: &Edit) -> String {
         }
         Edit::Requirement {
             uid,
+            id,
             label,
             description,
             axis,
         } => {
             lines.push(format!("  - uid: {}", scalar(uid)));
+            if let Some(id) = id {
+                lines.push(format!("    id: {}", scalar(id)));
+            }
             if let Some(label) = label {
                 lines.push(format!("    label: {}", scalar(label)));
             }
@@ -132,6 +152,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
             feature_uid,
             behavior_uid,
             uid,
+            id,
             label,
             description,
             implementation_note,
@@ -142,6 +163,9 @@ pub fn intent_yaml(edit: &Edit) -> String {
             lines.push(format!("      - uid: {}", scalar(behavior_uid)));
             lines.push("        scenarios:".to_string());
             lines.push(format!("          - uid: {}", scalar(uid)));
+            if let Some(id) = id {
+                lines.push(format!("            id: {}", scalar(id)));
+            }
             if let Some(label) = label {
                 lines.push(format!("            label: {}", scalar(label)));
             }
@@ -284,6 +308,7 @@ mod tests {
     fn feature_axis_is_sent_selected_by_uid() {
         let edit = Edit::Feature {
             uid: "01FEATURE".into(),
+            id: None,
             label: None,
             axis: Some(vec!["functional".into(), "ui".into()]),
         };
@@ -304,6 +329,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            id: None,
             label: None,
             description: Some("説明".into()),
             axis: Some(vec!["ui".into()]),
@@ -330,6 +356,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            id: None,
             label: None,
             description: Some("説明".into()),
             implementation_note: Some("メモ".into()),
@@ -356,6 +383,7 @@ mod tests {
     fn requirement_is_sent_under_requirements() {
         let edit = Edit::Requirement {
             uid: "01REQUIREMENT".into(),
+            id: None,
             label: None,
             description: Some("説明".into()),
             axis: Some(vec![]),
@@ -378,6 +406,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            id: None,
             label: None,
             description: None,
             axis: Some(vec!["ui".into()]),
@@ -396,6 +425,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            id: None,
             label: None,
             description: None,
             implementation_note: Some("a: \"b\"\nc # d".into()),
@@ -451,6 +481,7 @@ mod tests {
     fn feature_axis_edit() -> Edit {
         Edit::Feature {
             uid: "01FEATURE".into(),
+            id: None,
             label: None,
             axis: Some(vec!["ui".into()]),
         }
@@ -559,6 +590,7 @@ mod tests {
             Edit::Behavior {
                 feature_uid: "F".into(),
                 uid: "B".into(),
+                id: None,
                 label: None,
                 description: Some("説明".into()),
                 axis: None,
@@ -571,6 +603,7 @@ mod tests {
     fn feature_label_is_sent_before_the_axis() {
         let edit = Edit::Feature {
             uid: "01FEATURE".into(),
+            id: None,
             label: Some("a: b".into()),
             axis: Some(vec!["ui".into()]),
         };
@@ -592,6 +625,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            id: None,
             label: Some("名前".into()),
             description: Some("説明".into()),
             axis: None,
@@ -618,6 +652,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            id: None,
             label: Some("名前".into()),
             description: Some("説明".into()),
             implementation_note: None,
@@ -644,6 +679,7 @@ mod tests {
     fn requirement_label_is_sent_before_the_description() {
         let edit = Edit::Requirement {
             uid: "01REQUIREMENT".into(),
+            id: None,
             label: Some("名前".into()),
             description: Some("説明".into()),
             axis: None,
@@ -667,6 +703,7 @@ mod tests {
             feature_uid: "01FEATURE".into(),
             behavior_uid: "01BEHAVIOR".into(),
             uid: "01SCENARIO".into(),
+            id: None,
             label: None,
             description: None,
             implementation_note: None,
@@ -724,6 +761,7 @@ mod tests {
                 feature_uid: "F".into(),
                 behavior_uid: "B".into(),
                 uid: "S".into(),
+                id: None,
                 label: None,
                 description: None,
                 implementation_note: None,
@@ -743,6 +781,7 @@ mod tests {
         let edit = Edit::Behavior {
             feature_uid: "01FEATURE".into(),
             uid: "01BEHAVIOR".into(),
+            id: None,
             label: None,
             description: None,
             axis: None,
@@ -791,6 +830,7 @@ mod tests {
             Edit::Behavior {
                 feature_uid: "F".into(),
                 uid: "B".into(),
+                id: None,
                 label: None,
                 description: None,
                 axis: None,
@@ -800,5 +840,65 @@ mod tests {
                 }]),
             }
         );
+    }
+
+    #[test]
+    fn a_changed_id_is_sent_before_the_label_of_each_kind_of_element() {
+        let feature = Edit::Feature {
+            uid: "F".into(),
+            id: Some("new-feature".into()),
+            label: Some("名前".into()),
+            axis: None,
+        };
+        let behavior = Edit::Behavior {
+            feature_uid: "F".into(),
+            uid: "B".into(),
+            id: Some("new-behavior".into()),
+            label: None,
+            description: None,
+            axis: None,
+            procedures: None,
+        };
+        let scenario = Edit::Scenario {
+            feature_uid: "F".into(),
+            behavior_uid: "B".into(),
+            uid: "S".into(),
+            id: Some("new-scenario".into()),
+            label: Some("名前".into()),
+            description: None,
+            implementation_note: None,
+            phases: None,
+        };
+        let requirement = Edit::Requirement {
+            uid: "R".into(),
+            id: Some("new-requirement".into()),
+            label: Some("名前".into()),
+            description: None,
+            axis: None,
+        };
+
+        assert!(intent_yaml(&feature).ends_with(
+            "  - uid: \"F\"
+    id: \"new-feature\"
+    label: \"名前\"
+"
+        ));
+        assert!(intent_yaml(&behavior).ends_with(
+            "      - uid: \"B\"
+        id: \"new-behavior\"
+"
+        ));
+        assert!(intent_yaml(&scenario).ends_with(
+            "          - uid: \"S\"
+            id: \"new-scenario\"
+            label: \"名前\"
+"
+        ));
+        assert!(intent_yaml(&requirement).ends_with(
+            "  - uid: \"R\"
+    id: \"new-requirement\"
+    label: \"名前\"
+"
+        ));
     }
 }

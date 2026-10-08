@@ -255,6 +255,7 @@ async fn an_edit_is_written_and_the_generated_cases_follow_it() {
         behavior_uid: t.behaviors[0].behavior_uid.clone(),
         uid: t.scenarios[0].scenario_uid.clone(),
         // A label the core must quote to read it back (core issue #119).
+        id: None,
         label: Some("- 題: 編集".into()),
         description: Some("編集した説明".into()),
         implementation_note: None,
@@ -378,6 +379,7 @@ async fn a_behavior_is_edited_and_its_own_description_can_be_sent_back_as_read()
     let edit = |description: String, axis: Vec<String>| Edit::Behavior {
         feature_uid: feature_uid.clone(),
         uid: uid.clone(),
+        id: None,
         label: Some("新しい名前".into()),
         description: Some(description),
         axis: Some(axis),
@@ -423,6 +425,7 @@ async fn a_scenario_is_edited_and_its_note_can_be_set_but_not_emptied() {
         feature_uid: feature_uid.clone(),
         behavior_uid: behavior_uid.clone(),
         uid: uid.clone(),
+        id: None,
         label: Some("新しい名前".into()),
         description: Some("新しい説明".into()),
         implementation_note: Some(note.into()),
@@ -451,6 +454,7 @@ async fn a_native_requirement_is_edited_and_read_back() {
     let uid = t.requirements[0].requirement_uid.clone();
     let edit = Edit::Requirement {
         uid: uid.clone(),
+        id: None,
         label: Some("- 新しい要求: 名前".into()),
         description: Some("新しい説明".into()),
         axis: Some(vec!["workflow".into()]),
@@ -491,6 +495,7 @@ async fn the_phases_of_a_scenario_are_read_as_written_and_sent_back_whole() {
         feature_uid: feature_uid.clone(),
         behavior_uid: behavior_uid.clone(),
         uid: uid.clone(),
+        id: None,
         label: None,
         description: None,
         implementation_note: None,
@@ -581,19 +586,21 @@ async fn the_procedures_of_a_behavior_are_sent_back_whole_and_a_used_one_cannot_
     let edit = |procedures: Vec<NamedProcedure>| Edit::Behavior {
         feature_uid: feature_uid.clone(),
         uid: behavior_uid.clone(),
+        id: None,
         label: None,
         description: None,
         axis: None,
         procedures: Some(procedures),
     };
-    let named = |read: &std::collections::BTreeMap<String, markharness_gui_lib::detail::Procedure>| {
-        read.iter()
-            .map(|(name, p)| NamedProcedure {
-                name: name.clone(),
-                steps: p.steps.clone(),
-            })
-            .collect::<Vec<_>>()
-    };
+    let named =
+        |read: &std::collections::BTreeMap<String, markharness_gui_lib::detail::Procedure>| {
+            read.iter()
+                .map(|(name, p)| NamedProcedure {
+                    name: name.clone(),
+                    steps: p.steps.clone(),
+                })
+                .collect::<Vec<_>>()
+        };
 
     let before = read_element_detail(&runner, &project, &behavior_uid)
         .await
@@ -631,4 +638,80 @@ async fn the_procedures_of_a_behavior_are_sent_back_whole_and_a_used_one_cannot_
     assert_eq!(after["added"].steps, vec!["足した手順".to_string()]);
     assert!(dropped.unwrap_err().contains(&used));
     assert!(still_readable.is_ok());
+}
+
+#[tokio::test]
+async fn the_display_id_of_each_element_is_renamed_and_its_uid_stays() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid, scenario_uid) = (
+        before.features[0].feature_uid.clone(),
+        before.behaviors[0].behavior_uid.clone(),
+        before.scenarios[0].scenario_uid.clone(),
+    );
+
+    let feature = apply_edit(
+        &runner,
+        &project,
+        &Edit::Feature {
+            uid: feature_uid.clone(),
+            id: Some("renamed-feature".into()),
+            label: None,
+            axis: None,
+        },
+    )
+    .await;
+    let behavior = apply_edit(
+        &runner,
+        &project,
+        &Edit::Behavior {
+            feature_uid: feature_uid.clone(),
+            uid: behavior_uid.clone(),
+            id: Some("renamed-behavior".into()),
+            label: None,
+            description: None,
+            axis: None,
+            procedures: None,
+        },
+    )
+    .await;
+    let scenario = apply_edit(
+        &runner,
+        &project,
+        &Edit::Scenario {
+            feature_uid: feature_uid.clone(),
+            behavior_uid: behavior_uid.clone(),
+            uid: scenario_uid.clone(),
+            id: Some("renamed-scenario".into()),
+            label: None,
+            description: None,
+            implementation_note: None,
+            phases: None,
+        },
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let refused = apply_edit(
+        &runner,
+        &project,
+        &Edit::Feature {
+            uid: feature_uid.clone(),
+            id: Some("Not A Slug".into()),
+            label: None,
+            axis: None,
+        },
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    assert_eq!((feature, behavior, scenario), (Ok(()), Ok(()), Ok(())));
+    assert_eq!(after.features[0].feature_id, "renamed-feature");
+    assert_eq!(after.features[0].feature_uid, feature_uid);
+    assert_eq!(after.behaviors[0].behavior_id, "renamed-behavior");
+    assert_eq!(after.behaviors[0].behavior_uid, behavior_uid);
+    assert_eq!(after.scenarios[0].scenario_id, "renamed-scenario");
+    assert_eq!(after.scenarios[0].scenario_uid, scenario_uid);
+    assert!(refused.is_err());
 }
