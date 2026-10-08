@@ -21,6 +21,8 @@ export function App({ backend }: { backend: Backend }) {
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
   /** A feature picked without a case, which no case leads to. */
   const [pickedFeatureUid, setPickedFeatureUid] = useState<string>();
+  /** A scenario just created, whose case is picked once the core has generated it. */
+  const [pickedScenarioUid, setPickedScenarioUid] = useState<string>();
   /** A behavior picked without a case. */
   const [pickedBehaviorUid, setPickedBehaviorUid] = useState<string>();
 
@@ -36,14 +38,19 @@ export function App({ backend }: { backend: Backend }) {
   );
   const unlinked = unlinkedFeatures(traceability);
   const picked = rows.find((r) => r.key === pickedKey);
+  const newCaseUid = pickedScenarioUid
+    ? traceability.test_cases.find((c) => c.scenario_uid === pickedScenarioUid)
+        ?.case_uid
+    : undefined;
+  const shownCaseUid = pickedCaseUid ?? newCaseUid;
   const caseView =
-    picked?.requirementUid && pickedCaseUid
+    picked?.requirementUid && shownCaseUid
       ? describeCase(
           traceability,
           data.coverage,
           data.bindings,
           picked.requirementUid,
-          pickedCaseUid,
+          shownCaseUid,
         )
       : undefined;
   const pickedBehavior = traceability.behaviors.find(
@@ -59,6 +66,7 @@ export function App({ backend }: { backend: Backend }) {
     setPickedCaseUid(undefined);
     setPickedFeatureUid(undefined);
     setPickedBehaviorUid(undefined);
+    setPickedScenarioUid(undefined);
     document
       .getElementById(`row-${key}`)
       ?.scrollIntoView?.({ block: "center" });
@@ -68,17 +76,27 @@ export function App({ backend }: { backend: Backend }) {
     setPickedCaseUid(caseUid);
     setPickedFeatureUid(undefined);
     setPickedBehaviorUid(undefined);
+    setPickedScenarioUid(undefined);
   };
   const pickFeature = (featureUid: string) => {
     data.refreshTraceability();
     setPickedCaseUid(undefined);
     setPickedFeatureUid(featureUid);
     setPickedBehaviorUid(undefined);
+    setPickedScenarioUid(undefined);
   };
   const pickBehavior = (behaviorUid: string) => {
     data.refreshTraceability();
     setPickedCaseUid(undefined);
     setPickedBehaviorUid(behaviorUid);
+    setPickedScenarioUid(undefined);
+  };
+  const pickScenario = (scenarioUid: string) => {
+    data.refreshTraceability();
+    setPickedCaseUid(undefined);
+    setPickedFeatureUid(undefined);
+    setPickedBehaviorUid(undefined);
+    setPickedScenarioUid(scenarioUid);
   };
 
   return (
@@ -121,6 +139,7 @@ export function App({ backend }: { backend: Backend }) {
               setPickedCaseUid(undefined);
               setPickedFeatureUid(undefined);
               setPickedBehaviorUid(undefined);
+              setPickedScenarioUid(undefined);
             }}
           />
           <RequirementTable
@@ -132,7 +151,7 @@ export function App({ backend }: { backend: Backend }) {
             }
             showParents={data.strictdoc !== null}
             pickedKey={pickedKey}
-            pickedCaseUid={pickedCaseUid}
+            pickedCaseUid={shownCaseUid}
             onPick={pick}
             onPickCase={pickCase}
           />
@@ -151,6 +170,7 @@ export function App({ backend }: { backend: Backend }) {
               onBindingEdited={data.refreshBindings}
               onFeatureCreated={pickFeature}
               onBehaviorCreated={pickBehavior}
+              onScenarioCreated={pickScenario}
             />
           ) : picked && pickedFeature && pickedBehavior ? (
             <BehaviorDetail
@@ -169,6 +189,7 @@ export function App({ backend }: { backend: Backend }) {
                 label: pickedBehavior.label,
               }}
               backend={backend}
+              onScenarioCreated={pickScenario}
               onEdited={data.refreshTraceability}
             />
           ) : picked && pickedFeature ? (

@@ -1,6 +1,7 @@
 import type { Backend } from "./backend";
 import { BehaviorCard } from "./BehaviorCard";
 import { FeatureCard } from "./FeatureCard";
+import { ScenarioCreator } from "./ScenarioCreator";
 import { Card, ElementHeading } from "./Section";
 import type { RequirementRow } from "./rows";
 import { sourceName } from "./sources";
@@ -11,6 +12,7 @@ export function BehaviorDetail({
   feature,
   behavior,
   backend,
+  onScenarioCreated,
   onEdited,
 }: {
   row: RequirementRow;
@@ -23,6 +25,7 @@ export function BehaviorDetail({
     label: string | null;
   };
   backend: Backend;
+  onScenarioCreated: (scenarioUid: string) => void;
   onEdited: () => void;
 }) {
   return (
@@ -41,6 +44,12 @@ export function BehaviorDetail({
         backend={backend}
         onEdited={onEdited}
         onProceduresEdited={onEdited}
+      />
+      <ScenarioCreator
+        featureUid={behavior.featureUid}
+        behaviorUid={behavior.uid}
+        backend={backend}
+        onCreated={onScenarioCreated}
       />
     </>
   );

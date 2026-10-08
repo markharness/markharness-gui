@@ -769,6 +769,121 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("creates a scenario under a behavior and shows the case the core generated for it", async () => {
+    const created: unknown[] = [];
+    let extra = false;
+    const traceability = (): Traceability => ({
+      ...project.traceability,
+      features: [
+        ...project.traceability.features,
+        { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+      ],
+      behaviors: [
+        ...project.traceability.behaviors,
+        {
+          behavior_id: "b-new",
+          behavior_uid: "BN",
+          feature_id: "f-new",
+          feature_uid: "FN",
+          label: "New behavior",
+        },
+      ],
+      scenarios: extra
+        ? [
+            ...project.traceability.scenarios,
+            {
+              scenario_id: "s-new",
+              scenario_uid: "SN",
+              behavior_id: "b-new",
+              behavior_uid: "BN",
+              label: "New scenario",
+            },
+          ]
+        : project.traceability.scenarios,
+      test_cases: extra
+        ? [
+            ...project.traceability.test_cases,
+            { case_id: "tc-new", case_uid: "CN", scenario_uid: "SN" },
+          ]
+        : project.traceability.test_cases,
+      relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+    });
+    const backend = fakeBackend({
+      getTraceability: async () => traceability(),
+      createElement: async (create) => {
+        created.push(create);
+        extra = true;
+        return "SN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New behavior" }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "↓ Scenarioを追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Scenarioを追加",
+    });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "s-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New scenario" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("説明"), {
+      target: { value: "Does it." },
+    });
+    fireEvent.change(within(dialog).getByLabelText("手順1"), {
+      target: { value: "Press it." },
+    });
+    fireEvent.change(within(dialog).getByLabelText("期待結果1"), {
+      target: { value: "It shows." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "scenario",
+          feature_uid: "FN",
+          behavior_uid: "BN",
+          id: "s-new",
+          label: "New scenario",
+          description: "Does it.",
+          phases: [
+            { steps: [{ action: "Press it." }], results: ["It shows."] },
+          ],
+        },
+      ]),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Scenarioを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers to add a scenario under the behavior of a picked case too", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "↓ Scenarioを追加" }),
+    ).toBeInTheDocument();
+  });
+
   it("offers to add a behavior under the feature of a picked case too", async () => {
     render(<App backend={fakeBackend()} />);
     fireEvent.click(await screen.findByText("Login requirement"));

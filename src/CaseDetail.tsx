@@ -14,6 +14,7 @@ import { ElementEditor } from "./ElementEditor";
 import { PhasesEditor } from "./PhasesEditor";
 import { scenarioEdit } from "./edit";
 import { Card, ElementHeading, Section } from "./Section";
+import { ScenarioCreator } from "./ScenarioCreator";
 import { sourceName } from "./sources";
 import { VerificationEditor } from "./VerificationEditor";
 
@@ -30,6 +31,7 @@ export function CaseDetail({
   onBindingEdited,
   onFeatureCreated,
   onBehaviorCreated,
+  onScenarioCreated,
 }: {
   view: CaseView;
   backend: Backend;
@@ -40,6 +42,7 @@ export function CaseDetail({
   onBindingEdited: () => void;
   onFeatureCreated: (featureUid: string) => void;
   onBehaviorCreated: (behaviorUid: string) => void;
+  onScenarioCreated: (scenarioUid: string) => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
@@ -137,15 +140,23 @@ export function CaseDetail({
         </>
       )}
       {view.behavior && (
-        <BehaviorCard
-          behavior={view.behavior}
-          backend={backend}
-          onEdited={onEdited}
-          onProceduresEdited={() => {
-            read();
-            onEdited();
-          }}
-        />
+        <>
+          <BehaviorCard
+            behavior={view.behavior}
+            backend={backend}
+            onEdited={onEdited}
+            onProceduresEdited={() => {
+              read();
+              onEdited();
+            }}
+          />
+          <ScenarioCreator
+            featureUid={view.behavior.featureUid}
+            behaviorUid={view.behavior.uid}
+            backend={backend}
+            onCreated={onScenarioCreated}
+          />
+        </>
       )}
       <Card selected>
         <ElementHeading
