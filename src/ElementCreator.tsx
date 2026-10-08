@@ -3,6 +3,7 @@ import type { Axis, Backend } from "./backend";
 import type { Create } from "./edit";
 import { ElementEditForm } from "./ElementEditForm";
 import type { EditedValues } from "./ElementEditor";
+import { Modal } from "./Modal";
 
 /** The button that opens a form to create one element; the form starts empty. */
 export function ElementCreator({
@@ -33,27 +34,29 @@ export function ElementCreator({
 
   if (candidates) {
     return (
-      <ElementEditForm
-        noun={noun}
-        element={{ id: "", label: "", axis: [], description: "" }}
-        candidates={candidates}
-        save={async (values) => {
-          const uid = await backend.createElement(toCreate(values));
-          setCandidates(undefined);
-          onCreated(uid);
-        }}
-        unusedAxes={() => backend.getUnusedAxes()}
-        deleteUnusedAxes={async () => {
-          await backend.deleteUnusedAxes();
-          return backend.getAxes();
-        }}
-        addAxis={async (id, newLabel) => {
-          await backend.addAxis(id, newLabel === "" ? undefined : newLabel);
-          return backend.getAxes();
-        }}
-        onSaved={() => {}}
-        onCancel={() => setCandidates(undefined)}
-      />
+      <Modal title={`${noun}を追加`} onClose={() => setCandidates(undefined)}>
+        <ElementEditForm
+          noun={noun}
+          element={{ id: "", label: "", axis: [], description: "" }}
+          candidates={candidates}
+          save={async (values) => {
+            const uid = await backend.createElement(toCreate(values));
+            setCandidates(undefined);
+            onCreated(uid);
+          }}
+          unusedAxes={() => backend.getUnusedAxes()}
+          deleteUnusedAxes={async () => {
+            await backend.deleteUnusedAxes();
+            return backend.getAxes();
+          }}
+          addAxis={async (id, newLabel) => {
+            await backend.addAxis(id, newLabel === "" ? undefined : newLabel);
+            return backend.getAxes();
+          }}
+          onSaved={() => {}}
+          onCancel={() => setCandidates(undefined)}
+        />
+      </Modal>
     );
   }
   return (

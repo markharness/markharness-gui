@@ -1119,12 +1119,16 @@ describe("App comparison with a tag", () => {
     fireEvent.click(
       await within(pane).findByRole("button", { name: "Featureを編集" }),
     );
-    fireEvent.change(await within(pane).findByLabelText("ラベル"), {
+    const dialog = await screen.findByRole("dialog", { name: "Featureを編集" });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
       target: { value: "Log in" },
     });
-    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
 
     expect(await within(pane).findByText("Log in")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Featureを編集" }),
+    ).not.toBeInTheDocument();
     expect(edits).toEqual([
       { kind: "feature", uid: "F1", id: "f-1", label: "Log in", axis: ["ui"] },
     ]);

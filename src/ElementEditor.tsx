@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Axis, Backend } from "./backend";
 import type { Edit } from "./edit";
 import { ElementEditForm } from "./ElementEditForm";
+import { Modal } from "./Modal";
 
 /** What an element has to start an edit from; a field it does not have is left out. */
 export interface EditableDetail {
@@ -59,36 +60,38 @@ export function ElementEditor({
   if (editing) {
     const { detail, candidates } = editing;
     return (
-      <ElementEditForm
-        noun={noun}
-        element={{
-          id,
-          label,
-          ...(detail.axis !== undefined && { axis: detail.axis }),
-          ...(detail.description !== undefined && {
-            description: detail.description,
-          }),
-          ...(detail.implementationNote !== undefined && {
-            implementationNote: detail.implementationNote,
-          }),
-        }}
-        candidates={candidates}
-        save={(values) => backend.editKnowledge(toEdit(values, detail))}
-        unusedAxes={() => backend.getUnusedAxes()}
-        deleteUnusedAxes={async () => {
-          await backend.deleteUnusedAxes();
-          return backend.getAxes();
-        }}
-        addAxis={async (id, newLabel) => {
-          await backend.addAxis(id, newLabel === "" ? undefined : newLabel);
-          return backend.getAxes();
-        }}
-        onSaved={() => {
-          setEditing(undefined);
-          onEdited();
-        }}
-        onCancel={() => setEditing(undefined)}
-      />
+      <Modal title={`${noun}を編集`} onClose={() => setEditing(undefined)}>
+        <ElementEditForm
+          noun={noun}
+          element={{
+            id,
+            label,
+            ...(detail.axis !== undefined && { axis: detail.axis }),
+            ...(detail.description !== undefined && {
+              description: detail.description,
+            }),
+            ...(detail.implementationNote !== undefined && {
+              implementationNote: detail.implementationNote,
+            }),
+          }}
+          candidates={candidates}
+          save={(values) => backend.editKnowledge(toEdit(values, detail))}
+          unusedAxes={() => backend.getUnusedAxes()}
+          deleteUnusedAxes={async () => {
+            await backend.deleteUnusedAxes();
+            return backend.getAxes();
+          }}
+          addAxis={async (id, newLabel) => {
+            await backend.addAxis(id, newLabel === "" ? undefined : newLabel);
+            return backend.getAxes();
+          }}
+          onSaved={() => {
+            setEditing(undefined);
+            onEdited();
+          }}
+          onCancel={() => setEditing(undefined)}
+        />
+      </Modal>
     );
   }
   return (

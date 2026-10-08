@@ -583,3 +583,19 @@ tbody th[scope="row"] {
   margin: var(--space-2) 0;
   color: var(--text-muted);
 }
+
+.modal {
+  min-width: min(32rem, 90vw);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
