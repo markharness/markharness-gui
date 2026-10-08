@@ -58,6 +58,7 @@ export function App({ backend }: { backend: Backend }) {
     setPickedKey(key);
     setPickedCaseUid(undefined);
     setPickedFeatureUid(undefined);
+    setPickedBehaviorUid(undefined);
     document
       .getElementById(`row-${key}`)
       ?.scrollIntoView?.({ block: "center" });

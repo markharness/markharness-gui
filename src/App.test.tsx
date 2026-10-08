@@ -723,6 +723,52 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("goes back to the requirement when its row is clicked while a behavior with no case is shown", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        behaviors: [
+          ...project.traceability.behaviors,
+          {
+            behavior_id: "b-new",
+            behavior_uid: "BN",
+            feature_id: "f-new",
+            feature_uid: "FN",
+            label: "New behavior",
+          },
+        ],
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New behavior" }),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole("table")).getByText("Logout requirement"),
+    );
+
+    expect(
+      await within(pane).findByText("この要求のFeature"),
+    ).toBeInTheDocument();
+    expect(
+      within(pane).queryByRole("button", { name: "Behaviorを編集" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("offers to add a behavior under the feature of a picked case too", async () => {
     render(<App backend={fakeBackend()} />);
     fireEvent.click(await screen.findByText("Login requirement"));
