@@ -59,6 +59,20 @@ describe("ElementEditForm, for the common procedures of a behavior", () => {
     ).toHaveValue("Sign in.");
   });
 
+  it("saves the procedures as they are when nothing was changed", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
+
+    fireEvent.click(save());
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith([
+        { name: "seed", steps: ["Add a task.", "Complete it."] },
+        { name: "login", steps: ["Sign in."] },
+      ]),
+    );
+  });
+
   it("lays out each procedure like a phase of a scenario: a header, a heading for its steps, numbered rows", () => {
     renderEditor();
 

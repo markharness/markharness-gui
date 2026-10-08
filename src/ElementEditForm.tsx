@@ -56,7 +56,12 @@ export function ElementEditForm({
   );
   const [description, setDescription] = useState(element.description ?? "");
   const [error, setError] = useState<string>();
-  const [procedures, setProcedures] = useState<NamedProcedure[]>([]);
+  const [procedures, setProcedures] = useState<NamedProcedure[]>(() =>
+    Object.entries(element.procedures ?? {}).map(([name, p]) => ({
+      name,
+      steps: p.steps,
+    })),
+  );
   const [candidates, setCandidates] = useState(initialCandidates);
   const [newId, setNewId] = useState("");
   const [newLabel, setNewLabel] = useState("");
