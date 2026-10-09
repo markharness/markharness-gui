@@ -223,6 +223,18 @@ async fn edit_knowledge(
     edit::apply_edit(&runner, &config.project_root, &edit).await
 }
 
+/// Creates one element through the core, then regenerates the test cases; returns the new uid.
+#[tauri::command]
+async fn create_element(
+    config: tauri::State<'_, LaunchConfig>,
+    create: edit::Create,
+) -> Result<String, String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    edit::apply_create(&runner, &config.project_root, &create).await
+}
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let config = launch::resolve(&args, std::env::var("MARKHARNESS_BIN").ok().as_deref())
@@ -249,6 +261,7 @@ pub fn run() {
             get_unused_axes,
             delete_unused_axes,
             edit_knowledge,
+            create_element,
             get_bindings,
             set_binding
         ])

@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  Backend,
-  Binding,
-  CaseDetail as Detail,
-  ScenarioPhase,
-} from "./backend";
+import type { Backend, Binding, CaseDetail as Detail } from "./backend";
 import type { CaseView } from "./caseView";
-import { BehaviorProcedures } from "./BehaviorProcedures";
-import { ElementCard } from "./ElementCard";
+import { BehaviorCard } from "./BehaviorCard";
+import { BehaviorCreator } from "./BehaviorCreator";
 import { ElementEditor } from "./ElementEditor";
-import { PhasesEditor } from "./PhasesEditor";
-import { scenarioEdit } from "./edit";
+import { FeatureCard } from "./FeatureCard";
+import { FeatureCreator } from "./FeatureCreator";
 import { Card, ElementHeading, Section } from "./Section";
+import { ScenarioCreator } from "./ScenarioCreator";
+import { ScenarioEditor } from "./ScenarioEditor";
 import { sourceName } from "./sources";
 import { VerificationEditor } from "./VerificationEditor";
 
@@ -26,6 +23,9 @@ export function CaseDetail({
   bindingsLoading,
   onEdited,
   onBindingEdited,
+  onFeatureCreated,
+  onBehaviorCreated,
+  onScenarioCreated,
 }: {
   view: CaseView;
   backend: Backend;
@@ -34,32 +34,15 @@ export function CaseDetail({
   bindingsLoading: boolean;
   onEdited: () => void;
   onBindingEdited: () => void;
+  onFeatureCreated: (featureUid: string) => void;
+  onBehaviorCreated: (behaviorUid: string) => void;
+  onScenarioCreated: (scenarioUid: string) => void;
 }) {
   const [detail, setDetail] = useState<Detail>();
   const [error, setError] = useState<string>();
   const { case: picked } = view;
   const reads = useRef(0);
-  const [editingPhases, setEditingPhases] = useState<{
-    phases: ScenarioPhase[];
-    procedures: Record<string, { steps: string[] }>;
-  }>();
-  const [phasesError, setPhasesError] = useState<string>();
   const [editingVerification, setEditingVerification] = useState(false);
-
-  const editPhases = async () => {
-    try {
-      const [scenario, behavior] = await Promise.all([
-        backend.getScenarioDetail(picked.scenarioUid),
-        backend.getElementDetail(view.behavior?.uid ?? ""),
-      ]);
-      setEditingPhases({
-        phases: scenario.phases,
-        procedures: behavior.procedures,
-      });
-    } catch (reason) {
-      setPhasesError(String(reason));
-    }
-  };
 
   const read = useCallback(() => {
     const mine = ++reads.current;
@@ -111,59 +94,42 @@ export function CaseDetail({
           />
         )}
       </Card>
+      <FeatureCreator
+        requirementUid={view.requirement.uid}
+        backend={backend}
+        onCreated={onFeatureCreated}
+      />
       {view.feature && (
-        <ElementCard
-          noun="Feature"
-          element={view.feature}
-          load={async () => {
-            const detail = await backend.getElementDetail(
-              view.feature?.uid ?? "",
-            );
-            return { axis: detail.axis };
-          }}
-          toEdit={(values) => ({
-            kind: "feature",
-            uid: view.feature?.uid ?? "",
-            id: values.id,
-            label: values.label,
-            axis: values.axis ?? [],
-          })}
-          backend={backend}
-          onEdited={onEdited}
-        />
+        <>
+          <FeatureCard
+            feature={view.feature}
+            backend={backend}
+            onEdited={onEdited}
+          />
+          <BehaviorCreator
+            featureUid={view.feature.uid}
+            backend={backend}
+            onCreated={onBehaviorCreated}
+          />
+        </>
       )}
       {view.behavior && (
-        <ElementCard
-          noun="Behavior"
-          element={view.behavior}
-          load={async () => {
-            const detail = await backend.getElementDetail(
-              view.behavior?.uid ?? "",
-            );
-            return { axis: detail.axis, description: detail.description };
-          }}
-          toEdit={(values) => ({
-            kind: "behavior",
-            feature_uid: view.behavior?.featureUid ?? "",
-            uid: view.behavior?.uid ?? "",
-            id: values.id,
-            label: values.label,
-            description: values.description,
-            axis: values.axis ?? [],
-          })}
-          backend={backend}
-          onEdited={onEdited}
-        >
-          <BehaviorProcedures
-            featureUid={view.behavior.featureUid}
-            uid={view.behavior.uid}
+        <>
+          <BehaviorCard
+            behavior={view.behavior}
             backend={backend}
             onEdited={() => {
               read();
               onEdited();
             }}
           />
-        </ElementCard>
+          <ScenarioCreator
+            featureUid={view.behavior.featureUid}
+            behaviorUid={view.behavior.uid}
+            backend={backend}
+            onCreated={onScenarioCreated}
+          />
+        </>
       )}
       <Card selected>
         <ElementHeading
@@ -173,38 +139,6 @@ export function CaseDetail({
           id={picked.id}
           level={2}
         />
-        {view.feature && view.behavior && (
-          <ElementEditor
-            noun="Scenario"
-            id={picked.scenarioId}
-            label={picked.label}
-            load={async () => {
-              const detail = await backend.getScenarioDetail(
-                picked.scenarioUid,
-              );
-              return {
-                description: detail.description,
-                implementationNote: detail.implementation_note,
-              };
-            }}
-            toEdit={(values, detail) =>
-              scenarioEdit(
-                {
-                  featureUid: view.feature?.uid ?? "",
-                  behaviorUid: view.behavior?.uid ?? "",
-                  uid: picked.scenarioUid,
-                },
-                { implementationNote: detail.implementationNote ?? null },
-                values,
-              )
-            }
-            backend={backend}
-            onEdited={() => {
-              read();
-              onEdited();
-            }}
-          />
-        )}
         {error ? (
           <pre role="alert">{error}</pre>
         ) : !detail ? (
@@ -217,48 +151,32 @@ export function CaseDetail({
               </Section>
             )}
             <Section title="手順と期待結果" badge="markharness">
-              {editingPhases ? (
-                <PhasesEditor
-                  phases={editingPhases.phases}
-                  procedures={editingPhases.procedures}
-                  save={(phases) =>
-                    backend.editKnowledge({
-                      kind: "scenario",
-                      feature_uid: view.feature?.uid ?? "",
-                      behavior_uid: view.behavior?.uid ?? "",
-                      uid: picked.scenarioUid,
-                      phases,
-                    })
-                  }
-                  onSaved={() => {
-                    setEditingPhases(undefined);
-                    read();
-                    onEdited();
-                  }}
-                  onCancel={() => setEditingPhases(undefined)}
-                />
-              ) : (
-                <>
-                  {detail.phases.map((phase) => (
-                    <div key={phase.steps.join(" / ")}>
-                      <ul>
-                        {phase.steps.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ul>
-                      <p>→ {phase.results.join(" / ")}</p>
-                    </div>
-                  ))}
-                  {phasesError && <pre role="alert">{phasesError}</pre>}
-                  {view.feature && view.behavior && (
-                    <button type="button" onClick={editPhases}>
-                      手順を編集
-                    </button>
-                  )}
-                </>
-              )}
+              {detail.phases.map((phase) => (
+                <div key={phase.steps.join(" / ")}>
+                  <ul>
+                    {phase.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ul>
+                  <p>→ {phase.results.join(" / ")}</p>
+                </div>
+              ))}
             </Section>
           </>
+        )}
+        {view.feature && view.behavior && (
+          <ScenarioEditor
+            featureUid={view.feature.uid}
+            behaviorUid={view.behavior.uid}
+            uid={picked.scenarioUid}
+            id={picked.scenarioId}
+            label={picked.label}
+            backend={backend}
+            onEdited={() => {
+              read();
+              onEdited();
+            }}
+          />
         )}
         <Section title="検証方法" badge="markharness">
           {view.verification ? (

@@ -50,6 +50,53 @@ export interface RequirementEdit {
   axis: string[];
 }
 
+/** One new element, with the fields the core needs to create it; a blank description is left out. */
+export interface RequirementCreate {
+  kind: "requirement";
+  id: string;
+  label: string;
+  description?: string;
+  axis: string[];
+}
+
+/** A new feature, which contributes to the requirements whose uids are given. */
+export interface FeatureCreate {
+  kind: "feature";
+  id: string;
+  label: string;
+  contributes_to: string[];
+  axis: string[];
+}
+
+/** A new behavior of the feature whose uid is given; the core needs its description. */
+export interface BehaviorCreate {
+  kind: "behavior";
+  feature_uid: string;
+  id: string;
+  label: string;
+  description: string;
+  axis: string[];
+  procedures?: NamedProcedure[];
+}
+
+/** A new scenario of the behavior whose uid is given; the core needs a description and at least one phase. */
+export interface ScenarioCreate {
+  kind: "scenario";
+  feature_uid: string;
+  behavior_uid: string;
+  id: string;
+  label: string;
+  description: string;
+  implementation_note?: string;
+  phases: ScenarioPhase[];
+}
+
+export type Create =
+  | RequirementCreate
+  | FeatureCreate
+  | BehaviorCreate
+  | ScenarioCreate;
+
 export type Edit = FeatureEdit | BehaviorEdit | ScenarioEdit | RequirementEdit;
 
 /**
@@ -64,6 +111,7 @@ export function scenarioEdit(
     label: string;
     description?: string;
     implementationNote?: string;
+    phases?: ScenarioPhase[];
   },
 ): ScenarioEdit {
   const edit: ScenarioEdit = {
@@ -74,6 +122,7 @@ export function scenarioEdit(
     id: values.id,
     label: values.label,
     description: values.description,
+    ...(values.phases !== undefined && { phases: values.phases }),
   };
   const note = values.implementationNote;
   if (

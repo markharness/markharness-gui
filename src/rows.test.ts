@@ -343,4 +343,24 @@ describe("buildRequirementRows cases", () => {
 
     expect(ra.cases[0].belongsTo).toBe("Sign in › b-1");
   });
+  it("lists the features that contribute to a requirement, even those with no case yet", () => {
+    const fixture = project();
+    fixture.traceability.features = [
+      { feature_id: "f-new", feature_uid: "FN", label: null },
+      { feature_id: "f-other", feature_uid: "FO", label: "Other" },
+    ];
+    fixture.traceability.relations = [
+      { from_uid: "FN", to_uid: "RA", kind: "contributes_to" },
+      { from_uid: "FO", to_uid: "RB", kind: "contributes_to" },
+    ];
+
+    const rows = buildRequirementRows(fixture.traceability, null, {}, null);
+
+    expect(rows.find((r) => r.requirementUid === "RA")?.features).toEqual([
+      { uid: "FN", title: "f-new" },
+    ]);
+    expect(rows.find((r) => r.requirementUid === "RB")?.features).toEqual([
+      { uid: "FO", title: "Other" },
+    ]);
+  });
 });

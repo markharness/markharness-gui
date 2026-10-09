@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { NamedProcedure } from "./edit";
-import { ProceduresEditor } from "./ProceduresEditor";
+import { ElementEditForm } from "./ElementEditForm";
 
 const procedures = {
   seed: { steps: ["Add a task.", "Complete it."] },
@@ -22,9 +22,16 @@ function renderEditor(
   } = {},
 ) {
   return render(
-    <ProceduresEditor
-      procedures={procedures}
-      save={handlers.save ?? (async () => {})}
+    <ElementEditForm
+      noun="Behavior"
+      element={{ id: "b", label: "B", axis: [], procedures }}
+      candidates={[]}
+      save={(values) =>
+        (handlers.save ?? (async () => {}))(values.procedures ?? [])
+      }
+      addAxis={async () => []}
+      unusedAxes={async () => []}
+      deleteUnusedAxes={async () => []}
       onSaved={handlers.onSaved ?? (() => {})}
       onCancel={handlers.onCancel ?? (() => {})}
     />,
@@ -35,7 +42,7 @@ const procedure = (name: string) =>
   screen.getByRole("region", { name: `共通手順 ${name}` });
 const save = () => screen.getByRole("button", { name: "保存" });
 
-describe("ProceduresEditor", () => {
+describe("ElementEditForm, for the common procedures of a behavior", () => {
   it("shows each procedure by a name that cannot be edited, with its steps as rows", () => {
     renderEditor();
 
@@ -50,6 +57,31 @@ describe("ProceduresEditor", () => {
     expect(
       within(procedure("login")).getByRole("textbox", { name: "手順1" }),
     ).toHaveValue("Sign in.");
+  });
+
+  it("saves the procedures as they are when nothing was changed", async () => {
+    const onSave = vi.fn(async () => {});
+    renderEditor({ save: onSave });
+
+    fireEvent.click(save());
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith([
+        { name: "seed", steps: ["Add a task.", "Complete it."] },
+        { name: "login", steps: ["Sign in."] },
+      ]),
+    );
+  });
+
+  it("lays out each procedure like a phase of a scenario: a header, a heading for its steps, numbered rows", () => {
+    renderEditor();
+
+    const seed = procedure("seed");
+    expect(seed.closest(".phases-form")).not.toBeNull();
+    expect(
+      within(seed).getByRole("heading", { name: "手順" }),
+    ).toBeInTheDocument();
+    expect(within(seed).getAllByRole("listitem")).toHaveLength(2);
   });
 
   it("warns that every case calling a procedure changes with it", () => {
@@ -155,5 +187,30 @@ describe("ProceduresEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe("ElementEditForm without common procedures", () => {
+  it("shows no common procedures and sends none for an element that has none", async () => {
+    const onSave = vi.fn(async (_values: object) => {});
+    render(
+      <ElementEditForm
+        noun="Feature"
+        element={{ id: "f", label: "F", axis: [] }}
+        candidates={[]}
+        save={onSave}
+        addAxis={async () => []}
+        unusedAxes={async () => []}
+        deleteUnusedAxes={async () => []}
+        onSaved={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText("＋ 共通手順を追加")).not.toBeInTheDocument();
+    fireEvent.click(save());
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty("procedures");
   });
 });

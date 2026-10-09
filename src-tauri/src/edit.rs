@@ -53,6 +53,44 @@ pub enum Edit {
     },
 }
 
+/// One new element, which the core creates when it gets no `uid` for it.
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Create {
+    Requirement {
+        id: String,
+        label: String,
+        description: Option<String>,
+        axis: Vec<String>,
+    },
+    Feature {
+        id: String,
+        label: String,
+        /// The uids of the requirements the feature contributes to.
+        contributes_to: Vec<String>,
+        axis: Vec<String>,
+    },
+    Behavior {
+        feature_uid: String,
+        id: String,
+        label: String,
+        /// The core requires a description when it creates a behavior.
+        description: String,
+        axis: Vec<String>,
+        /// The common procedures the behavior declares; none leaves it without any.
+        procedures: Option<Vec<NamedProcedure>>,
+    },
+    Scenario {
+        feature_uid: String,
+        behavior_uid: String,
+        id: String,
+        label: String,
+        description: String,
+        implementation_note: Option<String>,
+        phases: Vec<ScenarioPhase>,
+    },
+}
+
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
 fn scalar(value: &str) -> String {
     serde_json::to_string(value).expect("a string always serializes")
@@ -61,6 +99,120 @@ fn scalar(value: &str) -> String {
 fn list(values: &[String]) -> String {
     let items: Vec<String> = values.iter().map(|v| scalar(v)).collect();
     format!("[{}]", items.join(", "))
+}
+
+/// The common procedures of a behavior, written under a behavior whose fields sit at eight spaces.
+fn push_procedures(lines: &mut Vec<String>, procedures: &[NamedProcedure]) {
+    lines.push("        procedures:".to_string());
+    for procedure in procedures {
+        lines.push(format!("          - name: {}", scalar(&procedure.name)));
+        lines.push("            steps:".to_string());
+        for step in &procedure.steps {
+            lines.push(format!("              - {}", scalar(step)));
+        }
+    }
+}
+
+/// The phases of a scenario, written under a scenario whose fields sit at twelve spaces.
+fn push_phases(lines: &mut Vec<String>, phases: &[ScenarioPhase]) {
+    lines.push("            phases:".to_string());
+    for phase in phases {
+        lines.push("              - steps:".to_string());
+        for step in &phase.steps {
+            lines.push(match step {
+                ScenarioStep::Action(text) => {
+                    format!("                  - action: {}", scalar(text))
+                }
+                ScenarioStep::Use(name) => {
+                    format!("                  - use: {}", scalar(name))
+                }
+            });
+        }
+        lines.push("                results:".to_string());
+        for result in &phase.results {
+            lines.push(format!("                  - {}", scalar(result)));
+        }
+    }
+}
+
+pub fn create_intent_yaml(create: &Create) -> String {
+    let mut lines = vec![
+        "format: markharness/knowledge-intent/v1".to_string(),
+        "mode: merge".to_string(),
+        String::new(),
+    ];
+    match create {
+        Create::Requirement {
+            id,
+            label,
+            description,
+            axis,
+        } => {
+            lines.push("requirements:".to_string());
+            lines.push(format!("  - id: {}", scalar(id)));
+            lines.push("    source: native".to_string());
+            lines.push(format!("    label: {}", scalar(label)));
+            if let Some(description) = description {
+                lines.push(format!("    description: {}", scalar(description)));
+            }
+            lines.push(format!("    axis: {}", list(axis)));
+        }
+        Create::Feature {
+            id,
+            label,
+            contributes_to,
+            axis,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - id: {}", scalar(id)));
+            lines.push(format!("    contributes_to: {}", list(contributes_to)));
+            lines.push(format!("    label: {}", scalar(label)));
+            lines.push(format!("    axis: {}", list(axis)));
+        }
+        Create::Behavior {
+            feature_uid,
+            id,
+            label,
+            description,
+            axis,
+            procedures,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - uid: {}", scalar(feature_uid)));
+            lines.push("    behaviors:".to_string());
+            lines.push(format!("      - id: {}", scalar(id)));
+            lines.push(format!("        label: {}", scalar(label)));
+            lines.push(format!("        description: {}", scalar(description)));
+            lines.push(format!("        axis: {}", list(axis)));
+            if let Some(procedures) = procedures {
+                push_procedures(&mut lines, procedures);
+            }
+        }
+        Create::Scenario {
+            feature_uid,
+            behavior_uid,
+            id,
+            label,
+            description,
+            implementation_note,
+            phases,
+        } => {
+            lines.push("features:".to_string());
+            lines.push(format!("  - uid: {}", scalar(feature_uid)));
+            lines.push("    behaviors:".to_string());
+            lines.push(format!("      - uid: {}", scalar(behavior_uid)));
+            lines.push("        scenarios:".to_string());
+            lines.push(format!("          - id: {}", scalar(id)));
+            lines.push(format!("            label: {}", scalar(label)));
+            lines.push(format!("            description: {}", scalar(description)));
+            if let Some(note) = implementation_note {
+                lines.push(format!("            implementation_note: {}", scalar(note)));
+            }
+            push_phases(&mut lines, phases);
+        }
+    }
+    lines.push(String::new());
+    lines.join("\n")
 }
 
 pub fn intent_yaml(edit: &Edit) -> String {
@@ -117,14 +269,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
                 lines.push(format!("        axis: {}", list(axis)));
             }
             if let Some(procedures) = procedures {
-                lines.push("        procedures:".to_string());
-                for procedure in procedures {
-                    lines.push(format!("          - name: {}", scalar(&procedure.name)));
-                    lines.push("            steps:".to_string());
-                    for step in &procedure.steps {
-                        lines.push(format!("              - {}", scalar(step)));
-                    }
-                }
+                push_procedures(&mut lines, procedures);
             }
         }
         Edit::Requirement {
@@ -176,24 +321,7 @@ pub fn intent_yaml(edit: &Edit) -> String {
                 lines.push(format!("            implementation_note: {}", scalar(note)));
             }
             if let Some(phases) = phases {
-                lines.push("            phases:".to_string());
-                for phase in phases {
-                    lines.push("              - steps:".to_string());
-                    for step in &phase.steps {
-                        lines.push(match step {
-                            ScenarioStep::Action(text) => {
-                                format!("                  - action: {}", scalar(text))
-                            }
-                            ScenarioStep::Use(name) => {
-                                format!("                  - use: {}", scalar(name))
-                            }
-                        });
-                    }
-                    lines.push("                results:".to_string());
-                    for result in &phase.results {
-                        lines.push(format!("                  - {}", scalar(result)));
-                    }
-                }
+                push_phases(&mut lines, phases);
             }
         }
     }
@@ -272,7 +400,32 @@ pub async fn apply_edit(
     project_root: &Path,
     edit: &Edit,
 ) -> Result<(), String> {
-    let output = writer.reconcile(project_root, &intent_yaml(edit)).await?;
+    reconcile_and_generate(writer, project_root, &intent_yaml(edit)).await?;
+    Ok(())
+}
+
+/// Creates the element through the core and returns the uid it gave, with the failures reported as
+/// `apply_edit` does.
+pub async fn apply_create(
+    writer: &impl KnowledgeWriter,
+    project_root: &Path,
+    create: &Create,
+) -> Result<String, String> {
+    let reply = reconcile_and_generate(writer, project_root, &create_intent_yaml(create)).await?;
+    reply
+        .created
+        .into_iter()
+        .next()
+        .map(|created| created.uid)
+        .ok_or_else(|| "the core created nothing".to_string())
+}
+
+async fn reconcile_and_generate(
+    writer: &impl KnowledgeWriter,
+    project_root: &Path,
+    intent_yaml: &str,
+) -> Result<ReconcileReply, String> {
+    let output = writer.reconcile(project_root, intent_yaml).await?;
     let Ok(reply) = serde_json::from_str::<ReconcileReply>(&output.stdout) else {
         return Err(output.stderr);
     };
@@ -288,7 +441,7 @@ pub async fn apply_edit(
     if generated.exit_code != Some(0) {
         return Err(generated.stderr);
     }
-    Ok(())
+    Ok(reply)
 }
 
 #[derive(Deserialize)]
@@ -296,6 +449,13 @@ struct ReconcileReply {
     ok: bool,
     #[serde(default)]
     diagnostics: Vec<Diagnostic>,
+    #[serde(default)]
+    created: Vec<Created>,
+}
+
+#[derive(Deserialize)]
+struct Created {
+    uid: String,
 }
 
 #[cfg(test)]
@@ -900,5 +1060,216 @@ mod tests {
     label: \"名前\"
 "
         ));
+    }
+
+    #[test]
+    fn a_new_requirement_is_sent_without_a_uid_so_the_core_creates_it() {
+        let create = Create::Requirement {
+            id: "new-requirement".into(),
+            label: "新しい要求".into(),
+            description: Some("説明".into()),
+            axis: vec!["ui".into()],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "requirements:",
+                "  - id: \"new-requirement\"",
+                "    source: native",
+                "    label: \"新しい要求\"",
+                "    description: \"説明\"",
+                "    axis: [\"ui\"]",
+                "",
+            ]
+            .join("\n")
+        );
+    }
+
+    #[test]
+    fn a_new_requirement_without_a_description_leaves_it_out() {
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        assert!(!create_intent_yaml(&create).contains("description"));
+    }
+
+    #[tokio::test]
+    async fn creating_returns_the_uid_the_core_gave_and_generates_once() {
+        let writer = FakeWriter::replying(
+            0,
+            r#"{"ok":true,"created":[{"kind":"requirement","uid":"01NEW","id":"r","path":"p"}],"updated":[],"unchanged":[]}"#,
+        );
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        let uid = apply_create(&writer, Path::new("."), &create).await;
+
+        assert_eq!(uid, Ok("01NEW".to_string()));
+        assert_eq!(*writer.generated.lock().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_refused_creation_returns_the_diagnostics_as_they_are_and_does_not_generate() {
+        let writer = FakeWriter::replying(
+            2,
+            r#"{"ok":false,"diagnostics":[{"code":"ambiguous_identity","location":"requirements[0]","message":"already exists"}]}"#,
+        );
+        let create = Create::Requirement {
+            id: "r".into(),
+            label: "名前".into(),
+            description: None,
+            axis: vec![],
+        };
+
+        let result = apply_create(&writer, Path::new("."), &create).await;
+
+        assert_eq!(result, Err("requirements[0]: already exists".to_string()));
+        assert_eq!(*writer.generated.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn a_new_feature_names_the_requirements_it_contributes_to_by_uid() {
+        let create = Create::Feature {
+            id: "new-feature".into(),
+            label: "新しい機能".into(),
+            contributes_to: vec!["01REQ".into(), "01REQ2".into()],
+            axis: vec![],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - id: \"new-feature\"",
+                "    contributes_to: [\"01REQ\", \"01REQ2\"]",
+                "    label: \"新しい機能\"",
+                "    axis: []",
+                "",
+            ]
+            .join("\n")
+        );
+    }
+
+    #[test]
+    fn a_new_behavior_is_sent_under_its_feature_with_a_description() {
+        let create = Create::Behavior {
+            feature_uid: "01FEATURE".into(),
+            id: "new-behavior".into(),
+            label: "新しい振る舞い".into(),
+            description: "説明".into(),
+            axis: vec!["ui".into()],
+            procedures: None,
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - uid: \"01FEATURE\"",
+                "    behaviors:",
+                "      - id: \"new-behavior\"",
+                "        label: \"新しい振る舞い\"",
+                "        description: \"説明\"",
+                "        axis: [\"ui\"]",
+                "",
+            ]
+            .join("\n")
+        );
+    }
+
+    #[test]
+    fn a_new_behavior_can_declare_common_procedures() {
+        let create = Create::Behavior {
+            feature_uid: "01FEATURE".into(),
+            id: "b".into(),
+            label: "名前".into(),
+            description: "説明".into(),
+            axis: vec![],
+            procedures: Some(vec![NamedProcedure {
+                name: "seed".into(),
+                steps: vec!["開く".into()],
+            }]),
+        };
+
+        assert!(create_intent_yaml(&create).ends_with(
+            &[
+                "        axis: []",
+                "        procedures:",
+                "          - name: \"seed\"",
+                "            steps:",
+                "              - \"開く\"",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        ));
+    }
+
+    #[test]
+    fn a_new_scenario_is_sent_under_its_feature_and_behavior_with_its_phases() {
+        let create = Create::Scenario {
+            feature_uid: "01FEATURE".into(),
+            behavior_uid: "01BEHAVIOR".into(),
+            id: "new-scenario".into(),
+            label: "新しいシナリオ".into(),
+            description: "説明".into(),
+            implementation_note: Some("メモ".into()),
+            phases: vec![ScenarioPhase {
+                steps: vec![
+                    ScenarioStep::Use("seed".into()),
+                    ScenarioStep::Action("押す".into()),
+                ],
+                results: vec!["出る".into()],
+            }],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "features:",
+                "  - uid: \"01FEATURE\"",
+                "    behaviors:",
+                "      - uid: \"01BEHAVIOR\"",
+                "        scenarios:",
+                "          - id: \"new-scenario\"",
+                "            label: \"新しいシナリオ\"",
+                "            description: \"説明\"",
+                "            implementation_note: \"メモ\"",
+                "            phases:",
+                "              - steps:",
+                "                  - use: \"seed\"",
+                "                  - action: \"押す\"",
+                "                results:",
+                "                  - \"出る\"",
+                "",
+            ]
+            .join(
+                "
+"
+            )
+        );
     }
 }

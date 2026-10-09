@@ -103,6 +103,7 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
         ),
       ),
     setBinding: async () => {},
+    createElement: async () => "",
     getTags: async () => [],
     getImpact: async () => ({ requirements: [] }),
     getStrictDoc: async () => null,
@@ -467,6 +468,450 @@ describe("App", () => {
     expect(await within(pane).findByText("手動(参照)")).toBeInTheDocument();
     expect(within(pane).getByText(/docs\/check\.md/)).toBeInTheDocument();
     expect(within(pane).queryByLabelText("方法")).not.toBeInTheDocument();
+  });
+
+  it("creates a requirement from above the list and shows it picked once the core has it", async () => {
+    const created: unknown[] = [];
+    let traceability = project.traceability;
+    const backend = fakeBackend({
+      getTraceability: async () => traceability,
+      createElement: async (create) => {
+        created.push(create);
+        traceability = {
+          ...traceability,
+          requirements: [
+            ...traceability.requirements,
+            {
+              requirement_id: "req-new",
+              requirement_uid: "RN",
+              source: "native",
+              label: "New requirement",
+              case_uids: [],
+            },
+          ],
+        };
+        return "RN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "＋ 要求を追加" }),
+    );
+
+    fireEvent.change(await screen.findByLabelText("ID"), {
+      target: { value: "req-new" },
+    });
+    fireEvent.change(screen.getByLabelText("ラベル"), {
+      target: { value: "New requirement" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "requirement",
+          id: "req-new",
+          label: "New requirement",
+          axis: [],
+        },
+      ]),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(
+      await within(pane).findByText("New requirement"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("ラベル")).not.toBeInTheDocument();
+  });
+
+  it("creates a feature under the picked requirement and shows it picked, though it has no case yet", async () => {
+    const created: unknown[] = [];
+    let traceability = project.traceability;
+    const backend = fakeBackend({
+      getTraceability: async () => traceability,
+      createElement: async (create) => {
+        created.push(create);
+        traceability = {
+          ...traceability,
+          features: [
+            ...traceability.features,
+            { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+          ],
+          relations: [
+            ...traceability.relations,
+            { from_uid: "FN", to_uid: "R2", kind: "contributes_to" },
+          ],
+        };
+        return "FN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(
+      within(pane).getByRole("button", { name: "↓ Featureを追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Featureを追加" });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "f-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New feature" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "feature",
+          id: "f-new",
+          label: "New feature",
+          contributes_to: ["R2"],
+          axis: [],
+        },
+      ]),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    ).toBeInTheDocument();
+    expect(within(pane).getByText("New feature")).toBeInTheDocument();
+  });
+
+  it("reaches a feature that has no case from the requirement it contributes to", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+
+    fireEvent.click(within(pane).getByRole("button", { name: "New feature" }));
+
+    expect(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers to add a feature under the requirement of a picked case too", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "↓ Featureを追加" }),
+    ).toBeInTheDocument();
+  });
+
+  it("creates a behavior under a feature that has none yet, and shows it picked", async () => {
+    const created: unknown[] = [];
+    let behaviors = project.traceability.behaviors;
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        behaviors,
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+      createElement: async (create) => {
+        created.push(create);
+        behaviors = [
+          ...behaviors,
+          {
+            behavior_id: "b-new",
+            behavior_uid: "BN",
+            feature_id: "f-new",
+            feature_uid: "FN",
+            label: "New behavior",
+          },
+        ];
+        return "BN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "↓ Behaviorを追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Behaviorを追加",
+    });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "b-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New behavior" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("説明"), {
+      target: { value: "Does it." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "behavior",
+          feature_uid: "FN",
+          id: "b-new",
+          label: "New behavior",
+          description: "Does it.",
+          axis: [],
+        },
+      ]),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reaches a behavior that has no case from its feature", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        behaviors: [
+          ...project.traceability.behaviors,
+          {
+            behavior_id: "b-new",
+            behavior_uid: "BN",
+            feature_id: "f-new",
+            feature_uid: "FN",
+            label: "New behavior",
+          },
+        ],
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New behavior" }),
+    );
+
+    expect(
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("goes back to the requirement when its row is clicked while a behavior with no case is shown", async () => {
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+        ],
+        behaviors: [
+          ...project.traceability.behaviors,
+          {
+            behavior_id: "b-new",
+            behavior_uid: "BN",
+            feature_id: "f-new",
+            feature_uid: "FN",
+            label: "New behavior",
+          },
+        ],
+        relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New behavior" }),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole("table")).getByText("Logout requirement"),
+    );
+
+    expect(
+      await within(pane).findByText("この要求のFeature"),
+    ).toBeInTheDocument();
+    expect(
+      within(pane).queryByRole("button", { name: "Behaviorを編集" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("creates a scenario under a behavior and shows the case the core generated for it", async () => {
+    const created: unknown[] = [];
+    let extra = false;
+    const traceability = (): Traceability => ({
+      ...project.traceability,
+      features: [
+        ...project.traceability.features,
+        { feature_id: "f-new", feature_uid: "FN", label: "New feature" },
+      ],
+      behaviors: [
+        ...project.traceability.behaviors,
+        {
+          behavior_id: "b-new",
+          behavior_uid: "BN",
+          feature_id: "f-new",
+          feature_uid: "FN",
+          label: "New behavior",
+        },
+      ],
+      scenarios: extra
+        ? [
+            ...project.traceability.scenarios,
+            {
+              scenario_id: "s-new",
+              scenario_uid: "SN",
+              behavior_id: "b-new",
+              behavior_uid: "BN",
+              label: "New scenario",
+            },
+          ]
+        : project.traceability.scenarios,
+      test_cases: extra
+        ? [
+            ...project.traceability.test_cases,
+            { case_id: "tc-new", case_uid: "CN", scenario_uid: "SN" },
+          ]
+        : project.traceability.test_cases,
+      relations: [{ from_uid: "FN", to_uid: "R2", kind: "contributes_to" }],
+    });
+    const backend = fakeBackend({
+      getTraceability: async () => traceability(),
+      createElement: async (create) => {
+        created.push(create);
+        extra = true;
+        return "SN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Logout requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New feature" }),
+    );
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "New behavior" }),
+    );
+
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "↓ Scenarioを追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Scenarioを追加",
+    });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "s-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New scenario" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("説明"), {
+      target: { value: "Does it." },
+    });
+    fireEvent.change(within(dialog).getByLabelText("手順1"), {
+      target: { value: "Press it." },
+    });
+    fireEvent.change(within(dialog).getByLabelText("期待結果1"), {
+      target: { value: "It shows." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "scenario",
+          feature_uid: "FN",
+          behavior_uid: "BN",
+          id: "s-new",
+          label: "New scenario",
+          description: "Does it.",
+          phases: [
+            { steps: [{ action: "Press it." }], results: ["It shows."] },
+          ],
+        },
+      ]),
+    );
+    expect(
+      await within(pane).findByRole("button", { name: "Scenarioを編集" }),
+    ).toBeInTheDocument();
+  });
+
+  it("puts the button that edits the scenario below its steps and results", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    const steps = await screen.findByText("手順と期待結果");
+    const edit = screen.getByRole("button", { name: "Scenarioを編集" });
+
+    expect(
+      steps.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers to add a scenario under the behavior of a picked case too", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "↓ Scenarioを追加" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers to add a behavior under the feature of a picked case too", async () => {
+    render(<App backend={fakeBackend()} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "詳細" })).getByRole(
+        "button",
+        { name: /Log in with a password/ },
+      ),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "↓ Behaviorを追加" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the table and says why the detail of a case could not be read", async () => {
@@ -1065,12 +1510,16 @@ describe("App comparison with a tag", () => {
     fireEvent.click(
       await within(pane).findByRole("button", { name: "Featureを編集" }),
     );
-    fireEvent.change(await within(pane).findByLabelText("ラベル"), {
+    const dialog = await screen.findByRole("dialog", { name: "Featureを編集" });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
       target: { value: "Log in" },
     });
-    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
 
     expect(await within(pane).findByText("Log in")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Featureを編集" }),
+    ).not.toBeInTheDocument();
     expect(edits).toEqual([
       { kind: "feature", uid: "F1", id: "f-1", label: "Log in", axis: ["ui"] },
     ]);
@@ -1287,7 +1736,7 @@ describe("App comparison with a tag", () => {
     ]);
   });
 
-  it("edits the scenario of a case, and shows the description and the label the core now has", async () => {
+  it("edits the scenario of a case as one form, fields and phases, and shows the description and the label the core now has", async () => {
     let label = "Log in with a password";
     let description = "Rejects a wrong password.";
     const edits: unknown[] = [];
@@ -1308,7 +1757,7 @@ describe("App comparison with a tag", () => {
       getScenarioDetail: async () => ({
         description,
         implementation_note: null,
-        phases: [],
+        phases: [{ steps: [{ action: "Open." }], results: ["Shown."] }],
       }),
       editKnowledge: async (edit) => {
         edits.push(edit);
@@ -1339,6 +1788,9 @@ describe("App comparison with a tag", () => {
     fireEvent.change(within(pane).getByLabelText("説明"), {
       target: { value: "Shows an error." },
     });
+    fireEvent.change(within(pane).getByLabelText("手順1"), {
+      target: { value: "Press it." },
+    });
     fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
@@ -1356,6 +1808,7 @@ describe("App comparison with a tag", () => {
         id: "sc-1",
         label: "Log in with a wrong password",
         description: "Shows an error.",
+        phases: [{ steps: [{ action: "Press it." }], results: ["Shown."] }],
       },
     ]);
   });
@@ -1520,7 +1973,7 @@ describe("App comparison with a tag", () => {
     expect(screen.queryByText(/要求に紐づかない/)).not.toBeInTheDocument();
   });
 
-  it("edits the common procedures of the behavior of a case, apart from its label and description", async () => {
+  it("edits the common procedures of the behavior of a case in the same form as its fields", async () => {
     const edits: unknown[] = [];
     const backend = fakeBackend({
       getElementDetail: async () => ({
@@ -1541,91 +1994,31 @@ describe("App comparison with a tag", () => {
     const pane = screen.getByRole("complementary", { name: "詳細" });
 
     fireEvent.click(
-      await within(pane).findByRole("button", { name: "共通手順を編集" }),
+      await within(pane).findByRole("button", { name: "Behaviorを編集" }),
     );
-    fireEvent.change(await within(pane).findByLabelText("手順1"), {
+    const dialog = await screen.findByRole("dialog", {
+      name: "Behaviorを編集",
+    });
+    fireEvent.change(within(dialog).getByLabelText("手順1"), {
       target: { value: "Add two tasks." },
     });
-    fireEvent.click(
-      within(
-        within(pane).getByRole("group", { name: "共通手順の保存とキャンセル" }),
-      ).getByRole("button", { name: "保存" }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(edits).toHaveLength(1));
     expect(edits[0]).toEqual({
       kind: "behavior",
       feature_uid: "F1",
       uid: "B",
+      id: "b-1",
+      label: "Password check",
+      description: "Checks.",
+      axis: [],
       procedures: [{ name: "seed", steps: ["Add two tasks."] }],
     });
     await waitFor(() =>
-      expect(within(pane).queryByLabelText("手順1")).not.toBeInTheDocument(),
-    );
-  });
-
-  it("edits the steps and results of the scenario of a case, apart from its label and description", async () => {
-    const phases = [
-      { steps: [{ use: "seed" }, { action: "Click." }], results: ["Shown."] },
-    ];
-    const edits: unknown[] = [];
-    const backend = fakeBackend({
-      getCaseDetail: async () => ({
-        description: "Rejects.",
-        phases: [{ steps: ["Add a task.", "Click."], results: ["Shown."] }],
-      }),
-      getScenarioDetail: async () => ({
-        description: "Rejects.",
-        implementation_note: null,
-        phases,
-      }),
-      getElementDetail: async () => ({
-        axis: [],
-        description: "Checks.",
-        procedures: { seed: { steps: ["Add a task."] } },
-      }),
-      editKnowledge: async (edit) => {
-        edits.push(edit);
-      },
-    });
-    render(<App backend={backend} />);
-    const row = (await screen.findByText("Login requirement")).closest("tr");
-    if (!row) throw new Error("not inside a table row");
-    fireEvent.click(
-      within(row).getByRole("button", { name: "Log in with a password" }),
-    );
-    const pane = screen.getByRole("complementary", { name: "詳細" });
-
-    fireEvent.click(
-      await within(pane).findByRole("button", { name: "手順を編集" }),
-    );
-    const step = await within(pane).findByLabelText("手順2");
-    expect(step).toHaveValue("Click.");
-    expect(within(pane).getByLabelText("手順1")).toHaveValue("seed");
-    fireEvent.change(step, { target: { value: "Press it." } });
-    fireEvent.click(
-      within(
-        within(pane).getByRole("group", {
-          name: "手順と期待結果の保存とキャンセル",
-        }),
-      ).getByRole("button", { name: "保存" }),
-    );
-
-    await waitFor(() => expect(edits).toHaveLength(1));
-    expect(edits[0]).toEqual({
-      kind: "scenario",
-      feature_uid: "F1",
-      behavior_uid: "B",
-      uid: "S1",
-      phases: [
-        {
-          steps: [{ use: "seed" }, { action: "Press it." }],
-          results: ["Shown."],
-        },
-      ],
-    });
-    await waitFor(() =>
-      expect(within(pane).queryByLabelText("手順2")).not.toBeInTheDocument(),
+      expect(
+        screen.queryByRole("dialog", { name: "Behaviorを編集" }),
+      ).not.toBeInTheDocument(),
     );
   });
 });

@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { NamedProcedure } from "./edit";
-import { ignoreEnterInOneLineFields } from "./ignoreEnter";
 
 interface StepRow {
   id: number;
@@ -15,19 +14,17 @@ interface ProcedureRow {
   steps: StepRow[];
 }
 
-/** Edits the common procedures of a behavior, and saves them whole, as the core replaces them whole. */
-export function ProceduresEditor({
+/**
+ * The rows that edit the common procedures of a behavior. It holds the rows and reports the
+ * procedures they stand for to `onChange`, on mount and after every change.
+ */
+export function ProceduresFields({
   procedures,
-  save,
-  onSaved,
-  onCancel,
+  onChange,
 }: {
   procedures: Record<string, { steps: string[] }>;
-  save: (procedures: NamedProcedure[]) => Promise<void>;
-  onSaved: () => void;
-  onCancel: () => void;
+  onChange: (procedures: NamedProcedure[]) => void;
 }) {
-  const [error, setError] = useState<string>();
   const nextId = useRef(0);
   const newId = () => {
     nextId.current += 1;
@@ -42,28 +39,22 @@ export function ProceduresEditor({
     })),
   );
 
+  useEffect(() => {
+    onChange(
+      rows.map((p) => ({ name: p.name, steps: p.steps.map((st) => st.text) })),
+    );
+  }, [rows, onChange]);
+
   const changeProcedure = (
     id: number,
     change: (p: ProcedureRow) => ProcedureRow,
   ) => setRows((current) => current.map((p) => (p.id === id ? change(p) : p)));
 
   return (
-    <form
-      className="edit-form phases-form"
-      onKeyDown={ignoreEnterInOneLineFields}
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(undefined);
-        save(
-          rows.map((p) => ({
-            name: p.name,
-            steps: p.steps.map((st) => st.text),
-          })),
-        ).then(onSaved, (reason) => setError(String(reason)));
-      }}
-    >
-      {error && <pre role="alert">{error}</pre>}
-      <p className="hint">この共通手順を使うすべてのケースが変わります。</p>
+    <>
+      {rows.some((p) => p.existing) && (
+        <p className="hint">この共通手順を使うすべてのケースが変わります。</p>
+      )}
       {rows.map((procedure, i) => {
         const title = procedure.existing ? procedure.name : String(i + 1);
         return (
@@ -100,6 +91,7 @@ export function ProceduresEditor({
                 削除
               </button>
             </header>
+            <h4>手順</h4>
             <ol aria-label="手順" className="rows">
               {procedure.steps.map((step, j) => (
                 <li key={step.id} className="row step">
@@ -164,17 +156,6 @@ export function ProceduresEditor({
       >
         ＋ 共通手順を追加
       </button>
-      <fieldset
-        aria-label="共通手順の保存とキャンセル"
-        className="form-actions"
-      >
-        <button type="submit" className="primary">
-          保存
-        </button>
-        <button type="button" onClick={onCancel}>
-          キャンセル
-        </button>
-      </fieldset>
-    </form>
+    </>
   );
 }

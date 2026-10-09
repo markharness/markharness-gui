@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ScenarioPhase } from "./backend";
-import { ignoreEnterInOneLineFields } from "./ignoreEnter";
 
 /**
  * A step is one row. Whether it calls a common procedure is an attribute of the row, and the row
@@ -24,22 +23,20 @@ interface PhaseRow {
   results: ResultRow[];
 }
 
-/** Edits the phases of a scenario as rows, and saves them whole, as the core replaces them whole. */
-export function PhasesEditor({
+/**
+ * The rows that edit the phases of a scenario. It holds the rows and reports the phases they stand
+ * for to `onChange`, on mount and after every change.
+ */
+export function PhasesFields({
   phases,
   procedures,
-  save,
-  onSaved,
-  onCancel,
+  onChange,
 }: {
   phases: ScenarioPhase[];
   /** The common procedures the scenario's behavior declares, by name. */
   procedures: Record<string, { steps: string[] }>;
-  save: (phases: ScenarioPhase[]) => Promise<void>;
-  onSaved: () => void;
-  onCancel: () => void;
+  onChange: (phases: ScenarioPhase[]) => void;
 }) {
-  const [error, setError] = useState<string>();
   const nextId = useRef(0);
   const newId = () => {
     nextId.current += 1;
@@ -64,6 +61,17 @@ export function PhasesEditor({
     })),
   );
 
+  useEffect(() => {
+    onChange(
+      rows.map((p) => ({
+        steps: p.steps.map((st) =>
+          st.common ? { use: st.procedure } : { action: st.text },
+        ),
+        results: p.results.map((r) => r.value),
+      })),
+    );
+  }, [rows, onChange]);
+
   const changePhase = (phaseId: number, change: (p: PhaseRow) => PhaseRow) =>
     setRows((current) =>
       current.map((p) => (p.id === phaseId ? change(p) : p)),
@@ -86,23 +94,7 @@ export function PhasesEditor({
     }));
 
   return (
-    <form
-      className="edit-form phases-form"
-      onKeyDown={ignoreEnterInOneLineFields}
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(undefined);
-        save(
-          rows.map((p) => ({
-            steps: p.steps.map((st) =>
-              st.common ? { use: st.procedure } : { action: st.text },
-            ),
-            results: p.results.map((r) => r.value),
-          })),
-        ).then(onSaved, (reason) => setError(String(reason)));
-      }}
-    >
-      {error && <pre role="alert">{error}</pre>}
+    <>
       {procedureNames.length === 0 && (
         <p className="hint">
           このBehaviorには共通手順がありません。「共通」は選べません。
@@ -285,17 +277,6 @@ export function PhasesEditor({
       >
         ＋ フェーズを追加
       </button>
-      <fieldset
-        aria-label="手順と期待結果の保存とキャンセル"
-        className="form-actions"
-      >
-        <button type="submit" className="primary">
-          保存
-        </button>
-        <button type="button" onClick={onCancel}>
-          キャンセル
-        </button>
-      </fieldset>
-    </form>
+    </>
   );
 }

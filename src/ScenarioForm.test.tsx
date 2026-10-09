@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ScenarioPhase } from "./backend";
-import { PhasesEditor } from "./PhasesEditor";
+import { ScenarioForm } from "./ScenarioForm";
 
 const phases: ScenarioPhase[] = [
   {
@@ -34,10 +34,16 @@ function renderEditor(
   } = {},
 ) {
   return render(
-    <PhasesEditor
-      phases={handlers.phases ?? phases}
+    <ScenarioForm
+      initial={{
+        id: "wrong-password",
+        label: "Wrong password",
+        description: "Rejects it.",
+        implementationNote: "",
+        phases: handlers.phases ?? phases,
+      }}
       procedures={handlers.procedures ?? procedures}
-      save={handlers.save ?? (async () => {})}
+      save={(values) => (handlers.save ?? (async () => {}))(values.phases)}
       onSaved={handlers.onSaved ?? (() => {})}
       onCancel={handlers.onCancel ?? (() => {})}
     />,
@@ -52,7 +58,80 @@ const results = (n: number) =>
   within(within(phase(n)).getByRole("list", { name: "期待結果" }));
 const save = () => screen.getByRole("button", { name: "保存" });
 
-describe("PhasesEditor", () => {
+describe("ScenarioForm, for the steps and the results", () => {
+  it("starts from the id, the label, the description and the note the scenario has, above its phases", () => {
+    render(
+      <ScenarioForm
+        initial={{
+          id: "wrong-password",
+          label: "Wrong password",
+          description: "Rejects it.",
+          implementationNote: "Uses the form.",
+          phases,
+        }}
+        procedures={procedures}
+        save={async () => {}}
+        onSaved={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("ID")).toHaveValue("wrong-password");
+    expect(screen.getByLabelText("ラベル")).toHaveValue("Wrong password");
+    expect(screen.getByLabelText("説明")).toHaveValue("Rejects it.");
+    expect(screen.getByLabelText("実装メモ")).toHaveValue("Uses the form.");
+    expect(
+      screen.getByLabelText("ID").compareDocumentPosition(phase(1)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("saves the fields together with the phases, in one go", async () => {
+    const onSave = vi.fn(async () => {});
+    render(
+      <ScenarioForm
+        initial={{
+          id: "wrong-password",
+          label: "Wrong password",
+          description: "Rejects it.",
+          implementationNote: "",
+          phases,
+        }}
+        procedures={procedures}
+        save={onSave}
+        onSaved={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("ID"), {
+      target: { value: "bad-password" },
+    });
+    fireEvent.change(screen.getByLabelText("実装メモ"), {
+      target: { value: "Uses the page." },
+    });
+    fireEvent.change(steps(1).getByLabelText("手順2"), {
+      target: { value: "Press it." },
+    });
+    fireEvent.click(save());
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith({
+        id: "bad-password",
+        label: "Wrong password",
+        description: "Rejects it.",
+        implementationNote: "Uses the page.",
+        phases: [
+          {
+            steps: [{ use: "seed" }, { action: "Press it." }],
+            results: ["Only the active tasks show."],
+          },
+          phases[1],
+        ],
+      }),
+    );
+  });
+
   it("lays out each phase with its steps and its results as numbered rows", () => {
     renderEditor();
 

@@ -12,7 +12,7 @@ use markharness_gui_lib::coverage::read_coverage;
 use markharness_gui_lib::detail::{
     read_case_detail, read_element_detail, read_scenario_detail, ScenarioPhase, ScenarioStep,
 };
-use markharness_gui_lib::edit::{apply_edit, Edit, NamedProcedure};
+use markharness_gui_lib::edit::{apply_create, apply_edit, Create, Edit, NamedProcedure};
 use markharness_gui_lib::impact::{read_impact, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
@@ -751,4 +751,142 @@ async fn the_means_of_a_case_is_declared_and_read_back_from_the_working_tree() {
     );
     assert_eq!(mine(&replaced), Some(("manual".to_string(), None)));
     assert!(refused.is_err());
+}
+
+#[tokio::test]
+async fn a_new_requirement_is_created_and_read_back_with_the_uid_the_core_gave() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let create = |label: &str| Create::Requirement {
+        id: "new-requirement".into(),
+        label: label.into(),
+        description: Some("説明".into()),
+        axis: vec![],
+    };
+
+    let created = apply_create(&runner, &project, &create("新しい要求")).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let again = apply_create(&runner, &project, &create("別の内容")).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let found = after
+        .requirements
+        .iter()
+        .find(|r| r.requirement_id == "new-requirement")
+        .expect("the new requirement is read back");
+    assert_eq!(created, Ok(found.requirement_uid.clone()));
+    assert_eq!(found.label.as_deref(), Some("新しい要求"));
+    assert!(again.unwrap_err().contains("new-requirement"));
+}
+
+#[tokio::test]
+async fn a_new_feature_is_created_under_a_requirement_before_it_has_any_case() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let requirement_uid = before.requirements[0].requirement_uid.clone();
+
+    let created = apply_create(
+        &runner,
+        &project,
+        &Create::Feature {
+            id: "new-feature".into(),
+            label: "新しい機能".into(),
+            contributes_to: vec![requirement_uid.clone()],
+            axis: vec![],
+        },
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    let feature = after
+        .features
+        .iter()
+        .find(|f| f.feature_id == "new-feature")
+        .expect("the new feature is read back");
+    assert_eq!(created, Ok(feature.feature_uid.clone()));
+    assert!(after
+        .relations
+        .iter()
+        .any(|r| r.from_uid == feature.feature_uid && r.to_uid == requirement_uid));
+}
+
+#[tokio::test]
+async fn a_new_behavior_is_created_under_a_feature_before_it_has_any_scenario() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let feature_uid = before.features[0].feature_uid.clone();
+    let create = |description: &str| Create::Behavior {
+        feature_uid: feature_uid.clone(),
+        id: "new-behavior".into(),
+        label: "新しい振る舞い".into(),
+        description: description.into(),
+        axis: vec![],
+        procedures: None,
+    };
+
+    let created = apply_create(&runner, &project, &create("説明")).await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let blank = apply_create(&runner, &project, &create("")).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let behavior = after
+        .behaviors
+        .iter()
+        .find(|b| b.behavior_id == "new-behavior")
+        .expect("the new behavior is read back");
+    assert_eq!(created, Ok(behavior.behavior_uid.clone()));
+    assert_eq!(behavior.feature_uid, feature_uid);
+    assert!(blank.is_err());
+}
+
+#[tokio::test]
+async fn a_new_scenario_is_created_with_its_phases_and_gets_a_test_case() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let (feature_uid, behavior_uid) = (
+        before.features[0].feature_uid.clone(),
+        before.behaviors[0].behavior_uid.clone(),
+    );
+    let create = |phases: Vec<ScenarioPhase>| Create::Scenario {
+        feature_uid: feature_uid.clone(),
+        behavior_uid: behavior_uid.clone(),
+        id: "new-scenario".into(),
+        label: "新しいシナリオ".into(),
+        description: "説明".into(),
+        implementation_note: None,
+        phases,
+    };
+
+    let created = apply_create(
+        &runner,
+        &project,
+        &create(vec![ScenarioPhase {
+            steps: vec![ScenarioStep::Action("押す".into())],
+            results: vec!["出る".into()],
+        }]),
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let without_phases = apply_create(&runner, &project, &create(vec![])).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let scenario = after
+        .scenarios
+        .iter()
+        .find(|s| s.scenario_id == "new-scenario")
+        .expect("the new scenario is read back");
+    assert_eq!(created, Ok(scenario.scenario_uid.clone()));
+    assert!(after
+        .test_cases
+        .iter()
+        .any(|c| c.scenario_uid == scenario.scenario_uid));
+    assert!(without_phases.is_err());
 }

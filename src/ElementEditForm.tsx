@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Axis } from "./backend";
+import type { NamedProcedure } from "./edit";
 import { ignoreEnterInOneLineFields } from "./ignoreEnter";
+import { ProceduresFields } from "./ProceduresFields";
 
 export function ElementEditForm({
   noun,
@@ -24,6 +26,8 @@ export function ElementEditForm({
     description?: string | null;
     /** Given only for an element that has an implementation note. */
     implementationNote?: string | null;
+    /** Given only for an element that declares common procedures, by name. */
+    procedures?: Record<string, { steps: string[] }>;
   };
   candidates: Axis[];
   /** Saves the label and the axes as the form holds them. */
@@ -33,6 +37,7 @@ export function ElementEditForm({
     axis?: string[];
     description?: string;
     implementationNote?: string;
+    procedures?: NamedProcedure[];
   }) => Promise<void>;
   /** Registers a new axis and returns the axes to choose from, the new one included. */
   addAxis: (id: string, label: string) => Promise<Axis[]>;
@@ -51,6 +56,12 @@ export function ElementEditForm({
   );
   const [description, setDescription] = useState(element.description ?? "");
   const [error, setError] = useState<string>();
+  const [procedures, setProcedures] = useState<NamedProcedure[]>(() =>
+    Object.entries(element.procedures ?? {}).map(([name, p]) => ({
+      name,
+      steps: p.steps,
+    })),
+  );
   const [candidates, setCandidates] = useState(initialCandidates);
   const [newId, setNewId] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -80,6 +91,7 @@ export function ElementEditForm({
           ...(element.implementationNote !== undefined && {
             implementationNote,
           }),
+          ...(element.procedures !== undefined && { procedures }),
         }).then(onSaved, (reason) => setError(String(reason)));
       }}
     >
@@ -238,6 +250,15 @@ export function ElementEditForm({
           )}
           {pruneError && <pre role="alert">{pruneError}</pre>}
         </>
+      )}
+      {element.procedures !== undefined && (
+        <div className="phases-form">
+          <h4>共通手順</h4>
+          <ProceduresFields
+            procedures={element.procedures}
+            onChange={setProcedures}
+          />
+        </div>
       )}
       <fieldset
         aria-label={`${noun}の保存とキャンセル`}
