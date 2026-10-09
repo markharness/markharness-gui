@@ -765,6 +765,7 @@ async fn a_new_requirement_is_created_and_read_back_with_the_uid_the_core_gave()
         label: label.into(),
         description: Some("説明".into()),
         axis: vec![],
+        features: vec![],
     };
 
     let created = apply_create(&runner, &project, &create("新しい要求")).await;
@@ -992,4 +993,39 @@ async fn a_requirement_is_removed_and_its_features_stay_without_it() {
         .all(|r| r.requirement_uid != requirement_uid));
     assert_eq!(after.features.len(), features_before);
     assert!(after.relations.iter().all(|r| r.to_uid != requirement_uid));
+}
+
+#[tokio::test]
+async fn a_new_requirement_takes_a_feature_left_without_one() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    let runner = CommandRunner { bin };
+    let before = read_traceability(&runner, &project).await.unwrap();
+    let requirement_uid = before.requirements[0].requirement_uid.clone();
+    let feature_uid = before.features[0].feature_uid.clone();
+    // Deleting the requirement leaves the feature without one.
+    apply_remove(&runner, &project, RemoveKind::Requirement, &requirement_uid)
+        .await
+        .unwrap();
+
+    let created = apply_create(
+        &runner,
+        &project,
+        &Create::Requirement {
+            id: "taker".into(),
+            label: "引き取る要求".into(),
+            description: None,
+            axis: vec![],
+            features: vec![feature_uid.clone()],
+        },
+    )
+    .await;
+    let after = read_traceability(&runner, &project).await.unwrap();
+    let _ = std::fs::remove_dir_all(&project);
+
+    let uid = created.expect("the requirement is created");
+    assert!(after
+        .relations
+        .iter()
+        .any(|r| r.from_uid == feature_uid && r.to_uid == uid));
 }

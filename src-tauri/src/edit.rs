@@ -62,6 +62,8 @@ pub enum Create {
         label: String,
         description: Option<String>,
         axis: Vec<String>,
+        /// The uids of features that had no requirement, which the new requirement takes.
+        features: Vec<String>,
     },
     Feature {
         id: String,
@@ -168,15 +170,29 @@ pub fn create_intent_yaml(create: &Create) -> String {
             label,
             description,
             axis,
+            features,
         } => {
             lines.push("requirements:".to_string());
-            lines.push(format!("  - id: {}", scalar(id)));
+            // The features name the new requirement by a key that is not saved.
+            if !features.is_empty() {
+                lines.push("  - key: new_requirement".to_string());
+                lines.push(format!("    id: {}", scalar(id)));
+            } else {
+                lines.push(format!("  - id: {}", scalar(id)));
+            }
             lines.push("    source: native".to_string());
             lines.push(format!("    label: {}", scalar(label)));
             if let Some(description) = description {
                 lines.push(format!("    description: {}", scalar(description)));
             }
             lines.push(format!("    axis: {}", list(axis)));
+            if !features.is_empty() {
+                lines.push("features:".to_string());
+                for feature in features {
+                    lines.push(format!("  - uid: {}", scalar(feature)));
+                    lines.push("    contributes_to: [new_requirement]".to_string());
+                }
+            }
         }
         Create::Feature {
             id,
@@ -1147,6 +1163,7 @@ mod tests {
             label: "新しい要求".into(),
             description: Some("説明".into()),
             axis: vec!["ui".into()],
+            features: vec![],
         };
 
         assert_eq!(
@@ -1168,12 +1185,46 @@ mod tests {
     }
 
     #[test]
+    fn a_new_requirement_takes_the_features_that_had_no_requirement_in_the_same_intent() {
+        let create = Create::Requirement {
+            id: "new-requirement".into(),
+            label: "新しい要求".into(),
+            description: None,
+            axis: vec![],
+            features: vec!["01FEATURE".into(), "01FEATURE2".into()],
+        };
+
+        assert_eq!(
+            create_intent_yaml(&create),
+            [
+                "format: markharness/knowledge-intent/v1",
+                "mode: merge",
+                "",
+                "requirements:",
+                "  - key: new_requirement",
+                "    id: \"new-requirement\"",
+                "    source: native",
+                "    label: \"新しい要求\"",
+                "    axis: []",
+                "features:",
+                "  - uid: \"01FEATURE\"",
+                "    contributes_to: [new_requirement]",
+                "  - uid: \"01FEATURE2\"",
+                "    contributes_to: [new_requirement]",
+                "",
+            ]
+            .join("\n")
+        );
+    }
+
+    #[test]
     fn a_new_requirement_without_a_description_leaves_it_out() {
         let create = Create::Requirement {
             id: "r".into(),
             label: "名前".into(),
             description: None,
             axis: vec![],
+            features: vec![],
         };
 
         assert!(!create_intent_yaml(&create).contains("description"));
@@ -1190,6 +1241,7 @@ mod tests {
             label: "名前".into(),
             description: None,
             axis: vec![],
+            features: vec![],
         };
 
         let uid = apply_create(&writer, Path::new("."), &create).await;
@@ -1209,6 +1261,7 @@ mod tests {
             label: "名前".into(),
             description: None,
             axis: vec![],
+            features: vec![],
         };
 
         let result = apply_create(&writer, Path::new("."), &create).await;
