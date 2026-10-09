@@ -27,6 +27,7 @@ export function CaseDetail({
   backend,
   binding,
   bindingsLoading,
+  readOf,
   onEdited,
   onBindingEdited,
   onFeatureCreated,
@@ -39,6 +40,8 @@ export function CaseDetail({
   /** What the case declares in the working tree; none when it declares nothing. */
   binding?: Binding;
   bindingsLoading: boolean;
+  /** Changes when the project is reloaded, so that what the case shows is read again. */
+  readOf?: object;
   onEdited: () => void;
   onBindingEdited: () => void;
   onFeatureCreated: (featureUid: string) => void;
@@ -52,6 +55,8 @@ export function CaseDetail({
   const reads = useRef(0);
   const [editingVerification, setEditingVerification] = useState(false);
 
+  // `readOf` is not used in the body: a reload changes it, and the case is read again with it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   const read = useCallback(() => {
     const mine = ++reads.current;
     setDetail(undefined);
@@ -60,7 +65,7 @@ export function CaseDetail({
       (d) => mine === reads.current && setDetail(d),
       (e) => mine === reads.current && setError(String(e)),
     );
-  }, [backend, picked.caseUid, picked.scenarioUid]);
+  }, [backend, picked.caseUid, picked.scenarioUid, readOf]);
 
   useEffect(() => {
     read();

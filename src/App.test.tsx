@@ -373,6 +373,29 @@ describe("App", () => {
     expect(found.map((e) => e.textContent)).toEqual(titles);
   });
 
+  it("reads the description and the steps of the picked case again when the project is reloaded", async () => {
+    let steps = ["Open the form."];
+    const backend = fakeBackend({
+      getCaseDetail: async () => ({
+        description: "Rejects a wrong password.",
+        phases: [{ steps, results: ["An error is shown."] }],
+      }),
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(await screen.findByText("Login requirement"));
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      within(pane).getByRole("button", { name: /Log in with a password/ }),
+    );
+    expect(await within(pane).findByText("Open the form.")).toBeInTheDocument();
+
+    steps = ["Open the page."];
+    fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
+
+    expect(await within(pane).findByText("Open the page.")).toBeInTheDocument();
+    expect(within(pane).queryByText("Open the form.")).not.toBeInTheDocument();
+  });
+
   it("reads the description and the steps of the picked case", async () => {
     const calls: unknown[][] = [];
     const backend = fakeBackend({

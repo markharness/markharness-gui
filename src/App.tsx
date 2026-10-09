@@ -179,6 +179,7 @@ export function App({ backend }: { backend: Backend }) {
                 (b) => b.case_uid === caseView.case.caseUid,
               )}
               bindingsLoading={data.bindingsLoading}
+              readOf={data.readOf}
               onEdited={data.refreshTraceability}
               onBindingEdited={data.refreshBindings}
               onFeatureCreated={pickFeature}
