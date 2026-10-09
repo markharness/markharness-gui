@@ -11,6 +11,7 @@ export function ElementCreator({
   buttonLabel,
   withDescription = false,
   withProcedures = false,
+  linkableFeatures,
   toCreate,
   backend,
   onCreated,
@@ -22,6 +23,8 @@ export function ElementCreator({
   withDescription?: boolean;
   /** Whether the form asks for common procedures, for an element that declares them. */
   withProcedures?: boolean;
+  /** The features left without a requirement, for a new requirement to take. */
+  linkableFeatures?: { uid: string; title: string }[];
   toCreate: (values: EditedValues) => Create;
   backend: Backend;
   /** Called with the uid the core gave the new element. */
@@ -49,6 +52,7 @@ export function ElementCreator({
             axis: [],
             ...(withDescription && { description: "" }),
             ...(withProcedures && { procedures: {} }),
+            ...(linkableFeatures && { features: linkableFeatures }),
           }}
           candidates={candidates}
           save={async (values) => {

@@ -19,6 +19,7 @@ export interface EditedValues {
   description?: string;
   implementationNote?: string;
   procedures?: NamedProcedure[];
+  features?: string[];
 }
 
 /** The button that turns an element of a picked case into a form to edit it in place. */

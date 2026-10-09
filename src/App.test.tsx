@@ -524,6 +524,78 @@ describe("App", () => {
     expect(screen.queryByLabelText("ラベル")).not.toBeInTheDocument();
   });
 
+  it("lets a new requirement take the features that had none", async () => {
+    const created: unknown[] = [];
+    const backend = fakeBackend({
+      getTraceability: async () => ({
+        ...project.traceability,
+        features: [
+          ...project.traceability.features,
+          { feature_id: "f-orphan", feature_uid: "FO", label: "Orphan" },
+        ],
+      }),
+      createElement: async (create) => {
+        created.push(create);
+        return "RN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "＋ 要求を追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "要求を追加" });
+
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "req-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New requirement" },
+    });
+    fireEvent.click(
+      within(
+        within(dialog).getByRole("group", { name: "紐づかないFeature" }),
+      ).getByLabelText("Orphan"),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(created).toEqual([
+        {
+          kind: "requirement",
+          id: "req-new",
+          label: "New requirement",
+          axis: [],
+          features: ["FO"],
+        },
+      ]),
+    );
+  });
+
+  it("sends no features with a new requirement when none is chosen", async () => {
+    const created: unknown[] = [];
+    const backend = fakeBackend({
+      createElement: async (create) => {
+        created.push(create);
+        return "RN";
+      },
+    });
+    render(<App backend={backend} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "＋ 要求を追加" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "要求を追加" });
+    fireEvent.change(within(dialog).getByLabelText("ID"), {
+      target: { value: "req-new" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("ラベル"), {
+      target: { value: "New requirement" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0]).not.toHaveProperty("features");
+  });
+
   it("creates a feature under the picked requirement and shows it picked, though it has no case yet", async () => {
     const created: unknown[] = [];
     let traceability = project.traceability;

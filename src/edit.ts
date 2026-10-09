@@ -57,6 +57,8 @@ export interface RequirementCreate {
   label: string;
   description?: string;
   axis: string[];
+  /** The uids of features that had no requirement, which the new requirement takes. */
+  features?: string[];
 }
 
 /** A new feature, which contributes to the requirements whose uids are given. */

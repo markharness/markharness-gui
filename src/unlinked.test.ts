@@ -34,8 +34,11 @@ function traceability(overrides: Partial<Traceability> = {}): Traceability {
 }
 
 describe("unlinkedFeatures", () => {
-  it("names the features that contribute to no requirement, by label or else by id", () => {
-    expect(unlinkedFeatures(traceability())).toEqual(["Sign in", "f-2"]);
+  it("names the features that contribute to no requirement, by label or else by id, with their uids", () => {
+    expect(unlinkedFeatures(traceability())).toEqual([
+      { uid: "F1", title: "Sign in" },
+      { uid: "F2", title: "f-2" },
+    ]);
   });
 
   it("leaves out a feature that contributes to a requirement", () => {
@@ -43,7 +46,7 @@ describe("unlinkedFeatures", () => {
       relations: [{ from_uid: "F1", to_uid: "R1", kind: "contributes_to" }],
     });
 
-    expect(unlinkedFeatures(t)).toEqual(["f-2"]);
+    expect(unlinkedFeatures(t)).toEqual([{ uid: "F2", title: "f-2" }]);
   });
 
   it("leaves out a feature one of whose scenarios contributes to a requirement itself", () => {
@@ -62,6 +65,9 @@ describe("unlinkedFeatures", () => {
       relations: [{ from_uid: "C2", to_uid: "S2", kind: "generated_from" }],
     });
 
-    expect(unlinkedFeatures(t)).toEqual(["Sign in", "f-2"]);
+    expect(unlinkedFeatures(t)).toEqual([
+      { uid: "F1", title: "Sign in" },
+      { uid: "F2", title: "f-2" },
+    ]);
   });
 });

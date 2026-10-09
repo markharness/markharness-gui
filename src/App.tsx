@@ -121,7 +121,8 @@ export function App({ backend }: { backend: Backend }) {
       {unlinked.length > 0 && (
         <p className="unlinked">
           要求に紐づかないFeatureが{unlinked.length}
-          件あります(一覧には表示されません): {unlinked.join("、")}
+          件あります(一覧には表示されません):{" "}
+          {unlinked.map((f) => f.title).join("、")}
         </p>
       )}
       {data.notice && (
@@ -133,6 +134,7 @@ export function App({ backend }: { backend: Backend }) {
             noun="要求"
             buttonLabel="＋ 要求を追加"
             withDescription
+            linkableFeatures={unlinked}
             toCreate={(values) => ({
               kind: "requirement",
               id: values.id,
@@ -140,6 +142,8 @@ export function App({ backend }: { backend: Backend }) {
               description:
                 values.description === "" ? undefined : values.description,
               axis: values.axis ?? [],
+              ...(values.features !== undefined &&
+                values.features.length > 0 && { features: values.features }),
             })}
             backend={backend}
             onCreated={(uid) => {

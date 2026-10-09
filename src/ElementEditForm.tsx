@@ -28,6 +28,8 @@ export function ElementEditForm({
     implementationNote?: string | null;
     /** Given only for an element that declares common procedures, by name. */
     procedures?: Record<string, { steps: string[] }>;
+    /** Given only for a new requirement: the features left without a requirement, which it can take. */
+    features?: { uid: string; title: string }[];
   };
   candidates: Axis[];
   /** Saves the label and the axes as the form holds them. */
@@ -38,6 +40,7 @@ export function ElementEditForm({
     description?: string;
     implementationNote?: string;
     procedures?: NamedProcedure[];
+    features?: string[];
   }) => Promise<void>;
   /** Registers a new axis and returns the axes to choose from, the new one included. */
   addAxis: (id: string, label: string) => Promise<Axis[]>;
@@ -62,6 +65,7 @@ export function ElementEditForm({
       steps: p.steps,
     })),
   );
+  const [features, setFeatures] = useState<string[]>([]);
   const [candidates, setCandidates] = useState(initialCandidates);
   const [newId, setNewId] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -92,6 +96,7 @@ export function ElementEditForm({
             implementationNote,
           }),
           ...(element.procedures !== undefined && { procedures }),
+          ...(element.features !== undefined && { features }),
         }).then(onSaved, (reason) => setError(String(reason)));
       }}
     >
@@ -250,6 +255,27 @@ export function ElementEditForm({
           )}
           {pruneError && <pre role="alert">{pruneError}</pre>}
         </>
+      )}
+      {element.features !== undefined && element.features.length > 0 && (
+        <fieldset>
+          <legend>紐づかないFeature</legend>
+          {element.features.map((f) => (
+            <label key={f.uid}>
+              <input
+                type="checkbox"
+                checked={features.includes(f.uid)}
+                onChange={() =>
+                  setFeatures(
+                    features.includes(f.uid)
+                      ? features.filter((uid) => uid !== f.uid)
+                      : [...features, f.uid],
+                  )
+                }
+              />
+              {f.title}
+            </label>
+          ))}
+        </fieldset>
       )}
       {element.procedures !== undefined && (
         <div className="phases-form">
