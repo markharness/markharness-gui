@@ -552,3 +552,65 @@ describe("ElementEditForm", () => {
     ).toBe(true);
   });
 });
+
+describe("ElementEditForm, for the features that have no requirement", () => {
+  function renderWith(
+    features: { uid: string; title: string }[] | undefined,
+    save: (values: object) => Promise<void> = async () => {},
+  ) {
+    return render(
+      <ElementEditForm
+        noun="要求"
+        element={{ id: "", label: "", axis: [], ...(features && { features }) }}
+        candidates={[]}
+        save={save}
+        addAxis={async () => []}
+        unusedAxes={async () => []}
+        deleteUnusedAxes={async () => []}
+        onSaved={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+  }
+
+  it("lists them with nothing chosen, and sends the ones chosen", async () => {
+    const save = vi.fn(async (_values: object) => {});
+    renderWith(
+      [
+        { uid: "F1", title: "Sign in" },
+        { uid: "F2", title: "Sign out" },
+      ],
+      save,
+    );
+    const group = within(
+      screen.getByRole("group", { name: "紐づかないFeature" }),
+    );
+    expect(group.getByLabelText("Sign in")).not.toBeChecked();
+    expect(group.getByLabelText("Sign out")).not.toBeChecked();
+
+    fireEvent.click(group.getByLabelText("Sign out"));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({ features: ["F2"] }),
+      ),
+    );
+  });
+
+  it("shows nothing when no feature is left without a requirement", () => {
+    renderWith([]);
+
+    expect(
+      screen.queryByRole("group", { name: "紐づかないFeature" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows nothing for an element that does not take features", () => {
+    renderWith(undefined);
+
+    expect(
+      screen.queryByRole("group", { name: "紐づかないFeature" }),
+    ).not.toBeInTheDocument();
+  });
+});

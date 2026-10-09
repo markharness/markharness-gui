@@ -4,7 +4,9 @@ import type { Traceability } from "./backend";
  * The features that contribute to no requirement, neither themselves nor through one of their
  * scenarios. The list is rooted in the requirements, so these do not appear in it.
  */
-export function unlinkedFeatures(traceability: Traceability): string[] {
+export function unlinkedFeatures(
+  traceability: Traceability,
+): { uid: string; title: string }[] {
   const contributing = new Set(
     traceability.relations
       .filter((r) => r.kind === "contributes_to")
@@ -24,5 +26,5 @@ export function unlinkedFeatures(traceability: Traceability): string[] {
         !contributing.has(f.feature_uid) &&
         !linkedThroughScenario.has(f.feature_uid),
     )
-    .map((f) => f.label ?? f.feature_id);
+    .map((f) => ({ uid: f.feature_uid, title: f.label ?? f.feature_id }));
 }
