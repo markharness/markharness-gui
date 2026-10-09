@@ -1,5 +1,8 @@
 import type { Create, Edit } from "./edit";
 
+/** Which kind of element a removal names. */
+export type RemoveKind = "requirement" | "feature" | "behavior" | "scenario";
+
 export interface Requirement {
   requirement_id: string;
   requirement_uid: string;
@@ -184,6 +187,8 @@ export interface Backend {
   addAxis(id: string, label?: string): Promise<void>;
   /** Creates one element through the core and returns the uid the core gave it; rejects with what the core said when it did not. */
   createElement(create: Create): Promise<string>;
+  /** Deletes one element through the core, with the children that cannot stand without it; rejects with what the core said when it did not. */
+  removeElement(kind: RemoveKind, uid: string): Promise<void>;
   /** Writes the edit through the core; rejects with what the core said when it did not apply it. */
   editKnowledge(edit: Edit): Promise<void>;
 }

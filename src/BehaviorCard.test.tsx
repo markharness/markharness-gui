@@ -40,6 +40,7 @@ describe("BehaviorCard", () => {
         behavior={behavior}
         backend={backendWith({ editKnowledge })}
         onEdited={() => {}}
+        onRemoved={() => {}}
       />,
     );
 
@@ -60,6 +61,7 @@ describe("BehaviorCard", () => {
         behavior={behavior}
         backend={backendWith({ editKnowledge })}
         onEdited={() => {}}
+        onRemoved={() => {}}
       />,
     );
 

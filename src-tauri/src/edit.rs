@@ -91,6 +91,27 @@ pub enum Create {
     },
 }
 
+/// Which kind of element a removal names.
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoveKind {
+    Requirement,
+    Feature,
+    Behavior,
+    Scenario,
+}
+
+impl RemoveKind {
+    pub fn as_arg(&self) -> &'static str {
+        match self {
+            RemoveKind::Requirement => "requirement",
+            RemoveKind::Feature => "feature",
+            RemoveKind::Behavior => "behavior",
+            RemoveKind::Scenario => "scenario",
+        }
+    }
+}
+
 /// A JSON string is also a YAML double-quoted scalar, so quotes, colons and newlines survive.
 fn scalar(value: &str) -> String {
     serde_json::to_string(value).expect("a string always serializes")
@@ -337,6 +358,14 @@ pub trait KnowledgeWriter {
         intent_yaml: &str,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 
+    /// Deletes one element, with the children that cannot stand without it.
+    fn remove(
+        &self,
+        project_root: &Path,
+        kind: &str,
+        uid: &str,
+    ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
+
     /// Rewrites the generated test cases from the knowledge.
     fn generate(
         &self,
@@ -376,6 +405,21 @@ impl KnowledgeWriter for CommandRunner {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         })
+    }
+
+    async fn remove(
+        &self,
+        project_root: &Path,
+        kind: &str,
+        uid: &str,
+    ) -> Result<CommandOutput, String> {
+        let mut command = tokio::process::Command::new(&self.bin);
+        // After `--`, a uid that starts with `-` is still read as the uid.
+        command
+            .args(["knowledge", "remove", "--json", "--dir"])
+            .arg(project_root)
+            .args(["--", kind, uid]);
+        self.run(command).await
     }
 
     async fn generate(&self, project_root: &Path) -> Result<CommandOutput, String> {
@@ -418,6 +462,25 @@ pub async fn apply_create(
         .next()
         .map(|created| created.uid)
         .ok_or_else(|| "the core created nothing".to_string())
+}
+
+/// Deletes the element through the core, then regenerates the test cases. On failure, what the
+/// core said is returned as it is.
+pub async fn apply_remove(
+    writer: &impl KnowledgeWriter,
+    project_root: &Path,
+    kind: RemoveKind,
+    uid: &str,
+) -> Result<(), String> {
+    let output = writer.remove(project_root, kind.as_arg(), uid).await?;
+    if output.exit_code != Some(0) {
+        return Err(output.stderr.trim_end().to_string());
+    }
+    let generated = writer.generate(project_root).await?;
+    if generated.exit_code != Some(0) {
+        return Err(generated.stderr);
+    }
+    Ok(())
 }
 
 async fn reconcile_and_generate(
@@ -598,6 +661,7 @@ mod tests {
 
     struct FakeWriter {
         reply: Result<CommandOutput, String>,
+        removed: Mutex<Vec<(String, String)>>,
         intents: Mutex<Vec<String>>,
         generate_reply: Result<CommandOutput, String>,
         generated: Mutex<usize>,
@@ -611,6 +675,7 @@ mod tests {
                     stdout: stdout.to_string(),
                     stderr: String::new(),
                 }),
+                removed: Mutex::new(Vec::new()),
                 intents: Mutex::new(Vec::new()),
                 generate_reply: Ok(CommandOutput {
                     exit_code: Some(0),
@@ -629,6 +694,19 @@ mod tests {
             intent_yaml: &str,
         ) -> Result<CommandOutput, String> {
             self.intents.lock().unwrap().push(intent_yaml.to_string());
+            self.reply.clone()
+        }
+
+        async fn remove(
+            &self,
+            _project_root: &Path,
+            kind: &str,
+            uid: &str,
+        ) -> Result<CommandOutput, String> {
+            self.removed
+                .lock()
+                .unwrap()
+                .push((kind.to_string(), uid.to_string()));
             self.reply.clone()
         }
 
@@ -1271,5 +1349,46 @@ mod tests {
 "
             )
         );
+    }
+
+    #[test]
+    fn the_kind_of_a_removal_is_read_from_the_json_of_the_screen() {
+        let kind: RemoveKind = serde_json::from_str("\"behavior\"").unwrap();
+
+        assert_eq!(kind, RemoveKind::Behavior);
+        assert_eq!(kind.as_arg(), "behavior");
+    }
+
+    #[tokio::test]
+    async fn removing_names_the_kind_and_the_uid_and_generates_once() {
+        let writer = FakeWriter::replying(0, r#"{"ok":true,"deleted":[],"detached":[]}"#);
+
+        let result = apply_remove(&writer, Path::new("."), RemoveKind::Scenario, "01S").await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            *writer.removed.lock().unwrap(),
+            vec![("scenario".to_string(), "01S".to_string())]
+        );
+        assert_eq!(*writer.generated.lock().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_refused_removal_returns_what_the_core_said_and_does_not_generate() {
+        let writer = FakeWriter {
+            reply: Ok(CommandOutput {
+                exit_code: Some(1),
+                stdout: String::new(),
+                stderr: "error: no scenario matches '01S'
+"
+                .to_string(),
+            }),
+            ..FakeWriter::replying(0, "")
+        };
+
+        let result = apply_remove(&writer, Path::new("."), RemoveKind::Scenario, "01S").await;
+
+        assert_eq!(result, Err("error: no scenario matches '01S'".to_string()));
+        assert_eq!(*writer.generated.lock().unwrap(), 0);
     }
 }

@@ -235,6 +235,19 @@ async fn create_element(
     edit::apply_create(&runner, &config.project_root, &create).await
 }
 
+/// Deletes one element through the core, then regenerates the test cases.
+#[tauri::command]
+async fn remove_element(
+    config: tauri::State<'_, LaunchConfig>,
+    kind: edit::RemoveKind,
+    uid: String,
+) -> Result<(), String> {
+    let runner = traceability::CommandRunner {
+        bin: config.markharness_bin.clone(),
+    };
+    edit::apply_remove(&runner, &config.project_root, kind, &uid).await
+}
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let config = launch::resolve(&args, std::env::var("MARKHARNESS_BIN").ok().as_deref())
@@ -262,6 +275,7 @@ pub fn run() {
             delete_unused_axes,
             edit_knowledge,
             create_element,
+            remove_element,
             get_bindings,
             set_binding
         ])

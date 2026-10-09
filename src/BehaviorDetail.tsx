@@ -1,4 +1,4 @@
-import type { Backend } from "./backend";
+import type { Backend, RemoveKind } from "./backend";
 import { BehaviorCard } from "./BehaviorCard";
 import { FeatureCard } from "./FeatureCard";
 import { ScenarioCreator } from "./ScenarioCreator";
@@ -14,6 +14,7 @@ export function BehaviorDetail({
   backend,
   onScenarioCreated,
   onEdited,
+  onRemoved,
 }: {
   row: RequirementRow;
   feature: { uid: string; title: string; id: string; label: string | null };
@@ -27,6 +28,7 @@ export function BehaviorDetail({
   backend: Backend;
   onScenarioCreated: (scenarioUid: string) => void;
   onEdited: () => void;
+  onRemoved: (kind: RemoveKind) => void;
 }) {
   return (
     <>
@@ -38,8 +40,18 @@ export function BehaviorDetail({
           id={row.requirementId ?? ""}
         />
       </Card>
-      <FeatureCard feature={feature} backend={backend} onEdited={onEdited} />
-      <BehaviorCard behavior={behavior} backend={backend} onEdited={onEdited} />
+      <FeatureCard
+        feature={feature}
+        backend={backend}
+        onEdited={onEdited}
+        onRemoved={() => onRemoved("feature")}
+      />
+      <BehaviorCard
+        behavior={behavior}
+        backend={backend}
+        onEdited={onEdited}
+        onRemoved={() => onRemoved("behavior")}
+      />
       <ScenarioCreator
         featureUid={behavior.featureUid}
         behaviorUid={behavior.uid}

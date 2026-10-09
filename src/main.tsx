@@ -42,6 +42,7 @@ const backend: Backend = {
     await invoke<string[]>("delete_unused_axes");
   },
   addAxis: (id, label) => invoke<void>("add_axis", { id, label }),
+  removeElement: (kind, uid) => invoke<void>("remove_element", { kind, uid }),
   createElement: (create: Create) =>
     invoke<string>("create_element", { create }),
   editKnowledge: (edit: Edit) => invoke<void>("edit_knowledge", { edit }),
