@@ -12,5 +12,5 @@
 - [ ] 依存に既知の脆弱性がない
 - [ ] 依存のライセンスが許可リストの範囲内(新しい依存を追加した場合)
 - [ ] ソースコードの変更を、テスト先行(Red-Green-Refactor)で開発した
-- [ ] markharnessのJSON出力だけを読み、`.markharness/` 配下を直接読み書きしていない(書き込みは `knowledge reconcile` と `knowledge remove` だけを通す)
+- [ ] markharnessのJSON出力だけを読み、`.markharness/` 配下を直接読み書きしていない(Knowledgeの作成・更新は `knowledge reconcile`、削除は `knowledge remove` で行う。そのほかの `markharness` のコマンドは呼んでよい。[ADR 0013](../docs/adr/0013-call-any-markharness-command.md))
 - [ ] コード・ログ・このPR本文にシークレットが含まれない
