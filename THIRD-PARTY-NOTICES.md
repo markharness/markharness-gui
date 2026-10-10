@@ -2719,7 +2719,7 @@ SOFTWARE.
 
 Used by:
 
-- markharness-gui 0.0.0 (https://crates.io/crates/markharness-gui/0.0.0)
+- markharness-gui 0.1.0 (https://crates.io/crates/markharness-gui/0.1.0)
 - block2 0.6.2 (https://crates.io/crates/block2/0.6.2)
 - brotli-decompressor 6.0.1 (https://crates.io/crates/brotli-decompressor/6.0.1)
 - dispatch2 0.3.1 (https://crates.io/crates/dispatch2/0.3.1)
