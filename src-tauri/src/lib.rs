@@ -49,16 +49,15 @@ async fn get_tags(config: tauri::State<'_, LaunchConfig>) -> Result<Vec<String>,
     Ok(refs::read_tags(&refs::CommandGitRunner, &config.project_root).await)
 }
 
-/// The committed content between `base` and `HEAD`; it cannot read the working tree.
 #[tauri::command]
 async fn get_impact(
     config: tauri::State<'_, LaunchConfig>,
-    base: String,
+    comparison: impact::Comparison,
 ) -> Result<impact::ChangeImpact, String> {
     let runner = traceability::CommandRunner {
         bin: config.markharness_bin.clone(),
     };
-    impact::read_impact(&runner, &config.project_root, &base)
+    impact::read_impact(&runner, &config.project_root, &comparison)
         .await
         .map_err(|e| e.to_string())
 }

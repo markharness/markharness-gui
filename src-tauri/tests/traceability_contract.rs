@@ -15,7 +15,7 @@ use markharness_gui_lib::detail::{
 use markharness_gui_lib::edit::{
     apply_create, apply_edit, apply_remove, Create, Edit, NamedProcedure, RemoveKind,
 };
-use markharness_gui_lib::impact::{read_impact, ImpactStatus};
+use markharness_gui_lib::impact::{read_impact, Comparison, ImpactStatus};
 use markharness_gui_lib::refs::{read_tags, CommandGitRunner};
 use markharness_gui_lib::traceability::{read_traceability, CommandRunner, RequirementSource};
 
@@ -237,7 +237,12 @@ async fn reads_the_cases_to_confirm_between_a_tag_and_head() {
     git(&project, &["commit", "-q", "-m", "knowledge"]);
 
     let tags = read_tags(&CommandGitRunner, &project).await;
-    let impact = read_impact(&CommandRunner { bin }, &project, "v0").await;
+    let impact = read_impact(
+        &CommandRunner { bin },
+        &project,
+        &Comparison::Tag("v0".into()),
+    )
+    .await;
     let _ = std::fs::remove_dir_all(&project);
 
     assert_eq!(tags, ["v0"]);
@@ -245,6 +250,26 @@ async fn reads_the_cases_to_confirm_between_a_tag_and_head() {
     let cases: Vec<_> = impact.requirements.iter().flat_map(|r| &r.cases).collect();
     assert!(!cases.is_empty());
     assert!(cases.iter().all(|c| c.status == ImpactStatus::FollowedUp));
+}
+
+#[tokio::test]
+async fn reads_the_cases_the_uncommitted_edits_touch_untracked_files_included() {
+    let bin = markharness_bin();
+    let project = create_sample_project(&bin, "todo-minimal");
+    git(&project, &["init", "-q"]);
+    std::fs::write(project.join("README.md"), "sample").unwrap();
+    git(&project, &["add", "README.md"]);
+    git(&project, &["commit", "-q", "-m", "before"]);
+    // The knowledge is not added: only the working tree has it.
+
+    let impact = read_impact(&CommandRunner { bin }, &project, &Comparison::Uncommitted).await;
+    let _ = std::fs::remove_dir_all(&project);
+
+    let impact = impact.expect("the uncommitted impact should be readable");
+    let cases: Vec<_> = impact.requirements.iter().flat_map(|r| &r.cases).collect();
+    assert!(!cases.is_empty());
+    // No commit lies in the range, so nothing can have been confirmed.
+    assert!(cases.iter().all(|c| c.status != ImpactStatus::Confirmed));
 }
 
 #[tokio::test]

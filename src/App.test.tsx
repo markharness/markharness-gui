@@ -1469,9 +1469,9 @@ describe("App comparison with a tag", () => {
   };
   const tags = ["v0.3.0", "v0.2.0", "v0.1.0"];
 
-  const baseSelect = () => screen.findByRole("combobox", { name: /^比較元/ });
+  const baseSelect = () => screen.findByRole("combobox", { name: /^比較対象/ });
 
-  it("offers the tags as the base, the newest first, and leaves it unselected", async () => {
+  it("offers the tags after the uncommitted edits, the newest first, and leaves it unselected", async () => {
     render(<App backend={fakeBackend({ getTags: async () => tags })} />);
 
     const select = await baseSelect();
@@ -1481,7 +1481,7 @@ describe("App comparison with a tag", () => {
         within(select)
           .getAllByRole("option")
           .map((o) => o.textContent),
-      ).toEqual(["未選択", "v0.3.0", "v0.2.0", "v0.1.0"]),
+      ).toEqual(["未選択", "未コミットの編集", "v0.3.0", "v0.2.0", "v0.1.0"]),
     );
     expect(select).toHaveValue("");
   });
@@ -1504,16 +1504,20 @@ describe("App comparison with a tag", () => {
 
   it("says that the comparison reads the committed content", async () => {
     render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+    const select = await baseSelect();
+    await within(select).findByRole("option", { name: "v0.2.0" });
+
+    fireEvent.change(select, { target: { value: "v0.2.0" } });
 
     expect(await screen.findByText("コミット済みの内容で比較")).toBeVisible();
   });
 
   it("passes the chosen tag as given and shows how many cases are to be confirmed", async () => {
-    const asked: string[] = [];
+    const asked: unknown[] = [];
     const backend = fakeBackend({
       getTags: async () => tags,
-      getImpact: async (base) => {
-        asked.push(base);
+      getImpact: async (comparison) => {
+        asked.push(comparison);
         return impact;
       },
     });
@@ -1526,7 +1530,7 @@ describe("App comparison with a tag", () => {
     expect(
       await screen.findByText(/変更後に確認対象となるケース/),
     ).toHaveTextContent("変更後に確認対象となるケース: 2件");
-    expect(asked).toEqual(["v0.2.0"]);
+    expect(asked).toEqual([{ kind: "tag", name: "v0.2.0" }]);
   });
 
   it("shows 0 when no case is to be confirmed", async () => {
@@ -1586,8 +1590,10 @@ describe("App comparison with a tag", () => {
     });
     const backend = fakeBackend({
       getTags: async () => tags,
-      getImpact: (base) =>
-        base === "v0.3.0" ? first : Promise.resolve({ requirements: [] }),
+      getImpact: (comparison) =>
+        comparison.kind === "tag" && comparison.name === "v0.3.0"
+          ? first
+          : Promise.resolve({ requirements: [] }),
     });
     render(<App backend={backend} />);
     const select = await baseSelect();
@@ -1605,13 +1611,17 @@ describe("App comparison with a tag", () => {
     );
   });
 
-  it("offers nothing to choose when there are no tags", async () => {
+  it("offers only the uncommitted edits when there are no tags", async () => {
     render(<App backend={fakeBackend({ getTags: async () => [] })} />);
 
     const select = await baseSelect();
 
-    expect(select).toBeDisabled();
-    expect(within(select).getAllByRole("option")).toHaveLength(1);
+    expect(select).toBeEnabled();
+    expect(
+      within(select)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["未選択", "未コミットの編集"]);
   });
 
   it("reads the comparison again when the project is reloaded", async () => {
@@ -1780,9 +1790,8 @@ describe("App comparison with a tag", () => {
       },
     });
     render(<App backend={backend} />);
-    const base = await screen.findByLabelText(/比較元/);
-    // The select is disabled until the tags are read.
-    await waitFor(() => expect(base).toBeEnabled());
+    const base = await screen.findByLabelText(/比較対象/);
+    await within(base).findByRole("option", { name: "v1.0.0" });
     fireEvent.change(base, { target: { value: "v1.0.0" } });
     expect(await screen.findByText(/0件/)).toBeInTheDocument();
     const row = (await screen.findByText("Login requirement")).closest("tr");
@@ -2236,5 +2245,168 @@ describe("App comparison with a tag", () => {
         screen.queryByRole("dialog", { name: "Behaviorを編集" }),
       ).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe("App comparison with the uncommitted edits", () => {
+  const impact: ChangeImpact = {
+    requirements: [
+      {
+        requirement_uid: "R1",
+        cases: [
+          { case_uid: "C1", status: "unconfirmed" },
+          { case_uid: "C2", status: "followed_up" },
+        ],
+      },
+    ],
+  };
+  const tags = ["v0.3.0", "v0.2.0"];
+  const uncommitted = "未コミットの編集";
+
+  const select = () => screen.findByRole("combobox", { name: /^比較対象/ });
+  const choose = async (label: string) => {
+    const box = await select();
+    const option = await within(box).findByRole("option", { name: label });
+    fireEvent.change(box, { target: { value: option.getAttribute("value") } });
+  };
+
+  it("offers the uncommitted edits first, before the tags", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+
+    const box = await select();
+
+    await waitFor(() =>
+      expect(
+        within(box)
+          .getAllByRole("option")
+          .map((o) => o.textContent),
+      ).toEqual(["未選択", uncommitted, "v0.3.0", "v0.2.0"]),
+    );
+  });
+
+  it("asks the core for the uncommitted edits and counts the cases they affect", async () => {
+    const asked: unknown[] = [];
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async (comparison) => {
+        asked.push(comparison);
+        return impact;
+      },
+    });
+    render(<App backend={backend} />);
+
+    await choose(uncommitted);
+
+    expect(await screen.findByText(/影響を受けるケース/)).toHaveTextContent(
+      "影響を受けるケース: 2件",
+    );
+    expect(asked).toEqual([{ kind: "uncommitted" }]);
+    expect(screen.queryByText(/変更後に確認対象となるケース/)).toBeNull();
+  });
+
+  it("says that HEAD is compared with the working tree, and that the result is provisional", async () => {
+    render(
+      <App
+        backend={fakeBackend({
+          getTags: async () => tags,
+          getImpact: async () => impact,
+        })}
+      />,
+    );
+
+    await choose(uncommitted);
+
+    expect(await screen.findByText("HEAD → 作業ツリー")).toBeVisible();
+    expect(
+      screen.getByText(
+        "未コミットの変更に基づく暫定的な影響分析(未追跡のファイルを含む)",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("コミット済みの内容で比較")).toBeNull();
+  });
+
+  it("says which tag is compared with HEAD when a tag is chosen", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+
+    await choose("v0.2.0");
+
+    expect(await screen.findByText("v0.2.0 → HEAD")).toBeVisible();
+    expect(screen.getByText("コミット済みの内容で比較")).toBeVisible();
+    expect(screen.queryByText(/暫定的な影響分析/)).toBeNull();
+  });
+
+  it("says nothing of a range while nothing is chosen", async () => {
+    render(<App backend={fakeBackend({ getTags: async () => tags })} />);
+    await select();
+
+    expect(screen.queryByText(/→/)).toBeNull();
+    expect(screen.queryByText(/暫定的な影響分析/)).toBeNull();
+  });
+
+  it("colors the cases the uncommitted edits affect, whether followed up or not", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => ({
+        requirements: [
+          {
+            requirement_uid: "R1",
+            cases: [{ case_uid: "C1", status: "followed_up" }],
+          },
+        ],
+      }),
+    });
+    render(<App backend={backend} />);
+    const caseButton = await screen.findByRole("button", {
+      name: "Log in with a password",
+    });
+    expect(caseButton).not.toHaveClass("to-confirm");
+
+    await choose(uncommitted);
+
+    await waitFor(() => expect(caseButton).toHaveClass("to-confirm"));
+  });
+
+  it("reads the uncommitted edits again after an edit, which changes the working tree", async () => {
+    let impactReads = 0;
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => {
+        impactReads += 1;
+        return { requirements: [] };
+      },
+    });
+    render(<App backend={backend} />);
+    await choose(uncommitted);
+    await screen.findByText(/0件/);
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    if (!row) throw new Error("not inside a table row");
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Log in with a password" }),
+    );
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    fireEvent.click(
+      await within(pane).findByRole("button", { name: "Featureを編集" }),
+    );
+    await within(pane).findByLabelText("ラベル");
+
+    fireEvent.click(within(pane).getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(impactReads).toBe(2));
+  });
+
+  it("shows the message of the core in place of the count when it fails", async () => {
+    const backend = fakeBackend({
+      getTags: async () => tags,
+      getImpact: async () => {
+        throw "error: no commit yet";
+      },
+    });
+    render(<App backend={backend} />);
+
+    await choose(uncommitted);
+
+    const line = await screen.findByText(/影響を受けるケース/);
+    expect(line).toHaveTextContent("error: no commit yet");
+    expect(line).not.toHaveTextContent("件");
   });
 });

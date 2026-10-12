@@ -198,7 +198,11 @@ mod tests {
             })
         }
 
-        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
+        async fn impact(
+            &self,
+            _project_root: &Path,
+            _comparison: &crate::impact::Comparison,
+        ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
     }
@@ -351,7 +355,11 @@ mod tests {
             })
         }
 
-        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
+        async fn impact(
+            &self,
+            _project_root: &Path,
+            _comparison: &crate::impact::Comparison,
+        ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
     }

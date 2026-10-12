@@ -83,7 +83,12 @@ export interface Binding {
   reference: string | null;
 }
 
-/** What the core reports about the requirements touched between a base and `HEAD`. */
+/** What `impact` compares: a tag with `HEAD`, or `HEAD` with the working tree. */
+export type ComparisonTarget =
+  | { kind: "tag"; name: string }
+  | { kind: "uncommitted" };
+
+/** What the core reports about the requirements touched in a comparison. */
 export interface ChangeImpact {
   requirements: {
     requirement_uid: string;
@@ -167,8 +172,8 @@ export interface Backend {
   ): Promise<void>;
   /** The tags to offer as the base of a comparison, the newest first; empty when none can be listed. */
   getTags(): Promise<string[]>;
-  /** The committed content between `base` and `HEAD`; rejects with the core's message. */
-  getImpact(base: string): Promise<ChangeImpact>;
+  /** Rejects with the core's message. */
+  getImpact(target: ComparisonTarget): Promise<ChangeImpact>;
   /** `null` when the project does not use StrictDoc. */
   getStrictDoc(skipSaved: boolean): Promise<StrictDoc | null>;
   getRequirementDescriptions(uids: string[]): Promise<RequirementDescription[]>;
