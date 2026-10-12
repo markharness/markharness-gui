@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Coverage, StrictDoc, Traceability } from "./backend";
-import { buildRequirementRows } from "./rows";
+import { buildRequirementRows, groupByFeature } from "./rows";
 
 interface Fixture {
   traceability: Traceability;
@@ -341,7 +341,14 @@ describe("buildRequirementRows cases", () => {
 
     const [, ra] = build(p);
 
-    expect(ra.cases[0].belongsTo).toBe("Sign in › b-1");
+    expect(ra.cases[0].feature).toEqual({ uid: "F1", title: "Sign in" });
+    expect(ra.cases[0].behavior).toBe("b-1");
+  });
+  it("leaves the feature and behavior out for a case that cannot be traced to them", () => {
+    const [, ra] = build(project());
+
+    expect(ra.cases[0].feature).toBeUndefined();
+    expect(ra.cases[0].behavior).toBeUndefined();
   });
   it("lists the features that contribute to a requirement, even those with no case yet", () => {
     const fixture = project();
@@ -362,5 +369,40 @@ describe("buildRequirementRows cases", () => {
     expect(rows.find((r) => r.requirementUid === "RB")?.features).toEqual([
       { uid: "FO", title: "Other" },
     ]);
+  });
+});
+
+describe("groupByFeature", () => {
+  const f1 = { uid: "F1", title: "Sign in" };
+  const f2 = { uid: "F2", title: "Sign out" };
+  const c = (caseUid: string, feature?: { uid: string; title: string }) => ({
+    caseUid,
+    title: caseUid,
+    feature,
+    behavior: undefined,
+  });
+
+  it("puts the cases of one feature together, features in the order they first appear", () => {
+    const groups = groupByFeature([c("a", f1), c("b", f2), c("c", f1)]);
+
+    expect(
+      groups.map((g) => [g.feature, g.cases.map((x) => x.caseUid)]),
+    ).toEqual([
+      [f1, ["a", "c"]],
+      [f2, ["b"]],
+    ]);
+  });
+  it("puts the cases with no feature in a last group of their own", () => {
+    const groups = groupByFeature([c("a"), c("b", f1), c("c")]);
+
+    expect(
+      groups.map((g) => [g.feature, g.cases.map((x) => x.caseUid)]),
+    ).toEqual([
+      [f1, ["b"]],
+      [undefined, ["a", "c"]],
+    ]);
+  });
+  it("gives no group for no case", () => {
+    expect(groupByFeature([])).toEqual([]);
   });
 });
