@@ -102,6 +102,11 @@ aside li button:hover {
   font-size: 12px;
 }
 
+.context .comparison {
+  display: flex;
+  flex-direction: column;
+}
+
 .context .root {
   color: var(--text);
 }

@@ -3,6 +3,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::impact::Comparison;
+
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
     pub exit_code: Option<i32>,
@@ -29,11 +31,11 @@ pub trait MarkharnessRunner {
         uid: &str,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 
-    /// What the requirements touched between `base` and `HEAD` have as cases to confirm.
+    /// What the requirements touched in `comparison` have as cases to confirm.
     fn impact(
         &self,
         project_root: &Path,
-        base: &str,
+        comparison: &Comparison,
     ) -> impl Future<Output = Result<CommandOutput, String>> + Send;
 }
 
@@ -88,14 +90,21 @@ impl MarkharnessRunner for CommandRunner {
         self.run(command).await
     }
 
-    async fn impact(&self, project_root: &Path, base: &str) -> Result<CommandOutput, String> {
+    async fn impact(
+        &self,
+        project_root: &Path,
+        comparison: &Comparison,
+    ) -> Result<CommandOutput, String> {
         let mut command = tokio::process::Command::new(&self.bin);
-        // `--base=` keeps a base that starts with `-` from being read as an option.
-        command
-            .arg("impact")
-            .arg(format!("--base={base}"))
-            .args(["--head", "HEAD", "--dir"])
-            .arg(project_root);
+        command.arg("impact");
+        match comparison {
+            // `--base=` keeps a base that starts with `-` from being read as an option.
+            Comparison::Tag(base) => command
+                .arg(format!("--base={base}"))
+                .args(["--head", "HEAD"]),
+            Comparison::Uncommitted => command.arg("--worktree"),
+        };
+        command.arg("--dir").arg(project_root);
         self.run(command).await
     }
 }
@@ -408,7 +417,11 @@ mod tests {
             Err("unused".to_string())
         }
 
-        async fn impact(&self, _project_root: &Path, _base: &str) -> Result<CommandOutput, String> {
+        async fn impact(
+            &self,
+            _project_root: &Path,
+            _comparison: &crate::impact::Comparison,
+        ) -> Result<CommandOutput, String> {
             Err("unused".to_string())
         }
     }

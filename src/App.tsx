@@ -16,7 +16,7 @@ import { useProjectData } from "./useProjectData";
 
 export function App({ backend }: { backend: Backend }) {
   const data = useProjectData(backend);
-  const comparison = useComparison(backend, data.readOf);
+  const comparison = useComparison(backend, data.readOf, data.loaded);
   const [pickedKey, setPickedKey] = useState<string>();
   const [pickedCaseUid, setPickedCaseUid] = useState<string>();
   /** A feature picked without a case, which no case leads to. */

@@ -25,7 +25,7 @@ const backend: Backend = {
   setBinding: (caseUid, mode, reference) =>
     invoke<void>("set_binding", { caseUid, mode, reference }),
   getTags: () => invoke<string[]>("get_tags"),
-  getImpact: (base) => invoke<ChangeImpact>("get_impact", { base }),
+  getImpact: (comparison) => invoke<ChangeImpact>("get_impact", { comparison }),
   getStrictDoc: (skipSaved) =>
     invoke<StrictDoc | null>("get_strictdoc", { skipSaved }),
   getRequirementDescriptions: (uids) =>
