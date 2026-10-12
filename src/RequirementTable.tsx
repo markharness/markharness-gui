@@ -123,7 +123,10 @@ export function RequirementTable({
               <td>
                 <div className="chips">
                   {groupByFeature(row.cases).map((group) => (
-                    <Fragment key={group.feature?.uid ?? ""}>
+                    <div
+                      key={group.feature?.uid ?? ""}
+                      className="case-group-block"
+                    >
                       {group.feature && (
                         <small className="case-group">
                           {group.feature.title}
@@ -149,7 +152,7 @@ export function RequirementTable({
                           {c.title}
                         </button>
                       ))}
-                    </Fragment>
+                    </div>
                   ))}
                 </div>
               </td>

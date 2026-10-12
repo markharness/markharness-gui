@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import type { Backend, RemoveKind } from "./backend";
 import { ElementEditor } from "./ElementEditor";
 import { ElementRemover } from "./ElementRemover";
@@ -168,7 +167,7 @@ export function RequirementDetail({
         ) : (
           <div className="case-boxes">
             {groupByFeature(row.cases).map((group) => (
-              <Fragment key={group.feature?.uid ?? ""}>
+              <div key={group.feature?.uid ?? ""} className="case-group-block">
                 {group.feature && (
                   <small className="case-group">{group.feature.title}</small>
                 )}
@@ -185,7 +184,7 @@ export function RequirementDetail({
                     <small className="belongs-to">{c.behavior}</small>
                   </button>
                 ))}
-              </Fragment>
+              </div>
             ))}
           </div>
         )}

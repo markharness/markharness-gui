@@ -195,7 +195,7 @@ td.count {
 .chips {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
 }
 
 .case-group {
@@ -203,8 +203,10 @@ td.count {
   font-size: 11px;
 }
 
-.case-group:not(:first-child) {
-  margin-top: var(--space-1);
+.case-group-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 td .case {
@@ -312,7 +314,7 @@ aside .related {
 .case-boxes {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
 }
 
 .case-box {
