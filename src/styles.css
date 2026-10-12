@@ -198,6 +198,15 @@ td.count {
   gap: var(--space-1);
 }
 
+.case-group {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.case-group:not(:first-child) {
+  margin-top: var(--space-1);
+}
+
 td .case {
   padding: 3px var(--space-2);
   border: 1px solid var(--border);

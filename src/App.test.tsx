@@ -311,7 +311,21 @@ describe("App", () => {
     expect(within(pane).getAllByText("markharness").length).toBeGreaterThan(0);
   });
 
-  it("shows each linked case in the detail pane as one box with its title and where it belongs", async () => {
+  it("names the feature a linked case belongs to, in the table and in the detail pane", async () => {
+    render(<App backend={fakeBackend()} />);
+
+    const row = (await screen.findByText("Login requirement")).closest("tr");
+    expect(within(row as HTMLElement).getByText("Sign in")).toHaveClass(
+      "case-group",
+    );
+
+    fireEvent.click(screen.getByText("Login requirement"));
+
+    const pane = screen.getByRole("complementary", { name: "詳細" });
+    expect(within(pane).getByText("Sign in")).toHaveClass("case-group");
+  });
+
+  it("shows each linked case in the detail pane as one box with its title and its behavior", async () => {
     render(<App backend={fakeBackend()} />);
 
     fireEvent.click(await screen.findByText("Login requirement"));
@@ -320,7 +334,8 @@ describe("App", () => {
     const box = within(pane).getByRole("button", {
       name: /Log in with a password/,
     });
-    expect(box).toHaveTextContent("›");
+    expect(box).toHaveTextContent("Password check");
+    expect(box).not.toHaveTextContent("Sign in");
     expect(box).toHaveClass("case-box");
     expect(within(box).getByText("Log in with a password")).toHaveAttribute(
       "title",
@@ -1231,7 +1246,7 @@ describe("App", () => {
       render(<App backend={withStrictDoc()} />);
 
       const hlr = (await screen.findByText("Manage accounts")).closest("tr");
-      const llr = screen.getByText("Sign in").closest("tr");
+      const llr = screen.getByRole("button", { name: "Sign in" }).closest("tr");
       if (!hlr || !llr) throw new Error("rows not found");
       expect(within(hlr).getByText("子の要求: 1件")).toBeInTheDocument();
       expect(within(hlr).getByText("0")).toBeInTheDocument();
@@ -1242,7 +1257,9 @@ describe("App", () => {
 
     it("moves to the parent when its link is pressed", async () => {
       render(<App backend={withStrictDoc()} />);
-      const llr = (await screen.findByText("Sign in")).closest("tr");
+      const llr = (
+        await screen.findByRole("button", { name: "Sign in" })
+      ).closest("tr");
       if (!llr) throw new Error("row not found");
 
       fireEvent.click(within(llr).getByRole("button", { name: "HLR-1" }));

@@ -5,6 +5,14 @@ import type {
   Traceability,
 } from "./backend";
 
+export interface RequirementCase {
+  caseUid: string;
+  title: string;
+  /** None when the scenario's behavior, or the behavior's feature, cannot be traced. */
+  feature: { uid: string; title: string } | undefined;
+  behavior: string | undefined;
+}
+
 export interface RequirementRow {
   /** Identifies the row on screen; a StrictDoc requirement markharness does not know has no uid. */
   key: string;
@@ -23,7 +31,7 @@ export interface RequirementRow {
   gaps?: { label: string; value: string }[];
   /** The features that contribute to the requirement, with or without a case. */
   features: { uid: string; title: string }[];
-  cases: { caseUid: string; title: string; belongsTo: string }[];
+  cases: RequirementCase[];
   /** What StrictDoc reports; absent for a project that does not use it. */
   strictdoc?: {
     uid: string | null;
@@ -31,6 +39,30 @@ export interface RequirementRow {
     parents: { uid: string; key: string | undefined }[];
     children: { uid: string; key: string }[];
   };
+}
+
+/**
+ * The cases grouped by feature, in the order the features first appear. The cases that cannot
+ * be traced to a feature come last, as a group with no feature.
+ */
+export function groupByFeature(
+  cases: RequirementCase[],
+): { feature: RequirementCase["feature"]; cases: RequirementCase[] }[] {
+  const groups = new Map<
+    string | undefined,
+    { feature: RequirementCase["feature"]; cases: RequirementCase[] }
+  >();
+  for (const c of cases) {
+    const group = groups.get(c.feature?.uid) ?? {
+      feature: c.feature,
+      cases: [],
+    };
+    group.cases.push(c);
+    groups.set(c.feature?.uid, group);
+  }
+  const untraced = groups.get(undefined);
+  groups.delete(undefined);
+  return [...groups.values(), ...(untraced ? [untraced] : [])];
 }
 
 interface Flat {
@@ -124,12 +156,11 @@ export function buildRequirementRows(
       return {
         caseUid,
         title: scenario?.label ?? scenario?.scenario_id ?? caseUid,
-        belongsTo: [
-          feature && (feature.label ?? feature.feature_id),
-          behavior && (behavior.label ?? behavior.behavior_id),
-        ]
-          .filter(Boolean)
-          .join(" › "),
+        feature: feature && {
+          uid: feature.feature_uid,
+          title: feature.label ?? feature.feature_id,
+        },
+        behavior: behavior && (behavior.label ?? behavior.behavior_id),
       };
     }),
   });

@@ -1,5 +1,5 @@
 import { type CSSProperties, Fragment } from "react";
-import type { RequirementRow } from "./rows";
+import { groupByFeature, type RequirementRow } from "./rows";
 
 /** The headings that start at this row: the levels past those shared with the row before. */
 function newHeadings(previous: string[], current: string[]): string[] {
@@ -122,25 +122,34 @@ export function RequirementTable({
               <td className="count">{row.cases.length}</td>
               <td>
                 <div className="chips">
-                  {row.cases.map((c) => (
-                    <button
-                      type="button"
-                      key={c.caseUid}
-                      className={
-                        casesToConfirm?.has(c.caseUid)
-                          ? "case to-confirm"
-                          : "case"
-                      }
-                      aria-pressed={
-                        row.key === pickedKey && c.caseUid === pickedCaseUid
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPickCase(row.key, c.caseUid);
-                      }}
-                    >
-                      {c.title}
-                    </button>
+                  {groupByFeature(row.cases).map((group) => (
+                    <Fragment key={group.feature?.uid ?? ""}>
+                      {group.feature && (
+                        <small className="case-group">
+                          {group.feature.title}
+                        </small>
+                      )}
+                      {group.cases.map((c) => (
+                        <button
+                          type="button"
+                          key={c.caseUid}
+                          className={
+                            casesToConfirm?.has(c.caseUid)
+                              ? "case to-confirm"
+                              : "case"
+                          }
+                          aria-pressed={
+                            row.key === pickedKey && c.caseUid === pickedCaseUid
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPickCase(row.key, c.caseUid);
+                          }}
+                        >
+                          {c.title}
+                        </button>
+                      ))}
+                    </Fragment>
                   ))}
                 </div>
               </td>

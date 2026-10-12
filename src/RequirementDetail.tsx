@@ -1,9 +1,10 @@
+import { Fragment } from "react";
 import type { Backend, RemoveKind } from "./backend";
 import { ElementEditor } from "./ElementEditor";
 import { ElementRemover } from "./ElementRemover";
 import { FeatureCreator } from "./FeatureCreator";
 import { Card, ElementHeading, Section } from "./Section";
-import type { RequirementRow } from "./rows";
+import { groupByFeature, type RequirementRow } from "./rows";
 import { sourceName } from "./sources";
 
 function Links({
@@ -166,18 +167,25 @@ export function RequirementDetail({
           <p>紐づいていません。</p>
         ) : (
           <div className="case-boxes">
-            {row.cases.map((c) => (
-              <button
-                type="button"
-                key={c.caseUid}
-                className="case-box"
-                onClick={() => onPickCase(c.caseUid)}
-              >
-                <span className="case-box-title" title={c.title}>
-                  {c.title}
-                </span>
-                <small className="belongs-to">{c.belongsTo}</small>
-              </button>
+            {groupByFeature(row.cases).map((group) => (
+              <Fragment key={group.feature?.uid ?? ""}>
+                {group.feature && (
+                  <small className="case-group">{group.feature.title}</small>
+                )}
+                {group.cases.map((c) => (
+                  <button
+                    type="button"
+                    key={c.caseUid}
+                    className="case-box"
+                    onClick={() => onPickCase(c.caseUid)}
+                  >
+                    <span className="case-box-title" title={c.title}>
+                      {c.title}
+                    </span>
+                    <small className="belongs-to">{c.behavior}</small>
+                  </button>
+                ))}
+              </Fragment>
             ))}
           </div>
         )}
