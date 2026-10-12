@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted(2026-10-06決定)。[0009](0009-fact-provenance-and-human-attention.md) の「後で決めること」のうち、「読んだ文脈(コミット、リリース、比較範囲)の扱い」の、比較範囲を決める。[0005](0005-readonly-git-for-ref-candidates.md) の「候補の範囲」と「`git` が使えないときの扱い」を改める。
+Accepted(2026-10-06決定)。[0009](0009-fact-provenance-and-human-attention.md) の「後で決めること」のうち、「読んだ文脈(コミット、リリース、比較範囲)の扱い」の、比較範囲を決める。[0005](0005-readonly-git-for-ref-candidates.md) の「候補の範囲」と「`git` が使えないときの扱い」を改める。[0020](0020-compare-the-uncommitted-edits.md) が、比較の対象に「未コミットの編集」を加え、この決定の、注記と、`git` が使えないときの扱いを改める。
 
 ## 背景
 
