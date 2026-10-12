@@ -2,7 +2,7 @@
 
 markharness-guiは、markharness(Git-nativeなテスト知識管理CLI)のGUIです。プルリクエストでの貢献を歓迎します。このリポジトリのドキュメントは、日本語だけで書きます。
 
-プロダクト固有の情報(技術スタック・標準コマンド・外部との接点)は、[PROJECT.md](./PROJECT.md) にあります。markharnessとの契約と方針は、[docs/core-handoff.md](./docs/core-handoff.md) にあります。
+プロダクト固有の情報(技術スタック・標準コマンド・外部との接点)は、[PROJECT.md](./PROJECT.md) にあります。markharnessとの契約の要点も、同じ文書の「markharnessとの契約」にあります。
 
 ## ビルド
 

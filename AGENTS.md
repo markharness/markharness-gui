@@ -5,8 +5,7 @@
 
 ## 必読の文書
 
-- [PROJECT.md](PROJECT.md) — プロダクト固有の情報(技術スタック・標準コマンド・外部との接点・Pre-PRチェックリスト)。標準コマンドは、この文書の表を参照する(技術スタックの確定後に記入)。
-- [docs/core-handoff.md](docs/core-handoff.md) — markharnessとの契約と方針(引き継ぎ文書)。
+- [PROJECT.md](PROJECT.md) — プロダクト固有の情報(技術スタック・標準コマンド・外部との接点・markharnessとの契約・Pre-PRチェックリスト)。標準コマンドは、この文書の表を参照する(技術スタックの確定後に記入)。
 - [CONTRIBUTING.md](CONTRIBUTING.md) — TDD、検証、ドキュメント、ライセンス、コミットの規約。
 
 ## 作業の進め方
@@ -50,7 +49,7 @@ GUIは、markharnessのJSON出力だけを読む。
 - 画面の内容は、markharnessのJSON出力だけから作る。ただし、refの候補(タグ、ブランチ、最近のコミット)を出すためだけに、読み取り専用の `git`(`for-each-ref`、`log`)を呼んでよい。書き込みを伴う `git` は呼ばない。
 - markharness本体のコードは、このリポジトリの作業では変更しない。足りない読み取り出力は、本体への依頼(issue)にする。
 
-詳細: [docs/core-handoff.md](docs/core-handoff.md)
+詳細: [PROJECT.md](PROJECT.md) の「markharnessとの契約」
 
 ## ドキュメントとコメント
 
