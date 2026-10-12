@@ -10,7 +10,7 @@
 | プロダクト名 | markharness-gui |
 | 概要 | markharness(Git-nativeなテスト知識管理CLI)のGUI。関係(Requirement・Feature・Behavior・Scenario・TestCase)、Change Impact、Release Coverageを画面で見て、テスト知識を編集できるようにする。markharnessとは独立したプロジェクトで、コアとの接点はCLIのJSON出力だけである。 |
 | 位置づけ | `markharness gui` が起動する、別の実行ファイル(`markharness-gui`)。markharnessの配布物には、テスト知識の編集ができる安定版から同梱される。 |
-| 経緯と契約 | [docs/core-handoff.md](./docs/core-handoff.md)(引き継ぎ文書)。決定の記録は、markharness本体のADR 0038にある。 |
+| 経緯と契約 | 決定の記録は、markharness本体のADR 0038にある。契約の要点は、下の「markharnessとの契約」にある。 |
 
 ## 技術スタック
 
@@ -53,7 +53,57 @@
 | `markharness` CLI | 関係・Change Impact・Release Coverageの取得(JSON)、編集(`knowledge reconcile`、削除は `knowledge remove`、成功後に `generate`。種類は限らない、[ADR 0013](./docs/adr/0013-call-any-markharness-command.md)) | `markharness gui` が環境変数 `MARKHARNESS_BIN` で、起動した `markharness` のパスを渡す。GUIを単独で起動したときだけ、`PATH` 上の `markharness` を使う。対応する版は、`.github/markharness-rev` のコミット([ADR 0007](./docs/adr/0007-pin-core-main-commit.md)) |
 | `strictdoc` CLI | StrictDocの要求の見出し・階層(`strictdoc export --formats=json`) | 任意の連携。無い環境では、markharnessのデータだけを表示する |
 
-GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のファイルを直接読み書きしない(StrictDocのエクスポートを除く)。詳細は引き継ぎ文書を参照する。
+GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のファイルを直接読み書きしない(StrictDocのエクスポートを除く)。契約の要点は、次の「markharnessとの契約」にまとめる。
+
+## markharnessとの契約
+
+契約の正本は、markharness本体のリポジトリにある。ここには、GUIが守る要点だけを書く。
+
+### 起動
+
+- 利用者が `markharness gui` を実行すると、本体が `markharness-gui` を、引数 `--dir <ルートの絶対パス>` 付きで実行し、環境変数 `MARKHARNESS_BIN` に、起動した `markharness` の絶対パスを渡す。本体は、GUIの終了を待ち、終了コードをそのまま返す。
+- GUIは、`--dir` のプロジェクトを表示し、`markharness` を `MARKHARNESS_BIN` のパスで呼ぶ。単独で起動して `MARKHARNESS_BIN` が無いときだけ、`PATH` 上の `markharness` を使う。
+- 起動に失敗したときは、非ゼロの終了コードで終了し、理由を標準エラーに出す。
+
+### 読み取り
+
+- 画面の内容は、`markharness` のJSON出力だけから作る。`.markharness/` 配下のファイルは、直接読み書きしない(StrictDocのエクスポートを除く)。すべて `--dir <プロジェクトのルート>` を付けて呼ぶ。
+- 関係は `traceability`(作業ツリー)、検証手段は `binding list --json`、リリースの判断は `coverage --requirements all --at HEAD` と `impact` で読む。`coverage` と、`--base`・`--head` を使う `impact` は、コミット済みの内容だけを読む。`impact --worktree` は、`HEAD` と作業ツリーを比べる。
+- 要素の同一性は `*_uid` で判断する。`*_id` は、名前の変更で変わりうる。要求とケースの紐づけは、本体が決める(`case_uids`)。GUIは、`relations` から、自分で計算しない。
+- 画面に出す値は、読み取った出力が持つものだけにする。足りない読み取り出力は、本体への依頼(issue)にする。
+
+### 版の互換
+
+- 受け取ったJSONの `record_kind` が期待した種別で、`schema_version` が対応する版であることを確認する。そうでなければ、表示を止め、「対応する版」と「受け取った版」を示す。部分的な表示はしない。
+- 必要な項目だけを読み、未知のキーと未知の配列は無視する。意味を解釈する値の集合(関係の `kind`、Requirementの `source`、`binding` の `mode`、ケースの `status` など)に未知の値が現れたとき、または必要な項目が欠けているときも、止まる。
+- 0.xの間は、`schema_version` が `1` に固定され、出力の形の変化を検出できない。同じ配布物の組み合わせを信頼する。開発中に対応する `markharness` は、`.github/markharness-rev` のコミットである([ADR 0007](./docs/adr/0007-pin-core-main-commit.md))。`markharness --version` による確認は、行わない。
+
+### エラー
+
+- 終了コードが0以外なら失敗とみなし、標準エラーの文面を、そのまま利用者に見せる。コマンドによって、エラーがJSONのことと平文のことがあるため、文面は解析しない。
+- 作業ツリーを読むので、編集の途中の、整合の取れていない状態を読むことがある。エラーは、握りつぶさずに表示する。
+
+### StrictDoc
+
+- `source: external` のRequirementの見出しと階層は、GUIが `strictdoc export --formats=json` を実行して読む。これは、GUIだけに許される例外である。要求の対応は、`traceability` の `source_key` とStrictDocのMIDを突き合わせる。
+- 任意の連携である。`strictdoc.toml` か `strictdoc_config.py` が無いプロジェクト、または `strictdoc` が無い環境では、エクスポートを実行せず、markharnessのデータだけを表示する(エラー画面にしない)。
+- エクスポートは遅く、プロジェクトによっては1回に20秒かかる。結果を保存し([ADR 0003](./docs/adr/0003-strictdoc-cache-inside-project.md))、文書か設定の更新時刻が新しいときだけ、裏で再エクスポートする。再エクスポートの間は、markharnessのデータを先に表示し、StrictDoc由来の部分を「更新中」と示す。古い内容を見せ続けないため、キャッシュを使わない再エクスポートの操作を、利用者が必ず使える形で用意する。
+
+### 実装上の注意
+
+- `markharness` と `strictdoc` の呼び出しは、非同期にする。同期呼び出しは、画面を固める。
+- Windowsでは、`pip` や `npm` が作るコマンドが `.cmd` のラッパーになり、拡張子なしでは起動できないことがある(`strictdoc`)。`markharness` 自身は `.exe` である。
+- `traceability` の `relative_path` は、`/` 区切りで出力される。
+
+### 参照
+
+| 文書 | URL |
+|---|---|
+| ADR 0038: GUIを独立したプロジェクトとする決定 | https://github.com/markharness/markharness/blob/main/docs/ja/decisions/0038-gui-as-independent-project.md |
+| ADR 0032: CLIのJSONを外部契約とする方針 | https://github.com/markharness/markharness/blob/main/docs/ja/decisions/0032-cli-read-model-seam.md |
+| 設計書: 各JSONのフィールドの詳細 | https://github.com/markharness/markharness/blob/main/docs/ja/design/cli-read-model-design.md |
+| CLIマニュアル | https://github.com/markharness/markharness/blob/main/docs/ja/cli-manual.md |
+| 用語集 | https://github.com/markharness/markharness/blob/main/CONTEXT.md |
 
 ## 認証情報・シークレット
 
@@ -68,7 +118,6 @@ GUIは、markharnessのJSON出力だけを読み、`.markharness/` 配下のフ�
 
 ```text
 docs/
-├── core-handoff.md   # markharness本体からの引き継ぎ文書(契約と方針)
 ├── review-policy.md  # レビューの方針
 ├── adr/              # ADR(番号付き決定記録、日本語のみ)
 └── design/           # 実装設計

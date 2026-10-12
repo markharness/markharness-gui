@@ -25,6 +25,6 @@ GUIに、テスト知識の編集を加える。`knowledge reconcile` と `knowl
 
 ## 影響
 
-- [AGENTS.md](../../AGENTS.md)、[PROJECT.md](../../PROJECT.md)、[core-handoff.md](../core-handoff.md)、[review-policy.md](../review-policy.md) の、書き込みを2つのコマンドに限る記述を、この決定に合わせて改める。
+- [AGENTS.md](../../AGENTS.md)、[PROJECT.md](../../PROJECT.md)、core-handoff.md、[review-policy.md](../review-policy.md) の、書き込みを2つのコマンドに限る記述を、この決定に合わせて改める。
 - `generate` は、毎回 `generated/testcases/` を空にして書き直すため、編集のたびに、Gitの差分が出る。
 - 編集の成功のあとに `generate` が失敗すると、`knowledge/` と `generated/testcases/` が、食い違ったまま残る。
